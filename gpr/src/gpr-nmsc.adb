@@ -3913,7 +3913,9 @@ package body GPR.Nmsc is
             end if;
 
             if not Dir_Exists then
-               if Directories_Must_Exist_In_Projects then
+               if Directories_Must_Exist_In_Projects
+                 and then Project.Qualifier /= Abstract_Project
+               then
 
                   --  Get the absolute name of the library directory that does
                   --  not exist, to report an error.
@@ -6331,12 +6333,13 @@ package body GPR.Nmsc is
          return;
       end if;
 
-      if Src_Subdirs /= null then
+      --  If we were provided src-subdirs, add <object dir>/<src-subdirs> in
+      --  front of the source directories so that files found in this directory
+      --  will override original source files.
 
-         --  If found, add <object dir>/<src-subdirs> in front of the source
-         --  directories so that files found in this directory will override
-         --  original source files.
-
+      if Src_Subdirs /= null
+        and then Project.Qualifier /= Abstract_Project
+      then
          declare
             N         : String :=
                           Get_Name_String (Project.Object_Directory.Name)
@@ -6973,13 +6976,12 @@ package body GPR.Nmsc is
       declare
          Full_Path_Name : String_Access :=
                             new String'(Get_Name_String (Full_Name));
-
       begin
          if (Setup_Projects or else Subdirs /= null)
            and then Create'Length > 0
+           and then Project.Qualifier /= Abstract_Project
          then
             if not Is_Directory (Full_Path_Name.all) then
-
                --  If project is externally built, do not create a subdir,
                --  use the specified directory, without the subdir.
 
@@ -8938,8 +8940,8 @@ package body GPR.Nmsc is
             Id.Index    := Src.Index;
 
             Id.Path :=
-              (Path_Name_Type (Src.Display_Path_Name),
-               Path_Name_Type (Src.Path_Name));
+              (Display_Name => Path_Name_Type (Src.Display_Path_Name),
+               Name         => Path_Name_Type (Src.Path_Name));
 
             Name_Len := 0;
             Add_Str_To_Name_Buffer

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -307,6 +307,11 @@ package body GPR.Erroutc is
 
       Write_Str ("        ");
       P := Line_Start (Errors.Table (E).Sptr);
+
+      if P = No_Location then
+         return;
+      end if;
+
       Flag_Num := 1;
 
       --  Loop through error messages for this line to place flags

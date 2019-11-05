@@ -57,12 +57,7 @@ with GPR.Util;           use GPR.Util;
 
 package body GPR.Knowledge is
 
-   package Known_Languages is new Ada.Containers.Hashed_Maps
-     (Key_Type        => Name_Id,
-      Element_Type    => Name_Id,
-      Hash            => Hash_Case_Insensitive,
-      Equivalent_Keys => "=",
-      "="             => "=");
+   package Known_Languages renames Variables_Maps;
    Languages_Known : Known_Languages.Map;
    --  Contains all the languages that are described in the database with a
    --  real compiler.
@@ -3862,16 +3857,6 @@ package body GPR.Knowledge is
       end if;
    end Get_String_Or_No_Name;
 
-   ---------------------------
-   -- Hash_Case_Insensitive --
-   ---------------------------
-
-   function Hash_Case_Insensitive
-     (Name : Name_Id) return Ada.Containers.Hash_Type is
-   begin
-      return Hash_Type (Name);
-   end Hash_Case_Insensitive;
-
    -----------------------------
    -- Get_Name_String_Or_Null --
    -----------------------------
@@ -4222,7 +4207,7 @@ package body GPR.Knowledge is
                Language_Known : constant Boolean :=
                                            Known_Languages.Contains
                                              (Container => Languages_Known,
-                                              Key       => Comp.Language_Case);
+                                              Key       => Comp.Language_LC);
             begin
                --  Display an error when not in quiet mode or when the language
                --  is described in the database.

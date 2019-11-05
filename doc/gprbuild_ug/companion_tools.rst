@@ -2150,7 +2150,7 @@ The switches for GPRinstall are:
   * dev
 
     This is the default mode. The installation is done in developer
-    mode. All files to use the project are copied to to install prefix. For a
+    mode. All files to use the project are copied to install prefix. For a
     library this means that the specs, the corresponding ALI files for
     Ada units and the library itself (static or relocatable) are
     installed. For a standard project the object files are installed

@@ -483,6 +483,22 @@ procedure Gprclean.Main is
                   end if;
                end;
 
+            elsif Switch'Length > Implicit_With_Option'Length
+              and then
+                Switch (Implicit_With_Option'Range) = Implicit_With_Option
+            then
+               if Implicit_With /= null then
+                  Fail_Program
+                    (Project_Tree,
+                     "several " & Implicit_With_Option
+                     & " options cannot be specified");
+               end if;
+
+               Implicit_With := new String'
+                 (Ensure_Suffix
+                    (Switch (Implicit_With_Option'Last + 1 .. Switch'Last),
+                     Project_File_Extension));
+
             elsif Switch'Length > Subdirs_Option'Length
               and then
                 Switch (1 .. Subdirs_Option'Length) = Subdirs_Option

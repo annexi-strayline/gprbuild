@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2004-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -69,6 +69,9 @@ package Gpr_Build_Util is
    --  Switch to build out-of-tree. In this context the object, exec and
    --  library directories are relocated to the current working directory
    --  or the directory specified as parameter to this option.
+
+   Implicit_With_Option : constant String := "--implicit-with=";
+   --  Switch to add projects into with list for all projects in tree
 
    Root_Dir_Option : constant String := "--root-dir";
    --  The root directory under which all artifacts (objects, library, ali)

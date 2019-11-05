@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -236,7 +236,7 @@ package GPR.Env is
    --  and which we found a reference to another project), or in the project
    --  path Self. Self must have been initialized first.
    --
-   --  Project_File_Name can optionally contain directories, and the extension
+   --  Project_File_Name can optionally contain a path, and the extension
    --  (.gpr) for the file name is optional.
    --
    --  Returns No_Name if no such project was found

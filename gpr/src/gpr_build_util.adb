@@ -1086,35 +1086,32 @@ package body Gpr_Build_Util is
                J := Names.Last_Index;
                Main_Loop : loop
                   declare
-                     File        : Main_Info       := Names (J);
-                     Main_Id     : File_Name_Type  := File.File;
-                     Main        : constant String :=
-                                     Get_Name_String (Main_Id);
-                     Base        : constant String := Base_Name (Main);
-                     Source      : GPR.Source_Id   := No_Source;
-                     Is_Absolute : Boolean         := False;
-
+                     File     : Main_Info       := Names (J);
+                     Main_Id  : File_Name_Type  := File.File;
+                     Main     : constant String := Get_Name_String (Main_Id);
+                     Base     : constant String := Base_Name (Main);
+                     Source   : GPR.Source_Id   := No_Source;
+                     Absolute : array (Boolean) of File_Name_Type :=
+                                  (others => No_File);
                   begin
                      if Base /= Main then
-                        Is_Absolute := True;
-
-                        --  Always resolve links here, so that users can
+                        --  Keep 2 absolute path values with and without
+                        --  symbolic names resolution, so that users can
                         --  specify any name on the command line. If the
                         --  project itself uses links, the user will be using
                         --  -eL anyway, and thus files are also stored with
                         --  resolved names.
 
-                        declare
-                           Absolute : constant String :=
-                             Normalize_Pathname
-                               (Name           => Main,
-                                Directory      => "",
-                                Resolve_Links  => True,
-                                Case_Sensitive => False);
-                        begin
-                           File.File := Create_Name (Absolute);
-                           Main_Id := Create_Name (Base);
-                        end;
+                        for Links in Absolute'Range loop
+                           Absolute (Links) := Create_Name
+                             (Normalize_Pathname
+                                (Name           => Main,
+                                 Directory      => "",
+                                 Resolve_Links  => Links,
+                                 Case_Sensitive => False));
+                        end loop;
+
+                        Main_Id := Create_Name (Base);
                      end if;
 
                      --  If no project or tree was specified for the main, it
@@ -1153,12 +1150,13 @@ package body Gpr_Build_Util is
                                           In_Imported_Only => True);
 
                         begin
-                           if Is_Absolute then
-                              for J in Sources'Range loop
-                                 if File_Name_Type (Sources (J).Path.Name) =
-                                                                    File.File
+                           if Absolute (False) /= No_File then
+                              for S of Sources loop
+                                 if File_Name_Type (S.Path.Name) in
+                                      Absolute (False) | Absolute (True)
                                  then
-                                    Source := Sources (J);
+                                    Source := S;
+                                    File.File := File_Name_Type (S.Path.Name);
                                     exit;
                                  end if;
                               end loop;
@@ -1192,7 +1190,7 @@ package body Gpr_Build_Util is
                                        (File.Tree, Get_Name_String (Main_Id));
                         end if;
 
-                        if Is_Absolute
+                        if Absolute (False) /= No_File
                           and then Source /= No_Source
                           and then
                             File_Name_Type (Source.Path.Name) /= File.File
@@ -2115,8 +2113,8 @@ package body Gpr_Build_Util is
                      Error_Msg
                        ("no compiler for language %%, cannot compile {{",
                         Flag_Location => Location);
-                     Fail_Program
-                       (Project_Tree, "*** compilation phase failed");
+
+                     Compilation_Phase_Failed (Project_Tree);
                   end if;
 
                   if Is_Allowed_Language (Source.Language.Name)

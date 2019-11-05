@@ -25,7 +25,6 @@
 with Ada.Characters.Handling;     use Ada.Characters.Handling;
 with Ada.Command_Line;
 with Ada.Directories;
-with Ada.Containers.Ordered_Sets;
 with Ada.Environment_Variables;   use Ada.Environment_Variables;
 with Ada.Text_IO;                 use Ada.Text_IO;
 with Ada.Unchecked_Deallocation;
@@ -709,9 +708,6 @@ package body GPR is
          In_Aggregate_Lib      : Boolean;
          From_Encapsulated_Lib : Boolean)
       is
-         package Name_Id_Set is
-           new Ada.Containers.Ordered_Sets (Element_Type => Name_Id);
-
          Seen_Name : Name_Id_Set.Set;
          --  This set is needed to ensure that we do not handle the same
          --  project twice in the context of aggregate libraries.

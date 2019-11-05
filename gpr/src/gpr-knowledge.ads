@@ -258,12 +258,15 @@ package GPR.Knowledge is
    -- knowledge base contents --
    -----------------------------
 
-   function Hash_Case_Insensitive
-     (Name : Name_Id) return Ada.Containers.Hash_Type;
+   function Hash_Name_Id
+     (Name : Name_Id) return Ada.Containers.Hash_Type
+   is
+     (Ada.Containers.Hash_Type (Name));
+
    package Variables_Maps is new Ada.Containers.Hashed_Maps
      (Key_Type        => Name_Id,
       Element_Type    => Name_Id,
-      Hash            => Hash_Case_Insensitive,
+      Hash            => Hash_Name_Id,
       Equivalent_Keys => "=",
       "="             => "=");
 
@@ -487,8 +490,7 @@ private
 
    package Compiler_Description_Maps is new
      Ada.Containers.Indefinite_Hashed_Maps
-       (Name_Id, Compiler_Description,
-        Hash_Case_Insensitive, "=");
+       (Name_Id, Compiler_Description, Hash_Name_Id, "=");
 
    type Compiler_Filter is record
       Name        : Name_Id;

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -63,7 +63,7 @@ package GPR.Compilation.Process is
 
    function Get_Maximum_Processes return Positive;
    --  The maximum number of simultaneous compilation supported. This is the
-   --  sum of the local parallelism and the sum of of remote slaves supported
+   --  sum of the local parallelism and the sum of remote slaves supported
    --  processes.
 
    --  For the hash table of jobs

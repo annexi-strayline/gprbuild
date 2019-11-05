@@ -3043,7 +3043,7 @@ package body Gprbuild.Link is
             Nam  : Name_Node;
 
             procedure Add_Executable_Name;
-            --  Add the name of the executable to to current name buffer,
+            --  Add the name of the executable to current name buffer,
             --  then the content of the name buffer as the next argument.
 
             -------------------------

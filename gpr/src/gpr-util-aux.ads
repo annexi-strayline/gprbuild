@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2017-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2017-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -60,7 +60,7 @@ package GPR.Util.Aux is
    --  Driver_Path is the tool used to list the symbols from an object file.
    --  Options are the options needed by the driver. Sym_Matcher is the regular
    --  expression used to match the symbol out of the tool output. Format
-   --  the the export file format to generate. Objects is the list of object
+   --  is the export file format to generate. Objects is the list of object
    --  files to use. Finally the generated export filename is returned in
    --  Export_File.
 

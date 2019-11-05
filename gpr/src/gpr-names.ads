@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -47,6 +47,9 @@ package GPR.Names is
    --  Like Get_Name_String but the resulting characters are appended to the
    --  current contents of the entry stored in Name_Buffer, and Name_Len is
    --  incremented to include the added characters.
+
+   function Is_Valid_Name (Id : Name_Id) return Boolean with Inline;
+   --  Returns True if Id is defining a valid name
 
    function Length_Of_Name (Id : Name_Id) return Nat;
    function Length_Of_Name (Id : File_Name_Type) return Nat;

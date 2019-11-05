@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2018, AdaCore                     --
+--                     Copyright (C) 2006-2019, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -16,8 +16,8 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  gprbind is the executable called by gprmake to bind Ada sources. It is
---  the driver for gnatbind. It gets its input from gprmake through the
+--  gprbind is the executable called by gprbuild to bind Ada sources. It is
+--  the driver for gnatbind. It gets its input from gprbuild through the
 --  binding exchange file and gives back its results through the same file.
 
 with Ada.Command_Line; use Ada.Command_Line;
@@ -849,7 +849,7 @@ begin
 
             Close (FD);
 
-            --  And invoke gnatbind with this this response file
+            --  And invoke gnatbind with this response file
 
             if not GNAT_6_4_Or_Higher then
                Spawn

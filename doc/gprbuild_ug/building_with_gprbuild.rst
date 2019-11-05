@@ -296,6 +296,12 @@ package Builder of the main project:
   Note: only one of :samp:`--config`, :samp:`--autoconf` or :samp:`--target=`
   can be specified.
 
+* :samp:`--implicit-with={project file name}`
+
+  Adds a given project as an implicit dependency to every project in the
+  build tree by creating an implicit "limited with" clause at the start of
+  each project. This switch can only appear once on the command line.
+
 * :samp:`--subdirs={subdir}`
 
   This indicates that the object, library and executable directories specified
@@ -574,7 +580,14 @@ package Builder of the main project (attribute Switches):
 * :samp:`-m` (Minimum Ada recompilation)
 
   Do not recompile Ada code if timestamps are different but checksums are the
-  same.
+  same. Note that for the case when source code contains preprocessing
+  directives, this switch has no effect.
+
+* :samp:`-m2` (Checksum based recompilation)
+
+  Recompile Ada code even if timestamps are the same, but checksums are
+  different. Note that for the case when source code contains preprocessing
+  directives, this switch has the same effect as -f.
 
 * :samp:`-p` or :samp:`--create-missing-dirs` (Create missing object, library and exec directories)
 

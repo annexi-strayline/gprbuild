@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -178,7 +178,7 @@ package body GPR.Names is
                 " (procedure Get_Name_String)");
       end if;
 
-      pragma Assert (Id in Name_Entries.First .. Name_Entries.Last);
+      pragma Assert (Is_Valid_Name (Id));
 
       S := Name_Entries.Table (Id).Name_Chars_Index;
       Name_Len := Name_Entries.Table (Id).Name_Len;
@@ -222,7 +222,7 @@ package body GPR.Names is
                 " (function Get_Name_String)");
       end if;
 
-      pragma Assert (Id in Name_Entries.First .. Name_Entries.Last);
+      pragma Assert (Is_Valid_Name (Id));
       S := Name_Entries.Table (Id).Name_Chars_Index;
 
       declare
@@ -269,7 +269,7 @@ package body GPR.Names is
                 " (Get_Name_String_And_Append)");
       end if;
 
-      pragma Assert (Id in Name_Entries.First .. Name_Entries.Last);
+      pragma Assert (Is_Valid_Name (Id));
 
       S := Name_Entries.Table (Id).Name_Chars_Index;
 
@@ -290,7 +290,7 @@ package body GPR.Names is
 
    function Get_Name_Table_Int (Id : Name_Id) return Int is
    begin
-      pragma Assert (Id in Name_Entries.First .. Name_Entries.Last);
+      pragma Assert (Is_Valid_Name (Id));
       return Name_Entries.Table (Id).Int_Info;
    end Get_Name_Table_Int;
 
@@ -349,6 +349,15 @@ package body GPR.Names is
    begin
       return (C <= 65535);
    end In_Wide_Character_Range;
+
+   -------------------
+   -- Is_Valid_Name --
+   -------------------
+
+   function Is_Valid_Name (Id : Name_Id) return Boolean is
+   begin
+      return Id in Name_Entries.First .. Name_Entries.Last;
+   end Is_Valid_Name;
 
    --------------------
    -- Length_Of_Name --
@@ -567,7 +576,7 @@ package body GPR.Names is
 
    procedure Set_Name_Table_Int (Id : Name_Id; Val : Int) is
    begin
-      pragma Assert (Id in Name_Entries.First .. Name_Entries.Last);
+      pragma Assert (Is_Valid_Name (Id));
       Name_Entries.Table (Id).Int_Info := Val;
    end Set_Name_Table_Int;
 
@@ -672,10 +681,12 @@ package body GPR.Names is
 
    procedure Write_Name (Id : Name_Id) is
    begin
-      if Id >= First_Name_Id then
-         Get_Name_String (Id);
-         Write_Str (Name_Buffer (1 .. Name_Len));
-      end if;
+      pragma Assert
+        (Is_Valid_Name (Id),
+         Id'Img & Name_Entries.First'Img & Name_Entries.Last'Img);
+
+      Get_Name_String (Id);
+      Write_Str (Name_Buffer (1 .. Name_Len));
    end Write_Name;
 
    procedure Write_Name (Id : Path_Name_Type) is

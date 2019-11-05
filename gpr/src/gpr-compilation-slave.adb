@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -23,7 +23,6 @@
 ------------------------------------------------------------------------------
 
 with Ada.Calendar;                use Ada.Calendar;
-with Ada.Containers.Ordered_Sets;
 with Ada.Directories;             use Ada.Directories;
 with Ada.Exceptions;              use Ada.Exceptions;
 with Ada.Numerics.Float_Random;   use Ada.Numerics.Float_Random;

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -183,6 +183,7 @@ package body GPR.Sinput is
    --------------------
    -- Full_File_Name --
    --------------------
+
    function Full_File_Name (S : Source_File_Index) return File_Name_Type is
    begin
       return Source_File.Table (S).Full_File_Name;
@@ -343,6 +344,10 @@ package body GPR.Sinput is
       S      : Source_Ptr;
 
    begin
+      if Src = null then
+         return No_Location;
+      end if;
+
       S := P;
       while S > Sfirst
         and then Src (S - 1) /= ASCII.CR

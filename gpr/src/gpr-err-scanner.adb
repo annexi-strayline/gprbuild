@@ -53,6 +53,9 @@ package body Scanner is
    String_Buffer : array (1 .. 10_000) of Char_Code;
    String_Last   : Natural := 0;
 
+   String_Buffer_Overflow : Boolean := False;
+   --  Flag that String_Buffer overflow
+
    -----------------------
    -- Local Subprograms --
    -----------------------
@@ -333,12 +336,20 @@ package body Scanner is
    ----------------
 
    function End_String return Name_Id is
+      Ellipsis : constant String := " ...";
    begin
       Name_Len := String_Last;
 
       for J in 1 .. String_Last loop
          Name_Buffer (J) := Character'Val (String_Buffer (J) mod 255);
       end loop;
+
+      if String_Last = String_Buffer'Last and then String_Buffer_Overflow then
+         --  Add ellipses at the end of string literal in case of String_Buffer
+         --  overflow.
+
+         Add_Str_To_Name_Buffer (Ellipsis);
+      end if;
 
       return Name_Find;
    end End_String;
@@ -1732,6 +1743,15 @@ package body Scanner is
                   end if;
                end loop;
 
+            elsif Source (Scan_Ptr) = '$' then
+               Scan_Ptr := Scan_Ptr + 1;
+
+               if Identifier_Char (Source (Scan_Ptr)) then
+                  goto Scan_Identifier;
+               else
+                  Error_Illegal_Character;
+               end if;
+
             else
                Error_Illegal_Character;
             end if;
@@ -2364,15 +2384,24 @@ package body Scanner is
    procedure Start_String is
    begin
       String_Last := 0;
+      String_Buffer_Overflow := False;
    end Start_String;
 
    -----------------------
    -- Store_String_Char --
    -----------------------
+
    procedure Store_String_Char (Code : Char_Code) is
    begin
-      String_Last := String_Last + 1;
-      String_Buffer (String_Last) := Code;
+      if String_Last < String_Buffer'Last then
+         String_Last := String_Last + 1;
+         String_Buffer (String_Last) := Code;
+
+      elsif not String_Buffer_Overflow then
+         --  Mark that String_Buffer overflow
+
+         String_Buffer_Overflow := True;
+      end if;
    end Store_String_Char;
 
    -----------------

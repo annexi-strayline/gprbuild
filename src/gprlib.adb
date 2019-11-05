@@ -1262,7 +1262,7 @@ procedure Gprlib is
 
                   Close (FD);
 
-                  --  And invoke gnatbind with this this response file
+                  --  And invoke gnatbind with this response file
 
                   Spawn_And_Script_Write (Gnatbind_Path.all, Args, Success);
                end;

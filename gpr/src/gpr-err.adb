@@ -239,9 +239,25 @@ package body GPR.Err is
    --------------
 
    procedure Finalize is
-      Cur      : Error_Msg_Id;
-      Nxt      : Error_Msg_Id;
-      E, F     : Error_Msg_Id;
+      Cur  : Error_Msg_Id;
+      Nxt  : Error_Msg_Id;
+      E, F : Error_Msg_Id;
+
+      procedure Write_File_Name (Name : File_Name_Type);
+      --  Write name to standard output if it is defined or (null) otherwise
+
+      ---------------------
+      -- Write_File_Name --
+      ---------------------
+
+      procedure Write_File_Name (Name : File_Name_Type) is
+      begin
+         if Name = No_File then
+            Write_Str ("(null)");
+         else
+            Write_Str (Get_Name_String (Name));
+         end if;
+      end Write_File_Name;
 
    begin
       --  Eliminate any duplicated error messages from the list. This is
@@ -271,11 +287,9 @@ package body GPR.Err is
          while E /= No_Error_Msg loop
             if not Errors.Table (E).Deleted then
                if Full_Path_Name_For_Brief_Errors then
-                  Write_Str (Get_Name_String
-                       (Full_Ref_Name (Errors.Table (E).Sfile)));
+                  Write_File_Name (Full_Ref_Name (Errors.Table (E).Sfile));
                else
-                  Write_Str (Get_Name_String
-                         (Reference_Name (Errors.Table (E).Sfile)));
+                  Write_File_Name (Reference_Name (Errors.Table (E).Sfile));
                end if;
 
                Write_Char (':');
@@ -449,7 +463,7 @@ package body GPR.Err is
       if Sfile /= Current_Error_Source_File then
          Write_Str ("==============Messages for file: ");
 
-         Write_Name (Name_Id (Full_File_Name (Sfile)));
+         Write_Name (Full_File_Name (Sfile));
          Write_Eol;
 
          Current_Error_Source_File := Sfile;

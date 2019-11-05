@@ -19,7 +19,6 @@
 with Ada.Characters.Handling;                use Ada.Characters.Handling;
 with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Indefinite_Vectors;      use Ada;
-with Ada.Containers.Ordered_Sets;
 with Ada.Containers.Vectors;
 with Ada.Directories;                        use Ada.Directories;
 with Ada.Strings.Equal_Case_Insensitive;
@@ -45,8 +44,6 @@ with Gpr_Build_Util; use Gpr_Build_Util;
 package body Gprinstall.Install is
 
    use GNAT;
-
-   package Name_Id_Set is new Containers.Ordered_Sets (Name_Id);
 
    package String_Vector is
      new Containers.Indefinite_Vectors (Positive, String);
@@ -758,7 +755,7 @@ package body Gprinstall.Install is
 
             if Value = Nil_Variable_Value then
 
-               --  If not found and name has an extension,
+               --  If not found and name has an extension
 
                declare
                   Name : constant String := Get_Name_String (Source);
@@ -780,7 +777,26 @@ package body Gprinstall.Install is
          end if;
 
          if Value = Nil_Variable_Value then
-            return Base_Name (Get_Name_String (Source)) & Get_Exec_Suffix;
+            declare
+               Simple_Name : constant String :=
+                               Get_Name_String (Source);
+               Last        : Positive := Simple_Name'First;
+            begin
+               --  Cut executable name at the first . (extension). Note that
+               --  this is not necessary the first base-name as we may have
+               --  multiple dots in the source when using non standard naming.
+               --  For example, having "main.2.ada" whe want to get on "main".
+
+               while Last < Simple_Name'Last
+                 and then Simple_Name (Last + 1) /= '.'
+               loop
+                  Last := Last + 1;
+               end loop;
+
+               return Simple_Name (Simple_Name'First .. Last)
+                 & Get_Exec_Suffix;
+            end;
+
          else
             return Get_Name_String (Value.Value) & Get_Exec_Suffix;
          end if;
@@ -2216,9 +2232,14 @@ package body Gprinstall.Install is
                         else
                            First := False;
                         end if;
-                        Append (V, """");
-                        Append (V, Get_Name_String (Strs (L).Value));
-                        Append (V, """");
+
+                        Append
+                          (V, '"' & Get_Name_String (Strs (L).Value) & '"');
+
+                        if Strs (L).Index > 0 then
+                           Append (V, " at" & Strs (L).Index'Img);
+                        end if;
+
                         L := Strs (L).Next;
                      end loop;
                      Append (V, ");");

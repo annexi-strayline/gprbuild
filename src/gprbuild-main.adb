@@ -1089,6 +1089,23 @@ procedure Gprbuild.Main is
                end if;
             end;
 
+         elsif Arg'Length > Implicit_With_Option'Length
+           and then Arg (Implicit_With_Option'Range) = Implicit_With_Option
+         then
+            Forbidden_In_Package_Builder;
+
+            if Implicit_With /= null then
+               Fail_Program
+                 (Project_Tree,
+                  "several " & Implicit_With_Option
+                  & " options cannot be specified");
+            end if;
+
+            Implicit_With := new String'
+              (Ensure_Suffix
+                 (Arg (Implicit_With_Option'Last + 1 .. Arg'Last),
+                  Project_File_Extension));
+
          elsif Arg'Length > Subdirs_Option'Length
            and then Arg (1 .. Subdirs_Option'Length) = Subdirs_Option
          then
@@ -2013,6 +2030,12 @@ procedure Gprbuild.Main is
          Put ("  --db-    Do not load the standard knowledge base");
          New_Line;
 
+         Put ("  --implicit-with=filename");
+         New_Line;
+         Put ("           Add the given projects as a dependency on all loaded"
+              & " projects");
+         New_Line;
+
          --  Line for --relocate-build-tree=
 
          Put ("  --relocate-build-tree[=dir]");
@@ -2125,6 +2148,13 @@ procedure Gprbuild.Main is
          New_Line;
 
          Put ("  ");
+         Put (Source_Info_Option & "<filename>");
+         New_Line;
+         Put
+           ("           Specify/create the project sources cache file");
+         New_Line;
+
+         Put ("  ");
          Put (Keep_Temp_Files_Option);
          New_Line;
          Put ("           Do not delete temporary files");
@@ -2196,12 +2226,12 @@ procedure Gprbuild.Main is
 
          --  Line for -m
 
-         Put ("  -m       Minimum Ada recompilation, timestamp-based");
+         Put ("  -m       Minimum Ada recompilation");
          New_Line;
 
          --  Line for -m2
 
-         Put ("  -m2      Minimum Ada recompilation, checksum-based");
+         Put ("  -m2      Checksum based Ada recompilation");
          New_Line;
 
          --  Line for -o

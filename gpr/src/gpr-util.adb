@@ -367,6 +367,18 @@ package body GPR.Util is
       Free (File);
    end Close;
 
+   ------------------------------
+   -- Compilation_Phase_Failed --
+   ------------------------------
+
+   procedure Compilation_Phase_Failed
+     (Project_Tree : Project_Tree_Ref; No_Message : Boolean := False) is
+   begin
+      Fail_Program
+        (Project_Tree, "*** compilation phase failed",
+         No_Message => No_Message);
+   end Compilation_Phase_Failed;
+
    ------------
    -- Create --
    ------------
@@ -2051,7 +2063,7 @@ package body GPR.Util is
          if Source.Language.Config.Dependency_Kind /= None
             and then Source.Dep_Path = No_Path
          then
-            --  If we we have not found a dependency file in the object
+            --  If we have not found a dependency file in the object
             --  project, it means that the Source.Project is extended and that
             --  we are in gprls node. We need to look for an actual dependency
             --  file in the extended projects. If none is found, the dependency
@@ -3444,6 +3456,21 @@ package body GPR.Util is
          return Path & Directory_Separator;
       end if;
    end Ensure_Directory;
+
+   -------------------
+   -- Ensure_Suffix --
+   -------------------
+
+   function Ensure_Suffix (Item : String; Suffix : String) return String is
+   begin
+      if Item'Length >= Suffix'Length
+        and then Item (Item'Last - Suffix'Length + 1 .. Item'Last) = Suffix
+      then
+         return Item;
+      else
+         return Item & Suffix;
+      end if;
+   end Ensure_Suffix;
 
 --     ---------------
 --     -- Error_Msg --

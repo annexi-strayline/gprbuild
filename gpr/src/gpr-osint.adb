@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -25,9 +25,12 @@
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Directories;  use Ada.Directories;
 
+with Ada.Unchecked_Conversion;
+
 with GNAT.Case_Util; use GNAT.Case_Util;
 
 with System.CRTL;
+with System.OS_Constants;
 
 with GPR.Names;  use GPR.Names;
 with GPR.Output; use GPR.Output;
@@ -51,6 +54,12 @@ package body GPR.Osint is
       Attr : access File_Attributes) return Boolean;
 
    function OS_Time_To_GNAT_Time (T : OS_Time) return Time_Stamp_Type;
+   --  Convert OS format time to GNAT format time stamp. If T is Invalid_Time,
+   --  then returns Empty_Time_Stamp.
+   --  Round to even seconds on Windows before conversion.
+   --  Windows ALI files had timestamps rounded to even seconds historically.
+   --  The rounding was originally done in GM_Split. Now that GM_Split no
+   --  longer does it, we are rounding it here only for ALI files.
 
    ------------------------------
    -- Canonical_Case_File_Name --
@@ -339,6 +348,13 @@ package body GPR.Osint is
    --------------------------
 
    function OS_Time_To_GNAT_Time (T : OS_Time) return Time_Stamp_Type is
+      use System.OS_Constants;
+
+      function To_C is new Ada.Unchecked_Conversion (OS_Time, Long_Integer);
+      function To_Ada is new Ada.Unchecked_Conversion (Long_Integer, OS_Time);
+      --  We need these routines to stay compatible with GNAT Community which
+      --  doesn't yet have GNAT.OS_Lib.To_C/To_Ada routines.
+
       TS : Time_Stamp_Type;
 
       Y  : Year_Type;
@@ -350,12 +366,29 @@ package body GPR.Osint is
 
       Z : constant := Character'Pos ('0');
 
+      function Even_T return OS_Time with Inline;
+      --  If T is odd integer increase it by one and return.
+      --  See OS_Time_To_GNAT_Time declaration comment for details.
+
+      ------------
+      -- Even_T --
+      ------------
+
+      function Even_T return OS_Time is
+         TI : constant Long_Integer := To_C (T);
+      begin
+         return To_Ada (if TI mod 2 > 0 then TI + 1 else TI);
+      end Even_T;
+
+   --  Start of processing for OS_Time_To_GNAT_Time
+
    begin
       if T = Invalid_Time then
          return Empty_Time_Stamp;
       end if;
 
-      GM_Split (T, Y, Mo, D, H, Mn, S);
+      GM_Split
+        ((if Target_OS = Windows then Even_T else T), Y, Mo, D, H, Mn, S);
 
       TS (01) := Character'Val (Z + Y / 1000);
       TS (02) := Character'Val (Z + (Y / 100) mod 10);

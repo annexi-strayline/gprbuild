@@ -27,6 +27,8 @@
 
 --  Children of this package implement various services on these data types
 
+with Ada.Containers.Ordered_Sets;
+
 with GNAT.Dynamic_HTables; use GNAT.Dynamic_HTables;
 with GNAT.Dynamic_Tables;
 
@@ -254,6 +256,8 @@ package GPR is
 
    First_Name_Id : constant Name_Id := 2;
    --  Subscript of first entry in names table
+
+   package Name_Id_Set is new Ada.Containers.Ordered_Sets (Name_Id);
 
    type Unit_Name_Type is new Name_Id;
    --  Unit names are stored in the names table and this type is used to

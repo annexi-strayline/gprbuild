@@ -711,6 +711,8 @@ package body Gprclean is
             Put_Line ("""");
          end if;
 
+         return;
+
       else
          if Verbose_Mode then
             Put ("Cleaning project """);

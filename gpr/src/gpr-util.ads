@@ -132,6 +132,11 @@ package GPR.Util is
    --  according to Exit_Code. This properly removes all temporary files. Don't
    --  issue any message when No_Message is True.
 
+   procedure Compilation_Phase_Failed
+     (Project_Tree : Project_Tree_Ref; No_Message : Boolean := False);
+   --  Terminate program with "*** compilation phase failed" message and a
+   --  fatal status code. Don't issue any message when No_Message is True.
+
    procedure Duplicate
      (This   : in out Name_List_Index;
       Shared : Shared_Project_Tree_Data_Access);
@@ -754,6 +759,9 @@ package GPR.Util is
    pragma Import (C, Maximum_Size, "__gnat_link_max");
    --  Maximum number of bytes to put in an invocation of the
    --  Archive_Builder.
+
+   function Ensure_Suffix (Item : String; Suffix : String) return String;
+   --  Returns Item if it ends with Suffix otherwise returns Item & Suffix
 
    function Ensure_Directory (Path : String) return String;
    --  Returns Path with an ending directory separator
