@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -24,6 +24,7 @@
 
 --  This package contains low level, operating system routines
 
+with Ada.Calendar;
 with Ada.Unchecked_Deallocation;
 
 package GPR.Osint is
@@ -94,7 +95,7 @@ package GPR.Osint is
    --  this type, but we don't give a storage size clause of zero, since we
    --  may end up doing deallocations of instances allocated manually.
 
-   function Is_Directory_Separator (C : Character) return Boolean;
+   function Is_Directory_Separator (C : Character) return Boolean with Inline;
    --  Return True iff C is a directory separator inj a path
 
    function Get_Directory (Name : File_Name_Type) return File_Name_Type;
@@ -195,6 +196,12 @@ package GPR.Osint is
       Attr : access File_Attributes) return Time_Stamp_Type;
    --  Return the time stamp of the file
 
+   Invalid_Time : constant Ada.Calendar.Time;
+
+   function File_Time_Stamp (Name : String) return Ada.Calendar.Time;
+   --  Returns file last modification time with nanoseconds precision.
+   --  Returns Invalid_Time on error.
+
    function File_Stamp (Name : File_Name_Type) return Time_Stamp_Type;
    --  Returns the time stamp of file Name. Name should include relative
    --  path information in order to locate it. If the source file cannot be
@@ -218,5 +225,13 @@ package GPR.Osint is
    --  A call to Exit_Program terminates execution with the given status.
    --  A status of zero indicates normal completion, a non-zero status
    --  indicates abnormal termination.
+
+private
+
+   function File_Time_Stamp (N : C_File_Name) return Ada.Calendar.Time
+     with Import, Convention => C, External_Name => "__gpr_file_time";
+
+   Invalid_Time : constant Ada.Calendar.Time :=
+                    File_Time_Stamp (System.Null_Address);
 
 end GPR.Osint;

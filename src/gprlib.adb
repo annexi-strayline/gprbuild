@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2019, AdaCore                     --
+--                     Copyright (C) 2006-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -21,7 +21,6 @@
 --  through the same text file.
 
 with Ada.Command_Line;  use Ada.Command_Line;
-with Ada.Directories;
 with Ada.Text_IO;       use Ada.Text_IO;
 
 with GNAT.Case_Util;            use GNAT.Case_Util;
@@ -126,6 +125,9 @@ procedure Gprlib is
 
    Additional_Switches           : String_Vectors.Vector;
    --  A table to store switches coming from the binder generated file
+
+   Ada_Runtime_Switches          : String_Vectors.Vector;
+   --  A table to store switches for ada runtime libraries
 
    Options_Table                 : String_Vectors.Vector;
    --  A table to store the options from the exchange file
@@ -471,6 +473,7 @@ procedure Gprlib is
                                Library_Dependency_Directory.all &
                                Directory_Separator &
                                File_Name;
+               Remain      : Natural;
                Disregard   : Boolean;
                pragma Warnings (Off, Disregard);
 
@@ -504,12 +507,21 @@ procedure Gprlib is
 
                   --  Read the file.
 
-                  Curr := 1;
-                  Actual_Len := Len;
+                  Curr   := 1;
+                  Remain := Len;
 
-                  while Actual_Len /= 0 loop
-                     Actual_Len := Read (FD, S (Curr)'Address, Len);
-                     Curr := Curr + Actual_Len;
+                  while Remain > 0 loop
+                     Actual_Len := Read (FD, S (Curr)'Address, Remain);
+
+                     if Actual_Len < 0 then
+                        Fail_Program
+                          (null,
+                           "Error """ & GNAT.OS_Lib.Errno_Message
+                           & """ on read ALI file " & ALI_File);
+                     end if;
+
+                     Curr   := Curr   + Actual_Len;
+                     Remain := Remain - Actual_Len;
                   end loop;
 
                   --  We are done with the input file, so we close it
@@ -562,10 +574,6 @@ procedure Gprlib is
                         --  created file has been correctly written.
 
                         Success := Status and Actual_Len = Len + 3;
-
-                        if Success then
-                           Set_Read_Only (Name_Buffer (1 .. Name_Len - 1));
-                        end if;
                      end if;
                   end if;
                end if;
@@ -630,8 +638,7 @@ procedure Gprlib is
 
          --  First, load the ALI file
 
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (ALI_File);
+         Set_Name_Buffer (ALI_File);
          Lib_File := Name_Find;
          Text := Osint.Read_Library_Info (Lib_File);
          The_ALI :=
@@ -699,8 +706,7 @@ procedure Gprlib is
 
    procedure Display_Command (Cmd : String; Args : String_Vectors.Vector) is
    begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (Cmd);
+      Set_Name_Buffer (Cmd);
       for Arg of Args loop
          Add_Str_To_Name_Buffer (" ");
          Add_Str_To_Name_Buffer (Arg);
@@ -729,20 +735,17 @@ procedure Gprlib is
       GPR.Initialize (GPR.No_Project_Tree);
 
       if S_Osinte_Ads = No_File then
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer ("s-osinte.ads");
+         Set_Name_Buffer ("s-osinte.ads");
          S_Osinte_Ads := Name_Find;
       end if;
 
       if S_Dec_Ads = No_File then
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer ("dec.ads");
+         Set_Name_Buffer ("dec.ads");
          S_Dec_Ads := Name_Find;
       end if;
 
       if G_Trasym_Ads = No_File then
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer ("g-trasym.ads");
+         Set_Name_Buffer ("g-trasym.ads");
          G_Trasym_Ads := Name_Find;
       end if;
 
@@ -782,8 +785,7 @@ procedure Gprlib is
                   Put_Line ("Reading " & ALI_File);
                end if;
 
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer (ALI_File);
+               Set_Name_Buffer (ALI_File);
                Lib_File := Name_Find;
                Text := Osint.Read_Library_Info (Lib_File, True);
 
@@ -929,10 +931,10 @@ procedure Gprlib is
             end loop;
 
             if Libgnarl_Needed then
-               Options_Table.Append (Libgnarl.all);
+               Ada_Runtime_Switches.Append (Libgnarl.all);
             end if;
 
-            Options_Table.Append (Libgnat.all);
+            Ada_Runtime_Switches.Append (Libgnat.all);
          end if;
       end if;
 
@@ -1053,8 +1055,7 @@ procedure Gprlib is
 
          --  Get an eventual --RTS from the ALI file
 
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (ALIs.First_Element);
+         Set_Name_Buffer (ALIs.First_Element);
          First_ALI := Name_Find;
 
          --  Load the ALI file
@@ -1554,13 +1555,8 @@ procedure Gprlib is
                   PL_Options,
                   Success);
 
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer
-                 (Ada.Directories.Current_Directory &
-                  Dir_Separator & Partial);
-               Record_Temp_File
-                 (Shared => null,
-                  Path   => Name_Find);
+               Set_Name_Buffer (Get_Current_Dir & Partial);
+               Record_Temp_File (Shared => null, Path => Name_Find);
 
                if not Success then
                   Fail_Program
@@ -1713,10 +1709,7 @@ procedure Gprlib is
             end if;
 
             --  Same code as for recording the p__<lib>_N.o files.
-            Name_Len := 0;
-            Add_Str_To_Name_Buffer
-              (Ada.Directories.Current_Directory &
-                 Dir_Separator & Options_File);
+            Set_Name_Buffer (Get_Current_Dir & Options_File);
             Record_Temp_File (Shared => null, Path => Name_Find);
          end;
       end if;
@@ -2105,8 +2098,7 @@ procedure Gprlib is
                if Last > Language_Equal'Length
                  and then Line (1 .. Language_Equal'Length) = Language_Equal
                then
-                  Name_Len := 0;
-                  Add_Str_To_Name_Buffer
+                  Set_Name_Buffer
                     (Line (Language_Equal'Length + 1 .. Last));
                   To_Lower (Name_Buffer (1 .. Name_Len));
                   Current_Language := Name_Find;
@@ -2119,8 +2111,7 @@ procedure Gprlib is
                if Last > Language_Equal'Length
                  and then Line (1 .. Language_Equal'Length) = Language_Equal
                then
-                  Name_Len := 0;
-                  Add_Str_To_Name_Buffer
+                  Set_Name_Buffer
                     (Line (Language_Equal'Length + 1 .. Last));
                   To_Lower (Name_Buffer (1 .. Name_Len));
                   Current_Language := Name_Find;
@@ -2138,7 +2129,7 @@ procedure Gprlib is
                elsif Line (1 .. Last) = "ada" then
                   Get_Line (IO_File, Line, Last);
 
-                  if Last > 5 and then Line (1 .. 5) = "GNAT " then
+                  if Last > 5 and then Line (1 .. 5) = GNAT_And_Space then
                      GNAT_Version := new String'(Line (6 .. Last));
                      GNAT_Version_Set := True;
 

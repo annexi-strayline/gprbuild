@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2004-2017, AdaCore                     --
+--                     Copyright (C) 2004-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -23,7 +23,8 @@ library project GPR is
    for languages use ("Ada", "C");
 
    type Build_Type is ("debug", "production", "coverage", "profiling");
-   Bld : Build_Type := external ("BUILD", "production");
+   Bld : Build_Type := external ("GPR_BUILD",
+                                 external ("BUILD", "production"));
 
    type Library_Type_Type is ("relocatable", "static", "static-pic");
    Gnat_Lib_Type : Library_Type_Type := external ("LIBRARY_TYPE", "static");

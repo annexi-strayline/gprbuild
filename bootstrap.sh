@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # bootstrap.sh - a simple bootstrap for building gprbuild with xmlada
 
 progname=bootstrap
@@ -10,6 +10,7 @@ libexecdir=/libexec
 
 srcdir=$PWD
 xmlada_src=../xmlada
+kb_src=../gprconfig_kb
 
 CC=${CC:-cc}
 GNATMAKE=${GNATMAKE:-gnatmake}
@@ -29,6 +30,7 @@ Options [defaults in brackets]:
   --srcdir=DIR       source code path [$PWD]
 
   --with-xmlada=DIR  xmlada source path [$xmlada_src]
+  --with-kb=DIR      gprconfig knowledge base [$kb_src]
 
   --build            build only but do not install
   --install          install only, skip build steps
@@ -57,6 +59,7 @@ while :; do
 
         --srcdir=?*)      srcdir=${1#*=} ;;
         --with-xmlada=?*) xmlada_src=${1#*=} ;;
+        --with-kb=?*)     kb_src=${1#*=} ;;
 	--build)          MODE="build";;
 	--install)        MODE="install";;
 
@@ -77,6 +80,10 @@ inc_flags="-I$srcdir/src -I$srcdir/gpr/src -I$xmlada_src/sax -I$xmlada_src/dom \
 # Programs to build and install
 bin_progs="gprbuild gprconfig gprclean gprinstall gprname gprls"
 lib_progs="gprlib gprbind"
+
+# Install the gprconfig knowledge base
+rm -rf "$srcdir"/share/gprconfig
+cp -r "$kb_src"/db "$srcdir"/share/gprconfig
 
 # Build
 if [ "x"${MODE} == "x" ] || [ ${MODE} == "build" ];

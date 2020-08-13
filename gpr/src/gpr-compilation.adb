@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -34,7 +34,7 @@ with GPR.Util;
 
 package body GPR.Compilation is
 
-   Last_Env_MD5 : MD5.Message_Digest := (others => <>);
+   Last_Env_MD5 : MD5.Message_Digest := (others => ASCII.NUL);
    --  Keep last environment variable set to avoid too many system calls.
    --  ??? Ideally, we should set them when spawning the process, in
    --  which case it would be less expensive to set and could be set

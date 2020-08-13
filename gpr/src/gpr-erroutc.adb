@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -463,7 +463,26 @@ package body GPR.Erroutc is
       Offs : constant Nat := Column - 1;
       --  Offset to start of message, used for continuations
 
-      Txt   : String_Access := Errors.Table (E).Text;
+      Txt  : constant String := Errors.Table (E).Text.all;
+
+      procedure Write_Text (Txt : String);
+      --  Write the message, splitting it up into multiple lines
+
+      ----------------
+      -- Write_Text --
+      ----------------
+
+      procedure Write_Text (Txt : String) is
+      begin
+         for J in 1 .. Txt'Length loop
+            if Txt (J) = ASCII.LF then
+               Write_Eol;
+               Write_Spaces (Offs);
+            else
+               Write_Char (Txt (J));
+            end if;
+         end loop;
+      end Write_Text;
 
    begin
       --  Deal with warning case
@@ -473,7 +492,7 @@ package body GPR.Erroutc is
          --  For info messages, prefix message with "info: "
 
          if Errors.Table (E).Info then
-            Txt := new String'("info: " & Txt.all);
+            Write_Text ("info: " & Txt);
 
             --  Warning treated as error
 
@@ -483,25 +502,16 @@ package body GPR.Erroutc is
             --  [warning-as-error] at the end.
 
             Warnings_Treated_As_Errors := Warnings_Treated_As_Errors + 1;
-            Txt := new String'("error: " & Txt.all & " [warning-as-error]");
+            Write_Text ("error: " & Txt & " [warning-as-error]");
 
             --  Normal case, prefix with "warning: "
 
          else
-            Txt := new String'("warning: " & Txt.all);
+            Write_Text ("warning: " & Txt);
          end if;
+      else
+         Write_Text (Txt);
       end if;
-
-      --  Here we have to split the message up into multiple lines
-
-      for J in 1 .. Txt'Length loop
-         if Txt (J) = ASCII.LF then
-            Write_Eol;
-            Write_Spaces (Offs);
-         else
-            Write_Char (Txt (J));
-         end if;
-      end loop;
    end Output_Msg_Text;
 
    ----------------

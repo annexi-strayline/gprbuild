@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -245,12 +245,12 @@ package body GPR.Dect is
          if Qualif = Aggregate then
             Error_Msg
               (Flags,
-               "package %% is forbidden in aggregate projects",
+               "package %% cannot be used in aggregate projects",
                Location_Of (Current_Package, In_Tree));
          else
             Error_Msg
            (Flags,
-            "package %% is forbidden in aggregate library projects",
+            "package %% cannot be used in aggregate library projects",
             Location_Of (Current_Package, In_Tree));
          end if;
       end if;
@@ -1493,8 +1493,7 @@ package body GPR.Dect is
                --  The project name is the idenfier or group of identifiers
                --  that prefixes the package name (last dot excluded).
 
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer (Buffer (1 .. Last_Dot_Index - 1));
+               Set_Name_Buffer (Buffer (1 .. Last_Dot_Index - 1));
                Project_Name := Name_Find;
 
                --  Now check the project and package
@@ -1508,7 +1507,7 @@ package body GPR.Dect is
                   The_Project := Imported_Or_Extended_Project_Of
                     (Current_Project, In_Tree, Project_Name);
 
-                  if The_Project /= Empty_Project_Node then
+                  if Present (The_Project) then
                      Set_Project_Of_Renamed_Package_Of
                        (Package_Declaration, In_Tree, To => The_Project);
                   else

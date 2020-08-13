@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -657,15 +657,12 @@ package body GPR.Part is
 
          Processed_Hash.Set (Project, True);
 
-         declare
-            Declaration : constant Project_Node_Id :=
-                            Project_Declaration_Of (Project, In_Tree);
-         begin
-            Extension_Withs := First_With_Clause_Of (Project, In_Tree);
-            Look_For_Virtual_Projects_For
-              (Extended_Project_Of (Declaration, In_Tree), In_Tree,
-               Potentially_Virtual => False);
-         end;
+         Extension_Withs := First_With_Clause_Of (Project, In_Tree);
+         Look_For_Virtual_Projects_For
+           (Extended_Project_Of
+              (Project_Declaration_Of (Project, In_Tree), In_Tree),
+            In_Tree,
+            Potentially_Virtual => False);
 
          --  Now, check the projects directly imported by the main project.
          --  Remove from the potentially virtual any project extended by one
@@ -684,9 +681,7 @@ package body GPR.Part is
                if Present (Imported) then
                   Declaration := Project_Declaration_Of (Imported, In_Tree);
 
-                  if Extended_Project_Of (Declaration, In_Tree) /=
-                    Empty_Project_Node
-                  then
+                  if Present (Extended_Project_Of (Declaration, In_Tree)) then
                      loop
                         Imported :=
                           Extended_Project_Of (Declaration, In_Tree);
@@ -870,8 +865,7 @@ package body GPR.Part is
          Current_With_Node :=
            Default_Project_Node (In_Tree, Of_Kind => N_With_Clause);
 
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (Implicit_With.all);
+         Set_Name_Buffer (Implicit_With.all);
 
          Current_With :=
            (Path         => Name_Find,
@@ -948,7 +942,7 @@ package body GPR.Part is
 
                   Error_Msg_File_1 := File_Name_Type (Current_With.Path);
                   Error_Msg
-                    (Env.Flags, "unknown project file: {",
+                    (Env.Flags, "imported project file { not found",
                      Current_With.Location);
 
                   --  If this is not imported by the main project file, display
@@ -1384,8 +1378,7 @@ package body GPR.Part is
             Resolved_Path_Name := Resolved_Paths.Get (Canonical_Path_Name);
 
             if Resolved_Path_Name = No_Path then
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer
+               Set_Name_Buffer
                  (Normalize_Pathname
                     (Canonical_Path,
                      Resolve_Links => True,
@@ -1828,7 +1821,9 @@ package body GPR.Part is
                      Error_Msg_Name_1 := Token_Name;
 
                      Error_Msg
-                       (Env.Flags, "unknown project file: %%", Token_Ptr);
+                       (Env.Flags,
+                        "extended project file %% not found",
+                        Token_Ptr);
 
                      --  If not in the main project file, display the import
                      --  path.
@@ -2171,8 +2166,7 @@ package body GPR.Part is
       Debug_Decrease_Indent;
 
       if Project /= Empty_Project_Node and then Implicit_Project then
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (Current_Dir);
+         Set_Name_Buffer (Current_Dir);
          Add_Char_To_Name_Buffer (Dir_Sep);
          In_Tree.Project_Nodes.Table (Project).Directory := Name_Find;
       end if;

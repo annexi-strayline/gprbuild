@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -25,8 +25,8 @@
 --  This package implements services for Project-aware tools, mostly related
 --  to the environment (configuration pragma files, path files, mapping files).
 
-with GNAT.Dynamic_HTables;
-with GNAT.OS_Lib;
+with Ada.Containers.Indefinite_Hashed_Maps;
+with Ada.Strings.Hash;
 
 package GPR.Env is
 
@@ -248,13 +248,12 @@ package GPR.Env is
    --  Name is simply searched on the project path.
 
 private
-   package Projects_Paths is new GNAT.Dynamic_HTables.Simple_HTable
-     (Header_Num => Header_Num,
-      Element    => Path_Name_Type,
-      No_Element => No_Path,
-      Key        => Name_Id,
-      Hash       => Hash,
-      Equal      => "=");
+
+   package Projects_Paths is new Ada.Containers.Indefinite_Hashed_Maps
+     (Key_Type        => String,
+      Element_Type    => Boolean,
+      Hash            => Ada.Strings.Hash,
+      Equivalent_Keys => "=");
 
    type Project_Search_Path is record
       Path : GNAT.OS_Lib.String_Access;
@@ -262,11 +261,9 @@ private
       --  is unset, this means that the PATH has not been fully initialized
       --  yet (although subprograms above will properly take care of that).
 
-      Cache : Projects_Paths.Instance;
+      Cache : Projects_Paths.Map;
    end record;
 
-   No_Project_Search_Path : constant Project_Search_Path :=
-                              (Path  => null,
-                               Cache => Projects_Paths.Nil);
+   No_Project_Search_Path : constant Project_Search_Path := (others => <>);
 
 end GPR.Env;

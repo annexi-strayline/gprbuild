@@ -2,7 +2,7 @@
  *                                                                          *
  *                             GPR TECHNOLOGY                               *
  *                                                                          *
- *          Copyright (C) 1992-2019, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2020, Free Software Foundation, Inc.         *
  *                                                                          *
  * This library is free software;  you can redistribute it and/or modify it *
  * under terms of the  GNU General Public License  as published by the Free *
@@ -109,6 +109,80 @@ int __gnat_link_max = 2147483647;
 char __gnat_shared_libgcc_default = STATIC;
 const char *__gnat_default_libgcc_subdir = "lib";
 #endif
+
+#if defined (_WIN32)
+#include <windows.h>
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <limits.h>
+#include <unistd.h>
+#endif
+
+  extern long long __gpr_file_time(char* name)
+  {
+    long long result;
+
+    if (name == NULL) {
+      return LLONG_MIN;
+    }
+    /* Number of seconds between <Jan 1st 1970> and <Jan 1st 2150>. */
+    static const long long ada_epoch_offset = (136 * 365 + 44 * 366) * 86400LL;
+#if defined (_WIN32)
+
+    /* Number of 100 nanoseconds between <Jan 1st 1601> and <Jan 1st 2150>. */
+    static const long long w32_epoch_offset =
+       (11644473600LL + ada_epoch_offset) * 1E7;
+
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    union
+    {
+      FILETIME ft_time;
+      long long ll_time;
+    } t_write;
+
+    if (!GetFileAttributesExA(name, GetFileExInfoStandard, &fad)) {
+      return LLONG_MIN;
+    }
+
+    t_write.ft_time = fad.ftLastWriteTime;
+
+    // return (t_write.ll_time - w32_epoch_offset) * 100;
+    // with check overflow below
+
+    if (__builtin_ssubll_overflow(t_write.ll_time, w32_epoch_offset, &result)) {
+      return LLONG_MIN;
+    }
+
+    if (__builtin_smulll_overflow(result, 100, &result)) {
+      return LLONG_MIN;
+    }
+
+#else
+    struct stat sb;
+    if (stat(name, &sb) != 0) {
+      return LLONG_MIN;
+    }
+
+    //  return (sb.st_mtim.tv_sec - ada_epoch_offset) * 1E9
+    //  + sb.st_mtim.tv_nsec;
+    // with check overflow below
+
+    if (__builtin_ssubll_overflow(sb.st_mtim.tv_sec, ada_epoch_offset, &result)) {
+      return LLONG_MIN;
+    }
+
+    if (__builtin_smulll_overflow(result, 1E9, &result)) {
+      return LLONG_MIN;
+    }
+
+    if (__builtin_saddll_overflow(result, sb.st_mtim.tv_nsec, &result)) {
+      return LLONG_MIN;
+    }
+
+#endif
+    return result;
+  }
 
 #ifdef __cplusplus
 }

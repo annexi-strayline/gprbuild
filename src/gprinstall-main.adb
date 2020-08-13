@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2012-2018, AdaCore                     --
+--                     Copyright (C) 2012-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -64,7 +64,7 @@ procedure Gprinstall.Main is
    Stat_Option            : constant String := "--stat";
    Sources_Only_Option    : constant String := "--sources-only";
    Side_Debug_Option      : constant String := "--side-debug";
-   No_Project_Option      : constant String := "--no-project";
+   No_Manifest_Option     : constant String := "--no-manifest";
 
    Opt_A_Set : Boolean := False; -- to detect if -a and -m are used together
    Opt_M_Set : Boolean := False; -- likewise
@@ -333,6 +333,10 @@ procedure Gprinstall.Main is
                Opt_M_Set := True;
             end if;
 
+         elsif Arg = "-eL" then
+            Opt.Follow_Links_For_Files := True;
+            Opt.Follow_Links_For_Dirs  := True;
+
          elsif Arg = "-d" then
             Dry_Run := True;
 
@@ -425,6 +429,9 @@ procedure Gprinstall.Main is
             elsif Has_Prefix (No_Project_Option) then
                Global_Install_Project := False;
 
+            elsif Has_Prefix (No_Manifest_Option) then
+               Install_Manifest := False;
+
             elsif Has_Prefix (No_Lib_Link_Option) then
                Add_Lib_Link := False;
 
@@ -465,7 +472,8 @@ procedure Gprinstall.Main is
                  new String'
                    (Normalize_Pathname
                       (Arg (Root_Dir_Option'Length + 2 .. Arg'Last),
-                       Get_Current_Dir)
+                       Get_Current_Dir,
+                      Resolve_Links => Opt.Follow_Links_For_Dirs)
                     & Dir_Separator);
 
             elsif Has_Prefix (Target_Project_Option) then
@@ -682,7 +690,9 @@ procedure Gprinstall.Main is
       if Build_Tree_Dir /= null and then Root_Dir = null then
          Root_Dir := new String'
            (Ada.Directories.Containing_Directory
-              (Normalize_Pathname (Project_File_Name.all))
+              (Normalize_Pathname
+                 (Project_File_Name.all,
+                  Resolve_Links => Opt.Follow_Links_For_Dirs))
             & Dir_Separator);
       end if;
    end Initialize;
@@ -766,8 +776,8 @@ procedure Gprinstall.Main is
 
          Put ("  --relocate-build-tree[=dir]");
          New_Line;
-         Put ("           Root obj/lib/exec dirs are current-directory" &
-                    " or dir");
+         Put ("           Root obj/lib/exec dirs are current-directory"
+              & " or dir");
          New_Line;
 
          --  Line for --root-dir=
@@ -801,6 +811,11 @@ procedure Gprinstall.Main is
 
          Put_Line ("  --build-var=<name>");
          Put_Line ("           Name of the variable which identify a build");
+
+         --  Line for --no-manifest
+
+         Put_Line ("  --no-manifest");
+         Put_Line ("           Do not generate the manifest File");
 
          --  Line for --no-build-var
 
@@ -957,7 +972,7 @@ begin
          Fail_Program
            (Project_Tree,
             """" & Project_File_Name.all & """ processing failed",
-            Flush_Messages => User_Project_Node /= Empty_Project_Node);
+            Flush_Messages => Present (User_Project_Node));
       end if;
 
       if Configuration_Project_Path /= null then

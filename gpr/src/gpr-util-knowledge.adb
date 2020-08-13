@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2010-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 2010-2019, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -40,6 +40,17 @@ package body Knowledge is
       Get_Targets_Set (Base, Hostname, Id);
       return Normalized_Target (Base, Id);
    end Normalized_Hostname;
+
+   -----------------------
+   -- Normalized_Target --
+   -----------------------
+
+   function Normalized_Target (Target_Name : String) return String is
+      Id : Targets_Set_Id;
+   begin
+      Get_Targets_Set (Base, Target_Name, Id);
+      return Normalized_Target (Base, Id);
+   end Normalized_Target;
 
    --------------------------
    -- Parse_Knowledge_Base --

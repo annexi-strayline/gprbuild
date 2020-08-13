@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -678,7 +678,6 @@ package body GPR.ALI is
          Compile_Errors               => False,
          First_Sdep                   => No_Sdep_Id,
          First_Unit                   => No_Unit_Id,
-         GNATprove_Mode               => False,
          Last_Sdep                    => No_Sdep_Id,
          Last_Unit                    => No_Unit_Id,
          Locking_Policy               => ' ',
@@ -750,8 +749,7 @@ package body GPR.ALI is
             Start := Index (Name_Buffer (1 .. Last), " v");
 
             if Start /= 0 then
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer ("GNAT ");
+               Set_Name_Buffer (GNAT_And_Space);
                Add_Str_To_Name_Buffer
                  (Raw (Start + 2 .. Last));
                ALIs.Table (Id).GNAT_Version := Name_Find;

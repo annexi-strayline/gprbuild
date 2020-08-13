@@ -31,6 +31,7 @@
 /config/lib
 /gpr/lib
 /gpr/libobj
+/share/gprconfig
 makefile.setup
 
 /doc/txt

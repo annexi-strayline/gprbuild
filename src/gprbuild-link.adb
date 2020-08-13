@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2019, AdaCore                     --
+--                     Copyright (C) 2011-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -16,8 +16,8 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Calendar;               use Ada.Calendar;
 with Ada.Containers.Vectors;
-with Ada.Directories;
 with Ada.Strings.Fixed;          use Ada.Strings.Fixed;
 with Ada.Text_IO;                use Ada.Text_IO;
 with Ada.Unchecked_Deallocation; use Ada;
@@ -1239,24 +1239,37 @@ package body Gprbuild.Link is
       procedure Add_Run_Path_Options;
       --  Add the run path option switch. if there is one
 
-      Linker_Name        : String_Access := null;
-      Linker_Path        : String_Access;
-      Min_Linker_Opts    : Name_List_Index;
-      Exchange_File      : Text_IO.File_Type;
-      Line               : String (1 .. 1_000);
-      Last               : Natural;
+      procedure Remove_Duplicated_Specs (Arguments : in out Options_Data);
+      --  Remove duplicated --specs=... options from Arguments,
+      --  keep right-most.
 
-      --  Success            : Boolean := False;
+      procedure Remove_Duplicated_T (Arguments : in out Options_Data);
+      --  Remove duplicated -T[ ]<linker script> options from Arguments,
+      --  keep left-most.
 
-      Section            : Binding_Section := No_Binding_Section;
+      Were_Options : String_Sets.Set;
+      --  Keep options already included
+
+      Linker_Name     : String_Access := null;
+      Linker_Path     : String_Access;
+      Min_Linker_Opts : Name_List_Index;
+      Exchange_File   : Text_IO.File_Type;
+      Line            : String (1 .. 1_000);
+      Last            : Natural;
+
+      Section : Binding_Section := No_Binding_Section;
 
       Linker_Needs_To_Be_Called : Boolean;
 
-      Executable_TS      : Time_Stamp_Type;
-      Main_Object_TS     : Time_Stamp_Type;
-      Binder_Exchange_TS : Time_Stamp_Type;
-      Binder_Object_TS   : Time_Stamp_Type := Dummy_Time_Stamp;
-      Global_Archive_TS  : Time_Stamp_Type;
+      Executable_TS      : Time;
+      Main_Object_TS     : Time;
+      Binder_Exchange_TS : Time;
+      Binder_Object_TS   : Time := Time_Of (2000, 1, 1);
+      Global_Archive_TS  : Time;
+
+      function File_Stamp (File : Path_Name_Type) return Time is
+        (File_Time_Stamp (Get_Name_String (File)));
+      --  Returns file modification time
 
       Global_Archive_Has_Been_Built : Boolean;
       Global_Archive_Exists         : Boolean;
@@ -1393,6 +1406,87 @@ package body Gprbuild.Link is
            Archive_Suffix (For_Project);
       end Global_Archive_Name;
 
+      -----------------------------
+      -- Remove_Duplicated_Specs --
+      -----------------------------
+
+      procedure Remove_Duplicated_Specs (Arguments : in out Options_Data) is
+         Position : String_Sets.Cursor;
+         Inserted : Boolean;
+      begin
+         for Index in reverse 1 .. Arguments.Last_Index loop
+            declare
+               Arg  : constant String := Arguments (Index).Name;
+            begin
+               if Arg'Length >= 8 and then Arg (1 .. 8) = "--specs=" then
+                  Were_Options.Insert (Arg, Position, Inserted);
+
+                  if not Inserted then
+                     Arguments.Delete (Index);
+                  end if;
+               end if;
+            end;
+         end loop;
+      end Remove_Duplicated_Specs;
+
+      -------------------------
+      -- Remove_Duplicated_T --
+      -------------------------
+
+      procedure Remove_Duplicated_T (Arguments : in out Options_Data) is
+         Position  : String_Sets.Cursor;
+         Inserted  : Boolean;
+         Arg_Index : Positive := Arguments.First_Index;
+      begin
+         while Arg_Index <= Arguments.Last_Index loop
+            declare
+               Arg1 : constant String := Arguments (Arg_Index).Name;
+            begin
+               if Arg1'Length >= 2 and then Arg1 (1 .. 2) = "-T" then
+                  --  Case of -T and <file> as separate arguments
+                  --  (from .cgpr file)
+
+                  if Arg1'Length = 2 then
+                     if Arg_Index < Arguments.Last_Index then
+                        declare
+                           Arg2 : constant String :=
+                                    Arguments (Arg_Index + 1).Name;
+                        begin
+                           Were_Options.Insert
+                             (Arg1 & Arg2, Position, Inserted);
+
+                           if Inserted then
+                              Arg_Index := Arg_Index + 2;
+                           else
+                              Arguments.Delete (Arg_Index, 2);
+                           end if;
+                        end;
+
+                     else
+                        --  We get here if the link command somehow ends
+                        --  with "-T" which would indicate a bug.
+                        --  Just ignore it now and let the linker fail.
+                        Arg_Index := Arg_Index + 1;
+                     end if;
+
+                  --  Case of "-T<file>" (from SAL linker options)
+                  else
+                     Were_Options.Insert (Arg1, Position, Inserted);
+
+                     if Inserted then
+                        Arg_Index := Arg_Index + 1;
+                     else
+                        Arguments.Delete (Arg_Index);
+                     end if;
+                  end if;
+
+               else
+                  Arg_Index := Arg_Index + 1;
+               end if;
+            end;
+         end loop;
+      end Remove_Duplicated_T;
+
    begin
       --  Make sure that the table Rpaths is emptied after each main, so
       --  that the same rpaths are not duplicated.
@@ -1441,8 +1535,7 @@ package body Gprbuild.Link is
       end if;
 
       if Output_File_Name /= null then
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (Output_File_Name.all);
+         Set_Name_Buffer (Output_File_Name.all);
 
          --  If an executable name was specified without an extension and
          --  there is a non empty executable suffix, add the suffix to the
@@ -1499,7 +1592,7 @@ package body Gprbuild.Link is
       Executable_TS := File_Stamp (Exec_Path_Name);
 
       if not Linker_Needs_To_Be_Called
-        and then Executable_TS = Empty_Time_Stamp
+        and then Executable_TS = Osint.Invalid_Time
       then
          Linker_Needs_To_Be_Called := True;
 
@@ -1530,17 +1623,17 @@ package body Gprbuild.Link is
 
       Initialize_Source_Record (Main_Source);
 
-      Main_Object_TS := File_Stamp (File_Name_Type (Main_Source.Object_Path));
+      Main_Object_TS := File_Stamp (Main_Source.Object_Path);
 
       if not Linker_Needs_To_Be_Called then
-         if Main_Object_TS = Empty_Time_Stamp then
+         if Main_Object_TS = Osint.Invalid_Time then
             if Opt.Verbosity_Level > Opt.Low then
                Put_Line ("      -> main object does not exist");
             end if;
 
             Linker_Needs_To_Be_Called := True;
 
-         elsif String (Main_Object_TS) > String (Executable_TS) then
+         elsif Main_Object_TS > Executable_TS then
             if Opt.Verbosity_Level > Opt.Low then
                Put_Line
                  ("      -> main object more recent than executable");
@@ -1550,7 +1643,7 @@ package body Gprbuild.Link is
          end if;
       end if;
 
-      if Main_Object_TS = Empty_Time_Stamp then
+      if Main_Object_TS = Osint.Invalid_Time then
          Put ("main object for ");
          Put (Get_Name_String (Main_Source.File));
          Put_Line (" does not exist");
@@ -1569,8 +1662,7 @@ package body Gprbuild.Link is
       --  Add the Leading_Switches if there are any in package Linker
 
       declare
-         The_Packages   : constant Package_Id :=
-                            Main_Proj.Decl.Packages;
+         The_Packages   : constant Package_Id := Main_Proj.Decl.Packages;
          Linker_Package : constant GPR.Package_Id :=
                             GPR.Util.Value_Of
                               (Name        => Name_Linker,
@@ -1682,8 +1774,7 @@ package body Gprbuild.Link is
                   end if;
 
                   if not Linker_Needs_To_Be_Called
-                    and then
-                      String (Binder_Exchange_TS) > String (Executable_TS)
+                    and then Binder_Exchange_TS > Executable_TS
                   then
                      Linker_Needs_To_Be_Called := True;
 
@@ -1758,7 +1849,7 @@ package body Gprbuild.Link is
 
                   Close (Exchange_File);
 
-                  if Binder_Object_TS = Empty_Time_Stamp then
+                  if Binder_Object_TS = Osint.Invalid_Time then
                      if not Linker_Needs_To_Be_Called
                        and then Opt.Verbosity_Level > Opt.Low
                      then
@@ -1772,8 +1863,7 @@ package body Gprbuild.Link is
                      return;
 
                   elsif not Linker_Needs_To_Be_Called
-                    and then
-                      String (Binder_Object_TS) > String (Executable_TS)
+                    and then Binder_Object_TS > Executable_TS
                   then
                      Linker_Needs_To_Be_Called := True;
 
@@ -1806,7 +1896,7 @@ package body Gprbuild.Link is
              (Path_Name_Type'
                   (Create_Name (Global_Archive_Name (Main_Proj))));
 
-         if Global_Archive_TS = Empty_Time_Stamp then
+         if Global_Archive_TS = Osint.Invalid_Time then
             if not Linker_Needs_To_Be_Called
               and then Opt.Verbosity_Level > Opt.Low
             then
@@ -1831,7 +1921,7 @@ package body Gprbuild.Link is
 
       if not Linker_Needs_To_Be_Called
         and then Global_Archive_Exists
-        and then String (Global_Archive_TS) > String (Executable_TS)
+        and then Global_Archive_TS > Executable_TS
       then
          Linker_Needs_To_Be_Called := True;
 
@@ -1899,11 +1989,9 @@ package body Gprbuild.Link is
                --  recent than the executable.
 
                declare
-                  Lib_TS : constant Time_Stamp_Type :=
-                             File_Stamp (File_Name_Type'(Name_Find));
-
+                  Lib_TS : constant Time := File_Stamp (Name_Find);
                begin
-                  if Lib_TS = Empty_Time_Stamp then
+                  if Lib_TS = Osint.Invalid_Time then
                      Linker_Needs_To_Be_Called := True;
 
                      if Opt.Verbosity_Level > Opt.Low then
@@ -1914,7 +2002,7 @@ package body Gprbuild.Link is
 
                      exit;
 
-                  elsif String (Lib_TS) > String (Executable_TS) then
+                  elsif Lib_TS > Executable_TS then
                      Linker_Needs_To_Be_Called := True;
 
                      if Opt.Verbosity_Level > Opt.Low then
@@ -2206,10 +2294,7 @@ package body Gprbuild.Link is
                            Open (File, Options_File);
 
                            --  Record the linker options file as temporary.
-                           Name_Len := 0;
-                           Add_Str_To_Name_Buffer
-                             (Ada.Directories.Current_Directory
-                              & Dir_Separator & Options_File);
+                           Set_Name_Buffer (Get_Current_Dir & Options_File);
                            Options_File_Path_Name := Name_Find;
                            Record_Temp_File
                              (Shared => Main_File.Tree.Shared,
@@ -2526,8 +2611,7 @@ package body Gprbuild.Link is
                        (Ada_Lang_Data_Ptr.Config.Toolchain_Version);
                   begin
                      if GNAT_Version'Length >= 7 then
-                        Name_Len := 0;
-                        Add_Str_To_Name_Buffer (GNAT_Version (6 .. 7));
+                        Set_Name_Buffer (GNAT_Version (6 .. 7));
                         GNAT_Version_Part := Name_Find;
                      end if;
                   end;
@@ -2586,8 +2670,7 @@ package body Gprbuild.Link is
                                  Prev_Dir_First : Positive;
                                  Nmb            : Natural;
                               begin
-                                 Name_Len := 0;
-                                 Add_Str_To_Name_Buffer (Line (3 .. Last));
+                                 Set_Name_Buffer (Line (3 .. Last));
 
                                  while Name_Buffer (Name_Len) =
                                    Directory_Separator
@@ -3085,6 +3168,17 @@ package body Gprbuild.Link is
             end if;
          end;
 
+         if Linking_With_Static_SALs then
+            --  Filter out duplicate linker options from static SALs:
+            --     -T[ ]<linker script> (keep left-most)
+            --     --specs=... (keep right-most)
+
+            Remove_Duplicated_T (Arguments);
+            Remove_Duplicated_T (Other_Arguments);
+            Remove_Duplicated_Specs (Other_Arguments);
+            Remove_Duplicated_Specs (Arguments);
+         end if;
+
          --  If response files are supported, check the length of the
          --  command line and the number of object files, then create
          --  a response file if needed.
@@ -3225,105 +3319,6 @@ package body Gprbuild.Link is
 
          Objects.Clear;
          Other_Arguments.Clear;
-
-         --  Filter out duplicate linker options from static SALs:
-         --     -T[ ]<linker script> (keep left-most)
-         --     --specs=... (keep right-most)
-
-         if Linking_With_Static_SALs then
-            declare
-               package Args is new GNAT.HTable.Simple_HTable
-                 (Header_Num => GPR.Header_Num,
-                  Element    => Boolean,
-                  No_Element => False,
-                  Key        => Name_Id,
-                  Hash       => Hash,
-                  Equal      => "=");
-               Arg_Index : Positive := Arguments.First_Index;
-            begin
-
-               --  ??? We should use Argument_String_To_List here, for more
-               --  flexibility with user-set flags...
-               --  (this could even be an upstream strategy? so we wouldn't
-               --  have to bother with such issues here)
-
-               --  -T
-
-               while Arg_Index <= Arguments.Last_Index loop
-                  declare
-                     Arg1 : constant String := Arguments (Arg_Index).Name;
-                     Last1 : constant Natural := Arg1'Length;
-                     Arg_Name_Id : Name_Id;
-                  begin
-                     if Last1 >= 2 and then Arg1 (1 .. 2) = "-T" then
-
-                        --  Case of -T and <file> as separate arguments
-                        --  (from .cgpr file)
-                        if Last1 = 2 then
-                           if Arg_Index < Arguments.Last_Index then
-                              declare
-                                 Arg2 : constant String :=
-                                   Arguments (Arg_Index + 1).Name;
-                              begin
-                                 Name_Len := 0;
-                                 Add_Str_To_Name_Buffer (Arg1 & Arg2);
-                                 Arg_Name_Id := Name_Find;
-                                 if Args.Get (Arg_Name_Id) then
-                                    Arguments.Delete (Arg_Index, 2);
-                                 else
-                                    Args.Set (Arg_Name_Id, True);
-                                    Arg_Index := Arg_Index + 2;
-                                 end if;
-                              end;
-                           else
-                              --  We get here if the link command somehow ends
-                              --  with "-T" which would indicate a bug.
-                              --  Just ignore it now and let the linker fail.
-                              Arg_Index := Arg_Index + 1;
-                           end if;
-
-                        --  Case of "-T<file>" (from SAL linker options)
-                        else
-                           Name_Len := 0;
-                           Add_Str_To_Name_Buffer
-                             (Arg1);
-                           Arg_Name_Id := Name_Find;
-                           if Args.Get (Arg_Name_Id) then
-                              Arguments.Delete (Arg_Index);
-                           else
-                              Args.Set (Arg_Name_Id, True);
-                              Arg_Index := Arg_Index + 1;
-                           end if;
-                        end if;
-
-                     else
-                        Arg_Index := Arg_Index + 1;
-                     end if;
-                  end;
-               end loop;
-
-               --  --specs
-
-               for Index in reverse 1 .. Arguments.Last_Index loop
-                  declare
-                     Arg : constant String := Arguments (Index).Name;
-                     Last : constant Natural := Arg'Length;
-                     Arg_Name_Id : Name_Id;
-                  begin
-                     if Last >= 8 and then Arg (1 .. 8) = "--specs=" then
-                        Name_Len := 0;
-                        Add_Str_To_Name_Buffer (Arg);
-                        Arg_Name_Id := Name_Find;
-                        if Args.Get (Arg_Name_Id) then
-                           Arguments.Delete (Index);
-                        else
-                           Args.Set (Arg_Name_Id, True);
-                        end if;
-                     end if;
-                  end;
-               end loop;
-            end;
-         end if;
 
          --  Delete an eventual executable, in case it is a symbolic
          --  link as we don't want to modify the target of the link.

@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2015-2018, AdaCore                     --
+--                     Copyright (C) 2015-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -131,6 +131,9 @@ private
    --  As arguments are scanned, file names are stored in this array. The array
    --  is extensible, because there may be more files than arguments on the
    --  command line.
+
+   No_Files_In_Command_Line : Boolean;
+   --  Set this flag just after command line parsing from File_Names.Is_Empty
 
    Tree : constant GPR.Project_Node_Tree_Ref := new Project_Node_Tree_Data;
    --  The project tree where the project file is parsed

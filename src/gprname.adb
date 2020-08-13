@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---                      Copyright (C) 2001-2019, AdaCore                    --
+--                      Copyright (C) 2001-2020, AdaCore                    --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -650,8 +650,7 @@ package body GPRName is
             Current_Source_Dir := Expression;
             Set_First_Term (Expression, Tree, To => Term);
             Set_Current_Term (Term, Tree, To => Value);
-            Name_Len := 0;
-            Add_Str_To_Name_Buffer (Source_Dir);
+            Set_Name_Buffer (Source_Dir);
             Set_String_Value_Of (Value, Tree, To => Name_Find);
          end;
       end loop;
@@ -806,7 +805,7 @@ package body GPRName is
                             (Of_Kind       => N_Expression,
                              In_Tree       => Tree,
                              And_Expr_Kind => Single);
-                        if Prev_Expr = Empty_Project_Node then
+                        if No (Prev_Expr) then
                            Set_First_Expression_In_List
                              (Node    => Source_List,
                               In_Tree => Tree,
@@ -1788,8 +1787,7 @@ package body GPRName is
 
                         --  Add foreign source file name
 
-                        Name_Len := 0;
-                        Add_Str_To_Name_Buffer (Canon (1 .. Last));
+                        Set_Name_Buffer (Canon (1 .. Last));
                         Foreign_Sources.Append
                           ((File_Name => Name_Find,
                             Position  => Get_Source_Position (File_Name_Id),

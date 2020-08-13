@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -87,6 +87,7 @@ package GPR.Opt is
    --  GPRCLEAN:
    --    set True to delete only the files produced by the compiler but not the
    --    library files or the executable files.
+
    Bind_Only : Boolean := False;
    --  Set to True to skip compile and link steps
    --  (except when Compile_Only and/or Link_Only are True).
@@ -198,6 +199,9 @@ package GPR.Opt is
 
    Target_Value : String_Access := null;
    --  Indicates the value of attribute Target in project files
+
+   Target_Value_Canonical : String_Access := null;
+   --  Canonical value of specified target
 
    Unchecked_Shared_Lib_Imports : Boolean := False;
    --  Set to True when shared library projects are allowed to import projects

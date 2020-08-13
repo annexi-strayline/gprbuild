@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -1214,7 +1214,7 @@ package body GPR.Tree is
             --  Do not try to check for an extended project, if the project
             --  does not have yet a project declaration.
 
-            exit when Decl = Empty_Project_Node;
+            exit when No (Decl);
 
             Result := Extended_Project_Of (Decl, In_Tree);
          end loop;
@@ -3201,12 +3201,12 @@ package body GPR.Tree is
 
       Decl := First_Declarative_Item_Of (Real_Parent, Tree);
 
-      if Decl = Empty_Project_Node then
+      if No (Decl) then
          Set_First_Declarative_Item_Of (Real_Parent, Tree, New_Decl);
       else
          loop
             Next := Next_Declarative_Item (Decl, Tree);
-            exit when Next = Empty_Project_Node
+            exit when No (Next)
               or else
                (Add_Before_First_Pkg
                  and then Kind_Of (Current_Item_Node (Next, Tree), Tree) =
@@ -3223,7 +3223,7 @@ package body GPR.Tree is
          Last := New_Decl;
          loop
             L := Next_Declarative_Item (Last, Tree);
-            exit when L = Empty_Project_Node;
+            exit when No (L);
             Last := L;
          end loop;
 
@@ -3232,7 +3232,7 @@ package body GPR.Tree is
          Last := New_Decl;
          loop
             L := Next_Declarative_Item (Last, Tree);
-            exit when L = Empty_Project_Node;
+            exit when No (L);
             Last := L;
          end loop;
 
@@ -3298,7 +3298,7 @@ package body GPR.Tree is
       --  Check if the package already exists
 
       Pack := First_Package_Of (Project, Tree);
-      while Pack /= Empty_Project_Node loop
+      while Present (Pack) loop
          if GPR.Tree.Name_Of (Pack, Tree) = N then
             return Pack;
          end if;
@@ -3356,13 +3356,13 @@ package body GPR.Tree is
          Set_Associative_Array_Index_Of (Node, Tree, Index_Name);
       end if;
 
-      if Prj_Or_Pkg /= Empty_Project_Node then
+      if Present (Prj_Or_Pkg) then
          Add_At_End (Tree, Prj_Or_Pkg, Node);
       end if;
 
       --  Find out the case sensitivity of the attribute
 
-      if Prj_Or_Pkg /= Empty_Project_Node
+      if Present (Prj_Or_Pkg)
         and then Kind_Of (Prj_Or_Pkg, Tree) = N_Package_Declaration
       then
          Pkg      := GPR.Attr.Package_Node_Id_Of
@@ -3399,7 +3399,7 @@ package body GPR.Tree is
          end if;
       end if;
 
-      if Value /= Empty_Project_Node then
+      if Present (Value) then
          Expr := Enclose_In_Expression (Value, Tree);
          Set_Expression_Of (Node, Tree, Expr);
       end if;

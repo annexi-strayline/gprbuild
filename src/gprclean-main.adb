@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2019, AdaCore                     --
+--                     Copyright (C) 2011-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -48,6 +48,8 @@ with GPR.Version;                use GPR.Version;
 procedure Gprclean.Main is
 
    Project_File_Name_Expected : Boolean := False;
+
+   Search_Project_Dir_Expected : Boolean := False;
 
    User_Project_Node : Project_Node_Id;
 
@@ -180,8 +182,7 @@ procedure Gprclean.Main is
                Db_Directory_Expected := False;
                Knowledge.Parse_Knowledge_Base (Project_Tree, Arg);
 
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer (Arg);
+               Set_Name_Buffer (Arg);
                Add_Db_Switch_Arg (Name_Find);
 
             elsif Arg'Length /= 0 then
@@ -198,6 +199,17 @@ procedure Gprclean.Main is
                      Index := Index + 1;
                      Project_File_Name := new String'(Argument (Index));
                      Project_File_Name_Expected := False;
+
+                  elsif Search_Project_Dir_Expected then
+                     if Index = Last then
+                        Fail_Program
+                          (Project_Tree, "directory name missing after -aP");
+                     end if;
+
+                     Index := Index + 1;
+                     GPR.Env.Add_Directories
+                       (Root_Environment.Project_Path, Argument (Index));
+                     Search_Project_Dir_Expected := False;
                   end if;
 
                else
@@ -442,8 +454,7 @@ procedure Gprclean.Main is
                     Switch'Last
                   loop
                      if Switch (J) = '=' then
-                        Name_Len := 0;
-                        Add_Str_To_Name_Buffer
+                        Set_Name_Buffer
                           (Switch
                              (RTS_Language_Option'Length + 1 ..
                                   J - 1));
@@ -476,8 +487,7 @@ procedure Gprclean.Main is
 
                         else
                            Set_Runtime_For (Language_Name, RTS);
-                           Set_Default_Runtime_For
-                             (Language_Name, RTS);
+                           Set_Default_Runtime_For (Language_Name, RTS);
                         end if;
                      end;
                   end if;
@@ -549,7 +559,7 @@ procedure Gprclean.Main is
                       (Switch
                          (Root_Dir_Option'Length + 2 .. Switch'Last),
                        Get_Current_Dir,
-                       Resolve_Links => False)
+                       Resolve_Links => Opt.Follow_Links_For_Dirs)
                     & Dir_Separator);
 
             elsif
@@ -562,21 +572,19 @@ procedure Gprclean.Main is
             end if;
 
          when 'a' =>
-            if In_Package_Clean then
+            if In_Package_Clean
+              or else Switch'Length < 3
+              or else Switch (3) /= 'P'
+            then
                Bad_Switch;
             end if;
 
-            if Switch'Length < 4 then
-               Bad_Switch;
-            end if;
-
-            if Switch (3) = 'P' then
+            if Switch'Length > 3 then
                GPR.Env.Add_Directories
                  (Root_Environment.Project_Path,
                   Switch (4 .. Switch'Last));
-
             else
-               Bad_Switch;
+               Search_Project_Dir_Expected := True;
             end if;
 
          when 'c'    =>
@@ -765,6 +773,11 @@ procedure Gprclean.Main is
 
          Display_Usage_Version_And_Help;
 
+         --  Line for --no-project
+
+         Put_Line ("  --no-project");
+         Put_Line ("           Do not use project file");
+
          Put_Line ("  --distributed=slave1[,slave2]");
          Put_Line ("           Activate the remote clean-up");
 
@@ -805,7 +818,7 @@ procedure Gprclean.Main is
          Put_Line ("           Shared lib projects may import any project");
          New_Line;
 
-         Put_Line ("  -aPdir   Add directory dir to project search path");
+         Put_Line ("  -aP dir  Add directory dir to project search path");
          Put_Line ("  -c       Only delete compiler generated files");
          Put_Line ("  -eL      Follow symbolic links when processing "
                    & "project files");
@@ -942,24 +955,12 @@ begin
       Fail_Program
         (Project_Tree,
          """" & Project_File_Name.all & """ processing failed",
-         Flush_Messages => User_Project_Node /= Empty_Project_Node);
+         Flush_Messages => Present (User_Project_Node));
    end if;
 
    --  Get the switches from package Clean of main project, if any
 
    Compute_Clean_Switches;
-
-   --  Update info on all sources
-
-   declare
-      Iter : Source_Iterator;
-   begin
-      Iter := For_Each_Source (Project_Tree);
-      while GPR.Element (Iter) /= No_Source loop
-         Initialize_Source_Record (GPR.Element (Iter));
-         Next (Iter);
-      end loop;
-   end;
 
    --  Even if the config project file has not been automatically
    --  generated, gprclean will delete it if it was specified using
@@ -1006,15 +1007,27 @@ begin
 
    declare
       procedure Do_Clean (Prj : Project_Id; Tree : Project_Tree_Ref);
+      --  Update sources info and cleanup project tree
 
       --------------
       -- Do_Clean --
       --------------
 
       procedure Do_Clean (Prj : Project_Id; Tree : Project_Tree_Ref) is
+         Iter : Source_Iterator :=
+                  For_Each_Source
+                    (Tree, (if All_Projects then No_Project else Prj));
       begin
+         --  Update info on all sources in Tree
+
+         while GPR.Element (Iter) /= No_Source loop
+            Initialize_Source_Record (GPR.Element (Iter));
+            Next (Iter);
+         end loop;
+
          --  For the main project and all aggregated projects, remove the
          --  binder and linker generated files.
+
          Clean_Project
            (Prj, Tree, Main => True, Remove_Executables => not Compile_Only);
 

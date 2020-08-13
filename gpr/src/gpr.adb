@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -31,7 +31,6 @@ with Ada.Unchecked_Deallocation;
 
 with GNAT.Case_Util;            use GNAT.Case_Util;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with GNAT.HTable;
 
 with GPR.Opt;
 with GPR.Attr;
@@ -40,8 +39,6 @@ with GPR.Output; use GPR.Output;
 with GPR.Snames; use GPR.Snames;
 
 package body GPR is
-
-   package body Stamps is separate;
 
    type Restricted_Lang;
    type Restricted_Lang_Access is access Restricted_Lang;
@@ -119,8 +116,7 @@ package body GPR is
       N : String (1 .. Name'Length) := Name;
    begin
       To_Lower (N);
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (N);
+      Set_Name_Buffer (N);
       Restricted_Languages :=
         new Restricted_Lang'(Name => Name_Find, Next => Restricted_Languages);
    end Add_Restricted_Language;
@@ -275,8 +271,7 @@ package body GPR is
    is
       Path_Name : Path_Name_Type;
    begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (Path);
+      Set_Name_Buffer (Path);
       Path_Name := Name_Find;
       Delete_Temporary_File (Shared, Path_Name);
    end Delete_Temporary_File;
@@ -368,7 +363,7 @@ package body GPR is
          when Makefile =>
             return Extend_Name (Source_File_Name, Makefile_Dependency_Suffix);
 
-         when ALI_File | ALI_Closure =>
+         when ALI_Dependency =>
             return Extend_Name (Source_File_Name, ALI_Dependency_Suffix);
       end case;
    end Dependency_Name;
@@ -679,9 +674,9 @@ package body GPR is
       end if;
    end Next;
 
-   --------------------------------
-   -- For_Every_Project_Imported --
-   --------------------------------
+   ----------------------------------------
+   -- For_Every_Project_Imported_Context --
+   ----------------------------------------
 
    procedure For_Every_Project_Imported_Context
      (By                 : Project_Id;
@@ -913,6 +908,10 @@ package body GPR is
          From_Encapsulated_Lib => False);
    end For_Every_Project_Imported_Context;
 
+   --------------------------------
+   -- For_Every_Project_Imported --
+   --------------------------------
+
    procedure For_Every_Project_Imported
      (By                 : Project_Id;
       Tree               : Project_Tree_Ref;
@@ -1143,26 +1142,19 @@ package body GPR is
    -- Hash --
    ----------
 
-   function Hash is new GNAT.HTable.Hash (Header_Num => Header_Num);
-   --  Used in implementation of other functions Hash below
-
-   ----------
-   -- Hash --
-   ----------
+   function Hash (Name : Name_Id) return Header_Num is
+   begin
+      return Header_Num (Name mod (Max_Header_Num + 1));
+   end Hash;
 
    function Hash (Name : File_Name_Type) return Header_Num is
    begin
-      return Hash (Get_Name_String (Name));
-   end Hash;
-
-   function Hash (Name : Name_Id) return Header_Num is
-   begin
-      return Hash (Get_Name_String (Name));
+      return Hash (Name_Id (Name));
    end Hash;
 
    function Hash (Name : Path_Name_Type) return Header_Num is
    begin
-      return Hash (Get_Name_String (Name));
+      return Hash (Name_Id (Name));
    end Hash;
 
    function Hash (Project : Project_Id) return Header_Num is
@@ -1170,9 +1162,36 @@ package body GPR is
       if Project = No_Project then
          return Header_Num'First;
       else
-         return Hash (Get_Name_String (Project.Name));
+         return Hash (Project.Name);
       end if;
    end Hash;
+
+   ---------------
+   -- Hex_Image --
+   ---------------
+
+   function Hex_Image (Item : Word; Length : Positive := 8) return String is
+      Result : String (1 .. Length);
+   begin
+      Hex_Image (Item, Result);
+
+      return Result;
+   end Hex_Image;
+
+   procedure Hex_Image (Item : Word; Result : out String) is
+      Chr : constant array (Word range 0 .. 15) of Character :=
+              "0123456789abcdef";
+      Tmp : Word := Item;
+   begin
+      for C of reverse Result loop
+         C := Chr (Tmp rem 16);
+         Tmp := Tmp / 16;
+      end loop;
+
+      if Tmp > 0 then
+         raise Constraint_Error;
+      end if;
+   end Hex_Image;
 
    -----------
    -- Image --
@@ -1242,8 +1261,7 @@ package body GPR is
 
                else
                   Add_To_Path
-                    (Current_Directory &
-                     Directory_Separator &
+                    (Get_Current_Dir &
                      Containing_Directory (Program_Name),
                     Append => True);
                end if;
@@ -2242,8 +2260,7 @@ package body GPR is
       P : Project_List;
 
    begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer ("Tree [");
+      Set_Name_Buffer ("Tree [");
 
       P := Tree.Projects;
       while P /= null loop

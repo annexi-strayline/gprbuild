@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,21 +22,16 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GNAT.Table;
-with Interfaces; use Interfaces;
+with Ada.Containers.Indefinite_Vectors;
 with Ada.Text_IO; use Ada.Text_IO;
+
+with Interfaces; use Interfaces;
 
 with GPR.Cset;   use GPR.Cset;
 with GPR.Output; use GPR.Output;
 with GPR.Debug;
 
 package body GPR.Names is
-
-   Name_Chars_Initial   : constant := 50_000;
-   Name_Chars_Increment : constant := 100;
-
-   Names_Initial   : constant := 6_000;
-   Names_Increment : constant := 100;
 
    --  This table stores the actual string names. Although logically there is
    --  no need for a terminating character (since the length is stored in the
@@ -60,22 +55,8 @@ package body GPR.Names is
    --  matches the hash code. Then subsequent names table entries with the
    --  same hash code value are linked through the Hash_Link fields.
 
-   package Name_Chars is new GNAT.Table (
-     Table_Component_Type => Character,
-     Table_Index_Type     => Int,
-     Table_Low_Bound      => 0,
-     Table_Initial        => Name_Chars_Initial,
-     Table_Increment      => Name_Chars_Increment);
-
-   type Name_Entry is record
-      Name_Chars_Index : Int;
-      --  Starting location of characters in the Name_Chars table minus one
-      --  (i.e. pointer to character just before first character). The reason
-      --  for the bias of one is that indexes in Name_Buffer are one's origin,
-      --  so this avoids unnecessary adds and subtracts of 1.
-
-      Name_Len : Natural;
-      --  Length of this name in characters
+   type Name_Entry (Name_Len : Natural) is record
+      Value : String (1 .. Name_Len);
 
       Hash_Link : Name_Id;
       --  Link to next entry in names table for same hash code
@@ -88,12 +69,13 @@ package body GPR.Names is
    --  This is the table that is referenced by Name_Id entries.
    --  It contains one entry for each unique name in the table.
 
-   package Name_Entries is new GNAT.Table (
-     Table_Component_Type => Name_Entry,
-     Table_Index_Type     => Name_Id'Base,
-     Table_Low_Bound      => First_Name_Id,
-     Table_Initial        => Names_Initial,
-     Table_Increment      => Names_Increment);
+   subtype Valid_Name_Id is Name_Id range First_Name_Id .. Name_Id'Last;
+
+   pragma Suppress (Container_Checks);
+   package Name_Vectors is new Ada.Containers.Indefinite_Vectors
+     (Valid_Name_Id, Name_Entry);
+
+   Name_Entries : Name_Vectors.Vector;
 
    -----------------------
    -- Local Subprograms --
@@ -138,10 +120,18 @@ package body GPR.Names is
    ----------------------------
 
    procedure Add_Str_To_Name_Buffer (S : String) is
+      Start : constant Positive := Name_Len + 1;
    begin
-      for J in S'Range loop
-         Add_Char_To_Name_Buffer (S (J));
-      end loop;
+      Name_Len := Name_Len + S'Length;
+
+      if Name_Len <= Name_Buffer'Last then
+         Name_Buffer (Start .. Name_Len) := S;
+
+      elsif Start <= Name_Buffer'Last then
+         Name_Buffer (Start .. Name_Buffer'Last) :=
+           S (S'First .. S'First + Name_Buffer'Last - Start);
+      end if;
+
    end Add_Str_To_Name_Buffer;
 
    -------------------
@@ -170,8 +160,6 @@ package body GPR.Names is
    --  Procedure version leaving result in Name_Buffer, length in Name_Len
 
    procedure Get_Name_String (Id : Name_Id) is
-      S : Int;
-
    begin
       if Debug.Debug_Flag_A then
          Put ("<<<< Accessing index" & Id'Img &
@@ -180,12 +168,7 @@ package body GPR.Names is
 
       pragma Assert (Is_Valid_Name (Id));
 
-      S := Name_Entries.Table (Id).Name_Chars_Index;
-      Name_Len := Name_Entries.Table (Id).Name_Len;
-
-      for J in 1 .. Name_Len loop
-         Name_Buffer (J) := Name_Chars.Table (S + Int (J));
-      end loop;
+      Set_Name_Buffer (Name_Entries (Id).Value);
 
       if Debug.Debug_Flag_A then
          Put_Line (" Found: '" & Name_Buffer (1 .. Name_Len) & "' >>>>");
@@ -214,31 +197,19 @@ package body GPR.Names is
    --  Function version returning a string
 
    function Get_Name_String (Id : Name_Id) return String is
-      S : Int;
-
    begin
       if Debug.Debug_Flag_A then
          Put ("<<<< Accessing index" & Id'Img &
                 " (function Get_Name_String)");
       end if;
 
-      pragma Assert (Is_Valid_Name (Id));
-      S := Name_Entries.Table (Id).Name_Chars_Index;
+      pragma Assert (Is_Valid_Name (Id), "Invalid Id" & Id'Img);
 
-      declare
-         R : String (1 .. Name_Entries.Table (Id).Name_Len);
-
-      begin
-         for J in R'Range loop
-            R (J) := Name_Chars.Table (S + Int (J));
-         end loop;
-
+      return R : constant String := Name_Entries (Id).Value do
          if Debug.Debug_Flag_A then
             Put_Line (" Found: '" & R & "' >>>>");
          end if;
-
-         return R;
-      end;
+      end return;
    end Get_Name_String;
 
    function Get_Name_String (Id : Unit_Name_Type) return String is
@@ -261,8 +232,6 @@ package body GPR.Names is
    --------------------------------
 
    procedure Get_Name_String_And_Append (Id : Name_Id) is
-      S : Int;
-
    begin
       if Debug.Debug_Flag_A then
          Put ("<<<< Accessing index" & Id'Img &
@@ -271,16 +240,10 @@ package body GPR.Names is
 
       pragma Assert (Is_Valid_Name (Id));
 
-      S := Name_Entries.Table (Id).Name_Chars_Index;
-
-      for J in 1 .. Name_Entries.Table (Id).Name_Len loop
-         Name_Len := Name_Len + 1;
-         Name_Buffer (Name_Len) := Name_Chars.Table (S + Int (J));
-      end loop;
+      Add_Str_To_Name_Buffer (Name_Entries (Id).Value);
 
       if Debug.Debug_Flag_A then
-         Put_Line (" Found: '" & Name_Buffer (1 + Name_Len -
-                     Name_Entries.Table (Id).Name_Len .. Name_Len) & "' >>>>");
+         Put_Line (" Found: '" & Name_Entries (Id).Value & "' >>>>");
       end if;
    end Get_Name_String_And_Append;
 
@@ -291,7 +254,7 @@ package body GPR.Names is
    function Get_Name_Table_Int (Id : Name_Id) return Int is
    begin
       pragma Assert (Is_Valid_Name (Id));
-      return Name_Entries.Table (Id).Int_Info;
+      return Name_Entries (Id).Int_Info;
    end Get_Name_Table_Int;
 
    function Get_Name_Table_Int (Id : Unit_Name_Type) return Int is
@@ -356,7 +319,7 @@ package body GPR.Names is
 
    function Is_Valid_Name (Id : Name_Id) return Boolean is
    begin
-      return Id in Name_Entries.First .. Name_Entries.Last;
+      return Id in Name_Entries.First_Index .. Name_Entries.Last_Index;
    end Is_Valid_Name;
 
    --------------------
@@ -365,12 +328,12 @@ package body GPR.Names is
 
    function Length_Of_Name (Id : Name_Id) return Nat is
    begin
-      return Int (Name_Entries.Table (Id).Name_Len);
+      return Int (Name_Entries (Id).Name_Len);
    end Length_Of_Name;
 
    function Length_Of_Name (Id : File_Name_Type) return Nat is
    begin
-      return Int (Name_Entries.Table (Name_Id (Id)).Name_Len);
+      return Int (Name_Entries (Name_Id (Id)).Name_Len);
    end Length_Of_Name;
 
    ----------------
@@ -380,26 +343,18 @@ package body GPR.Names is
    function Name_Enter return Name_Id is
    begin
       Name_Entries.Append
-        ((Name_Chars_Index      => Name_Chars.Last,
-          Name_Len              => Name_Len,
-          Int_Info              => 0,
-          Hash_Link             => No_Name));
-
-      --  Set corresponding string entry in the Name_Chars table
-
-      for J in 1 .. Name_Len loop
-         Name_Chars.Append (Name_Buffer (J));
-      end loop;
-
-      Name_Chars.Append (ASCII.NUL);
+        ((Name_Len  => Name_Len,
+          Value     => Name_Buffer (1 .. Name_Len),
+          Int_Info  => 0,
+          Hash_Link => No_Name));
 
       if Debug.Debug_Flag_A then
          Put_Line ("<<<< Appending: '" & Name_Buffer (1 .. Name_Len) &
-                     "' with index" & Name_Entries.Last'Img &
+                     "' with index" & Name_Entries.Last_Index'Img &
                      " (Name_Enter) >>>>");
       end if;
 
-      return Name_Entries.Last;
+      return Name_Entries.Last_Index;
    end Name_Enter;
 
    ---------------
@@ -410,9 +365,6 @@ package body GPR.Names is
       New_Id : Name_Id;
       --  Id of entry in hash search, and value to be returned
 
-      S : Int;
-      --  Pointer into string table
-
       Hash_Index : Hash_Index_Type;
       --  Computed hash index
 
@@ -422,23 +374,13 @@ package body GPR.Names is
       New_Id := Hash_Table (Hash_Index);
 
       if New_Id = No_Name then
-         Hash_Table (Hash_Index) := Name_Entries.Last + 1;
+         Hash_Table (Hash_Index) := Name_Entries.Last_Index + 1;
 
       else
          Search : loop
-            if Name_Len /=
-              Integer (Name_Entries.Table (New_Id).Name_Len)
-            then
+            if Name_Entries (New_Id).Value /= Name_Buffer (1 .. Name_Len) then
                goto No_Match;
             end if;
-
-            S := Name_Entries.Table (New_Id).Name_Chars_Index;
-
-            for J in 1 .. Name_Len loop
-               if Name_Chars.Table (S + Int (J)) /= Name_Buffer (J) then
-                  goto No_Match;
-               end if;
-            end loop;
 
             if Debug.Debug_Flag_A then
                Put_Line ("<<<< Found index" & New_Id'Img & " for: '"
@@ -450,11 +392,10 @@ package body GPR.Names is
             --  Current entry in hash chain does not match
 
             <<No_Match>>
-            if Name_Entries.Table (New_Id).Hash_Link /= No_Name then
-               New_Id := Name_Entries.Table (New_Id).Hash_Link;
+            if Name_Entries (New_Id).Hash_Link /= No_Name then
+               New_Id := Name_Entries (New_Id).Hash_Link;
             else
-               Name_Entries.Table (New_Id).Hash_Link :=
-                 Name_Entries.Last + 1;
+               Name_Entries (New_Id).Hash_Link := Name_Entries.Last_Index + 1;
                exit Search;
             end if;
          end loop Search;
@@ -465,26 +406,18 @@ package body GPR.Names is
       --  link pointing to the new entry (Name_Entries.Last+1) has been set.
 
       Name_Entries.Append
-        ((Name_Chars_Index      => Name_Chars.Last,
-          Name_Len              => Name_Len,
-          Hash_Link             => No_Name,
-          Int_Info              => 0));
-
-      --  Set corresponding string entry in the Name_Chars table
-
-      for J in 1 .. Name_Len loop
-         Name_Chars.Append (Name_Buffer (J));
-      end loop;
-
-      Name_Chars.Append (ASCII.NUL);
+        ((Name_Len  => Name_Len,
+          Value     => Name_Buffer (1 .. Name_Len),
+          Hash_Link => No_Name,
+          Int_Info  => 0));
 
       if Debug.Debug_Flag_A then
          Put_Line ("<<<< Appending: '" & Name_Buffer (1 .. Name_Len) &
-                     "' with index" & Name_Entries.Last'Img &
+                     "' with index" & Name_Entries.Last_Index'Img &
                      " (Name_Find) >>>>");
       end if;
 
-      return Name_Entries.Last;
+      return Name_Entries.Last_Index;
    end Name_Find;
 
    function Name_Find return Unit_Name_Type is
@@ -577,7 +510,7 @@ package body GPR.Names is
    procedure Set_Name_Table_Int (Id : Name_Id; Val : Int) is
    begin
       pragma Assert (Is_Valid_Name (Id));
-      Name_Entries.Table (Id).Int_Info := Val;
+      Name_Entries (Id).Int_Info := Val;
    end Set_Name_Table_Int;
 
    procedure Set_Name_Table_Int (Id : Unit_Name_Type; Val : Int) is
@@ -590,31 +523,21 @@ package body GPR.Names is
       Set_Name_Table_Int (Name_Id (Id), Val);
    end Set_Name_Table_Int;
 
+   ----------------------------
+   -- Set_Name_Buffer --
+   ----------------------------
+
+   procedure Set_Name_Buffer (S : String) is
+   begin
+      Name_Len := S'Length;
+      Name_Buffer (1 .. Name_Len) := S;
+   end Set_Name_Buffer;
+
    -----------------------------
    -- Store_Encoded_Character --
    -----------------------------
 
    procedure Store_Encoded_Character (C : Char_Code) is
-
-      procedure Set_Hex_Chars (C : Char_Code);
-      --  Stores given value, which is in the range 0 .. 255, as two hex
-      --  digits (using lower case a-f) in Name_Buffer, incrementing Name_Len.
-
-      -------------------
-      -- Set_Hex_Chars --
-      -------------------
-
-      procedure Set_Hex_Chars (C : Char_Code) is
-         Hexd : constant String := "0123456789abcdef";
-         N    : constant Natural := Natural (C);
-      begin
-         Name_Buffer (Name_Len + 1) := Hexd (N / 16 + 1);
-         Name_Buffer (Name_Len + 2) := Hexd (N mod 16 + 1);
-         Name_Len := Name_Len + 2;
-      end Set_Hex_Chars;
-
-   --  Start of processing for Store_Encoded_Character
-
    begin
       Name_Len := Name_Len + 1;
 
@@ -626,23 +549,21 @@ package body GPR.Names is
                Name_Buffer (Name_Len) := CC;
             else
                Name_Buffer (Name_Len) := 'U';
-               Set_Hex_Chars (C);
+               Name_Len := Name_Len + 2;
+               Hex_Image (Word (C), Name_Buffer (Name_Len - 1 .. Name_Len));
             end if;
          end;
 
       elsif In_Wide_Character_Range (C) then
          Name_Buffer (Name_Len) := 'W';
-         Set_Hex_Chars (C / 256);
-         Set_Hex_Chars (C mod 256);
-
+         Name_Len := Name_Len + 4;
+         Hex_Image (Word (C), Name_Buffer (Name_Len - 3 .. Name_Len));
       else
          Name_Buffer (Name_Len) := 'W';
          Name_Len := Name_Len + 1;
          Name_Buffer (Name_Len) := 'W';
-         Set_Hex_Chars (C / 2 ** 24);
-         Set_Hex_Chars ((C / 2 ** 16) mod 256);
-         Set_Hex_Chars ((C / 256) mod 256);
-         Set_Hex_Chars (C mod 256);
+         Name_Len := Name_Len + 8;
+         Hex_Image (Word (C), Name_Buffer (Name_Len - 7 .. Name_Len));
       end if;
    end Store_Encoded_Character;
 
@@ -651,28 +572,19 @@ package body GPR.Names is
    --------
 
    procedure wn2 (Id : Name_Id) is
-      S : Int;
-
    begin
       if not Id'Valid then
-         Write_Str ("<invalid name_id>");
+         Write_Line ("<invalid name_id>");
 
       elsif Id = No_Name then
-         Write_Str ("<No_Name>");
+         Write_Line ("<No_Name>");
 
       elsif Id = Error_Name then
-         Write_Str ("<Error_Name>");
+         Write_Line ("<Error_Name>");
 
       else
-         S := Name_Entries.Table (Id).Name_Chars_Index;
-         Name_Len := Name_Entries.Table (Id).Name_Len;
-
-         for J in 1 .. Name_Len loop
-            Write_Char (Name_Chars.Table (S + Int (J)));
-         end loop;
+         Write_Line (Name_Entries (Id).Value);
       end if;
-
-      Write_Eol;
    end wn2;
 
    ----------------
@@ -683,7 +595,7 @@ package body GPR.Names is
    begin
       pragma Assert
         (Is_Valid_Name (Id),
-         Id'Img & Name_Entries.First'Img & Name_Entries.Last'Img);
+         Id'Img & Name_Entries.First_Index'Img & Name_Entries.Last_Index'Img);
 
       Get_Name_String (Id);
       Write_Str (Name_Buffer (1 .. Name_Len));
@@ -717,9 +629,6 @@ package body GPR.Names is
    end Write_Unit_Name;
 
 begin
-   Name_Chars.Init;
-   Name_Entries.Init;
-
    --  Clear hash table
 
    for J in Hash_Index_Type loop

@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2012-2017, AdaCore                     --
+--                     Copyright (C) 2012-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -154,6 +154,9 @@ private
    Side_Debug : Boolean := False;
    --  Whether the debug symbols are kept into the main executable (default) or
    --  written into a side debug file.
+
+   Install_Manifest : Boolean := True;
+   --  Whether to install the manifest file or not
 
    procedure Delete_Empty_Directory (Prefix, Dir_Name : String);
    --  Delete Dir_Name if empty, if removed try with parent directory but not

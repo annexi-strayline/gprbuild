@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -43,6 +43,9 @@ package GPR.Names is
    --  This functional form returns the result as a string without affecting
    --  the contents of either Name_Buffer or Name_Len. The lower bound is 1.
 
+   function Get_Name_String_Or_Null (Id : Name_Id) return String;
+   --  Same as above, except that on No_Name return Empty string
+
    procedure Get_Name_String_And_Append (Id : Name_Id);
    --  Like Get_Name_String but the resulting characters are appended to the
    --  current contents of the entry stored in Name_Buffer, and Name_Len is
@@ -71,9 +74,13 @@ package GPR.Names is
    --  Add decimal representation of given value to the end of the string
    --  currently stored in Name_Buffer, incrementing Name_Len as required.
 
-   procedure Add_Str_To_Name_Buffer (S : String);
+   procedure Add_Str_To_Name_Buffer (S : String) with Inline;
    --  Add characters of string S to the end of the string currently stored in
    --  the Name_Buffer, incrementing Name_Len by the length of the string.
+
+   procedure Set_Name_Buffer (S : String) with Inline;
+   --  Put string S to start of the the Name_Buffer, Put S'Length to the
+   --  Name_Len.
 
    function Get_Name_Table_Int (Id : Name_Id) return Int;
    function Get_Name_Table_Int (Id : Unit_Name_Type) return Int;
@@ -171,5 +178,10 @@ package GPR.Names is
    procedure Set_Casing (C : Casing_Type);
    --  Takes the name stored in the first Name_Len positions of Name_Buffer and
    --  modifies it to be consistent with the casing given by C.
+
+private
+
+   function Get_Name_String_Or_Null (Id : Name_Id) return String
+   is (if Id = No_Name then "" else Get_Name_String (Id));
 
 end GPR.Names;

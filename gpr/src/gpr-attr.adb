@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -144,7 +144,7 @@ package body GPR.Attr is
    "Saobject_generated#" &
    "Saobjects_linked#" &
    "SVtargetDtarget_value#" &
-   "SVcanonical_targetDtarget_value#" &
+   "SVcanonical_targetDcanonical_target_value#" &
    "SaruntimeDruntime_value#" &
    "Saruntime_library_dir#" &
    "Laruntime_library_dirs#" &
@@ -808,8 +808,7 @@ package body GPR.Attr is
 
    function Name_Id_Of (Name : String) return Name_Id is
    begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (Name);
+      Set_Name_Buffer (Name);
       To_Lower (Name_Buffer (1 .. Name_Len));
       return Name_Find;
    end Name_Id_Of;

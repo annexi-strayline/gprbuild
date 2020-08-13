@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2002-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2002-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -102,6 +102,8 @@ package body GPR.Err is
       --  for this usage, Sptr and Optr always have the same value, since we do
       --  not have to worry about generic instantiations.
 
+      Sfile : Source_File_Index;
+      Line  : Line_Number;
    begin
       Prescan_Message (Msg);
       Set_Msg_Text (Msg);
@@ -119,36 +121,18 @@ package body GPR.Err is
          return;
       end if;
 
-      --  Otherwise build error message object for new message
+      --  Otherwise build error message object for new message.
+      --  First check that we do want to insert the error.
 
-      Errors.Append
-        (New_Val =>
-           (Text     => new String'(Msg_Buffer (1 .. Msglen)),
-            Next     => No_Error_Msg,
-            Prev     => No_Error_Msg,
-            Sfile    => Get_Source_File_Index (Sptr),
-            Sptr     => Sptr,
-            Optr     => Optr,
-            Line     => Get_Line_Number (Sptr),
-            Col      => Get_Column_Number (Sptr),
-            Warn     => Is_Warning_Msg,
-            Info     => Is_Info_Msg,
-            Warn_Err => Warning_Mode = Treat_As_Error,
-            Warn_Chr => Warning_Msg_Char,
-            Serious  => Is_Serious_Error,
-            Uncond   => Is_Unconditional_Msg,
-            Msg_Cont => Continuation,
-            Deleted  => False));
-
-      Cur_Msg  := Errors.Last;
+      Sfile    := Get_Source_File_Index (Sptr);
+      Line     := Get_Line_Number (Sptr);
       Prev_Msg := No_Error_Msg;
       Next_Msg := First_Error_Msg;
 
       while Next_Msg /= No_Error_Msg loop
-         exit when
-           Errors.Table (Cur_Msg).Sfile < Errors.Table (Next_Msg).Sfile;
+         exit when Sfile < Errors.Table (Next_Msg).Sfile;
 
-         if Errors.Table (Cur_Msg).Sfile = Errors.Table (Next_Msg).Sfile then
+         if Sfile = Errors.Table (Next_Msg).Sfile then
             exit when Sptr < Errors.Table (Next_Msg).Sptr;
          end if;
 
@@ -167,16 +151,14 @@ package body GPR.Err is
       --  deletion, but otherwise such messages are discarded at this stage.
 
       if Prev_Msg /= No_Error_Msg
-        and then Errors.Table (Prev_Msg).Line =
-        Errors.Table (Cur_Msg).Line
-        and then Errors.Table (Prev_Msg).Sfile =
-        Errors.Table (Cur_Msg).Sfile
+        and then Errors.Table (Prev_Msg).Line = Line
+        and then Errors.Table (Prev_Msg).Sfile = Sfile
       then
          --  Don't delete unconditional messages and at this stage, don't
          --  delete continuation lines (we attempted to delete those earlier
          --  if the parent message was deleted.
 
-         if not Errors.Table (Cur_Msg).Uncond
+         if not Is_Unconditional_Msg
            and then not Continuation
          then
 
@@ -187,7 +169,7 @@ package body GPR.Err is
             --  avoid junk extra messages from cascaded parsing errors
 
             if not Errors.Table (Prev_Msg).Warn
-              or else Errors.Table (Cur_Msg).Warn
+              or else Is_Warning_Msg
             then
                --  All tests passed, delete the message by simply returning
                --  without any further processing.
@@ -202,6 +184,26 @@ package body GPR.Err is
       end if;
 
       --  Come here if message is to be inserted in the error chain
+
+      Errors.Append
+        (New_Val =>
+           (Text     => new String'(Msg_Buffer (1 .. Msglen)),
+            Next     => No_Error_Msg,
+            Prev     => No_Error_Msg,
+            Sfile    => Sfile,
+            Sptr     => Sptr,
+            Optr     => Optr,
+            Line     => Line,
+            Col      => Get_Column_Number (Sptr),
+            Warn     => Is_Warning_Msg,
+            Info     => Is_Info_Msg,
+            Warn_Err => Warning_Mode = Treat_As_Error,
+            Warn_Chr => Warning_Msg_Char,
+            Serious  => Is_Serious_Error,
+            Uncond   => Is_Unconditional_Msg,
+            Msg_Cont => Continuation,
+            Deleted  => False));
+      Cur_Msg  := Errors.Last;
 
       if not Continuation then
          Last_Killed := False;
@@ -410,6 +412,14 @@ package body GPR.Err is
          Warnings_Detected := Info_Messages;
       end if;
 
+      --  Deallocate the memory associated to text
+
+      Cur := First_Error_Msg;
+      while Cur /= No_Error_Msg loop
+         Free (Errors.Table (Cur).Text);
+         Cur := Errors.Table (Cur).Next;
+      end loop;
+
       --  Prevent displaying the same messages again in the future
 
       First_Error_Msg := No_Error_Msg;
@@ -420,7 +430,19 @@ package body GPR.Err is
    ----------------
 
    procedure Initialize is
+      Cur : Error_Msg_Id;
    begin
+      --  Sometimes Initialize is being called to reset the table, while
+      --  memory is still allocated in this table - if so, deallocate
+      --  the memory before resetting.
+      if not Errors.Is_Empty then
+         Cur := First_Error_Msg;
+         while Cur /= No_Error_Msg loop
+            Free (Errors.Table (Cur).Text);
+            Cur := Errors.Table (Cur).Next;
+         end loop;
+      end if;
+
       Errors.Init;
       First_Error_Msg := No_Error_Msg;
       Last_Error_Msg  := No_Error_Msg;

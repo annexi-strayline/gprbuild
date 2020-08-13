@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---        Copyright (C) 2015-2019, Free Software Foundation, Inc.           --
+--        Copyright (C) 2015-2020, Free Software Foundation, Inc.           --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -2359,9 +2359,7 @@ package body Scanner is
       --  the instantiation case, so we need not worry about Sloc adjustment.
 
       declare
-         S : Source_File_Record
-               renames Source_File.Table (Current_Source_File);
-
+         S : constant access Source_File_Record := Current_Source_Record;
       begin
          Physical := True;
 
@@ -2372,7 +2370,7 @@ package body Scanner is
          if Source (P) /= EOF
            and then P > S.Lines_Table (S.Last_Source_Line)
          then
-            Add_Line_Tables_Entry (S, P);
+            Add_Line_Tables_Entry (S.all, P);
          end if;
       end;
    end Skip_Line_Terminators;

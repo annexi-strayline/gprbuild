@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2018, AdaCore                     --
+--                     Copyright (C) 2006-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -69,9 +69,7 @@ procedure Build_Shared_Lib is
       begin
          if not Opt.Quiet_Output then
             if Opt.Verbose_Mode then
-               Name_Len := 0;
-
-               Add_Str_To_Name_Buffer (Driver.all);
+               Set_Name_Buffer (Driver.all);
 
                for Arg of Arguments loop
                   Add_Str_To_Name_Buffer (" ");
@@ -197,7 +195,7 @@ procedure Build_Shared_Lib is
 
                if not Quiet_Output then
                   if Verbose_Mode then
-                     Add_Str_To_Name_Buffer (Partial_Linker_Path.all);
+                     Set_Name_Buffer (Partial_Linker_Path.all);
 
                      for Option of PL_Options loop
                         Add_Str_To_Name_Buffer (" ");
@@ -213,10 +211,7 @@ procedure Build_Shared_Lib is
                   PL_Options,
                   Success);
 
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer
-                 (Ada.Directories.Current_Directory &
-                  '/' & Partial);
+               Set_Name_Buffer (Get_Current_Dir & Partial);
                Record_Temp_File
                  (Shared => null,
                   Path   => Name_Find);
@@ -263,6 +258,8 @@ procedure Build_Shared_Lib is
       Arguments.Append (Additional_Switches);
 
       Arguments.Append (Library_Switches_Table);
+
+      Arguments.Append (Ada_Runtime_Switches);
 
       Arguments.Append (Library_Options_Table);
 

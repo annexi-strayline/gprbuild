@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,6 +22,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Containers.Hashed_Maps;
 with Ada.Unchecked_Deallocation;
 with Ada.Unchecked_Conversion;
 
@@ -51,8 +52,22 @@ package body GPR.Sinput is
    --  The flag is reset to False at the first call to Load_Project_File.
    --  Calling Reset_First sets it back to True.
 
+   function Hash (Name : File_Name_Type) return Ada.Containers.Hash_Type is
+     (Ada.Containers.Hash_Type (Name));
+
+   package Source_Id_Maps is new Ada.Containers.Hashed_Maps
+     (Key_Type        => File_Name_Type,
+      Element_Type    => Source_File_Index,
+      Hash            => Hash,
+      Equivalent_Keys => "=");
+
+   Sources_Map : Source_Id_Maps.Map;
+
    procedure Free is new Ada.Unchecked_Deallocation
      (Lines_Table_Type, Lines_Table_Ptr);
+
+   procedure Free (S : in out GPR.Sinput.Source_File_Record);
+   --  Free allocated memory
 
    ---------------------------
    -- Add_Line_Tables_Entry --
@@ -143,42 +158,49 @@ package body GPR.Sinput is
    procedure Clear_Source_File_Table is
    begin
       for X in 1 .. Source_File.Last loop
-         declare
-            S  : Source_File_Record renames Source_File.Table (X);
-            Lo : constant Source_Ptr := S.Source_First;
-            Hi : constant Source_Ptr := S.Source_Last;
-            subtype Actual_Source_Buffer is Source_Buffer (Lo .. Hi);
-            --  Physical buffer allocated
-
-            type Actual_Source_Ptr is access Actual_Source_Buffer;
-            --  This is the pointer type for the physical buffer allocated
-
-            procedure Free is new Ada.Unchecked_Deallocation
-              (Actual_Source_Buffer, Actual_Source_Ptr);
-
-            pragma Suppress (All_Checks);
-
-            pragma Warnings (Off);
-            --  The following unchecked conversion is aliased safe, since it
-            --  is not used to create improperly aliased pointer values.
-
-            function To_Actual_Source_Ptr is new
-              Ada.Unchecked_Conversion (Address, Actual_Source_Ptr);
-
-            pragma Warnings (On);
-
-            Actual_Ptr : Actual_Source_Ptr :=
-                           To_Actual_Source_Ptr (S.Source_Text (Lo)'Address);
-
-         begin
-            Free (Actual_Ptr);
-            Free (S.Lines_Table);
-         end;
+         Free (Source_File.Table (X));
       end loop;
+
+      Sources_Map.Clear;
 
       Source_File.Free;
       Sinput.Initialize;
    end Clear_Source_File_Table;
+
+   ----------
+   -- Free --
+   ----------
+
+   procedure Free (S : in out GPR.Sinput.Source_File_Record) is
+      Lo : constant Source_Ptr := S.Source_First;
+      Hi : constant Source_Ptr := S.Source_Last;
+      subtype Actual_Source_Buffer is Source_Buffer (Lo .. Hi);
+      --  Physical buffer allocated
+
+      type Actual_Source_Ptr is access Actual_Source_Buffer;
+      --  This is the pointer type for the physical buffer allocated
+
+      procedure Free is new Ada.Unchecked_Deallocation
+        (Actual_Source_Buffer, Actual_Source_Ptr);
+
+      pragma Suppress (All_Checks);
+
+      pragma Warnings (Off);
+      --  The following unchecked conversion is aliased safe, since it
+      --  is not used to create improperly aliased pointer values.
+
+      function To_Actual_Source_Ptr is new
+        Ada.Unchecked_Conversion (Address, Actual_Source_Ptr);
+
+      pragma Warnings (On);
+
+      Actual_Ptr : Actual_Source_Ptr :=
+                     To_Actual_Source_Ptr (S.Source_Text (Lo)'Address);
+
+   begin
+      Free (Actual_Ptr);
+      Free (S.Lines_Table);
+   end Free;
 
    --------------------
    -- Full_File_Name --
@@ -386,12 +408,37 @@ package body GPR.Sinput is
 
       Actual_Len : Integer;
 
-      Path_Id : File_Name_Type;
-      File_Id : File_Name_Type;
+      Position : Source_Id_Maps.Cursor;
+      Inserted : Boolean;
+      Path_Id  : File_Name_Type;
+      File_Id  : File_Name_Type;
 
    begin
       if Path = "" then
          return No_Source_File;
+      end if;
+
+      Set_Name_Buffer (Path);
+      Path_Id := Name_Find;
+
+      Sources_Map.Insert
+        (Path_Id, Source_File.Last + 1, Position, Inserted);
+
+      if not Inserted then
+         return Result : constant Source_File_Index :=
+           Source_Id_Maps.Element (Position)
+         do
+            pragma Assert
+              (Source_File.Table (Result).Full_Debug_Name = Path_Id,
+               Get_Name_String (Source_File.Table (Result).Full_Debug_Name)
+               & ' ' & Get_Name_String (Path_Id));
+            pragma Assert
+              (Source_File.Table (Result).Full_File_Name = Path_Id,
+               Source_File.Table (Result).Full_File_Name'Img & Path_Id'Img);
+            pragma Assert
+              (Source_File.Table (Result).Full_Ref_Name = Path_Id,
+               Source_File.Table (Result).Full_Ref_Name'Img & Path_Id'Img);
+         end return;
       end if;
 
       Source_File.Increment_Last;
@@ -404,9 +451,6 @@ package body GPR.Sinput is
                   Source_Align) * Source_Align;
       end if;
 
-      Name_Len := Path'Length;
-      Name_Buffer (1 .. Name_Len) := Path;
-      Path_Id := Name_Find;
       Name_Buffer (Name_Len + 1) := ASCII.NUL;
 
       --  Open the source FD, note that we open in binary mode, because as
@@ -418,6 +462,7 @@ package body GPR.Sinput is
 
       if Source_File_FD = Invalid_FD then
          Source_File.Decrement_Last;
+         Sources_Map.Delete (Position);
          return No_Source_File;
 
       end if;
@@ -490,8 +535,7 @@ package body GPR.Sinput is
 
       begin
          while Index > Path'First loop
-            exit when Path (Index - 1) = '/';
-            exit when Path (Index - 1) = Directory_Separator;
+            exit when Is_Directory_Separator (Path (Index - 1));
             Index := Index - 1;
          end loop;
 
@@ -504,23 +548,18 @@ package body GPR.Sinput is
          S : Source_File_Record renames Source_File.Table (X);
 
       begin
-         S := (File_Name           => File_Id,
-               Reference_Name      => File_Id,
-               Debug_Source_Name   => File_Id,
-               Full_Debug_Name     => Path_Id,
-               Full_File_Name      => Path_Id,
-               Full_Ref_Name       => Path_Id,
-               Source_Text         => Src,
-               Source_First        => Lo,
-               Source_Last         => Hi,
-               Source_Checksum     => 0,
-               Last_Source_Line    => 1,
-               Time_Stamp          => Empty_Time_Stamp,
-               Lines_Table         => null,
-               Lines_Table_Max     => 1);
+         S := (File_Name         => File_Id,
+               Reference_Name    => File_Id,
+               Debug_Source_Name => File_Id,
+               Full_Debug_Name   => Path_Id,
+               Full_File_Name    => Path_Id,
+               Full_Ref_Name     => Path_Id,
+               Source_Text       => Src,
+               Source_First      => Lo,
+               Source_Last       => Hi,
+               Last_Source_Line  => 1,
+               Lines_Table       => new Lines_Table_Type (1 .. Lines_Initial));
 
-         S.Lines_Table_Max := Lines_Initial;
-         S.Lines_Table := new Lines_Table_Type (1 .. Lines_Initial);
          S.Lines_Table (1) := Lo;
       end;
 
@@ -682,6 +721,20 @@ package body GPR.Sinput is
 
       return Token = Tok_Separate;
    end Source_File_Is_Subunit;
+
+   ----------------------
+   -- Source_File_Trim --
+   ----------------------
+
+   procedure Source_File_Trim (Last : Source_File_Index) is
+   begin
+      for Index in Last + 1 .. GPR.Sinput.Source_File.Last loop
+         Sources_Map.Delete
+           (GPR.Sinput.Source_File.Table (Index).Full_File_Name);
+         Free (GPR.Sinput.Source_File.Table (Index));
+      end loop;
+      GPR.Sinput.Source_File.Set_Last (Last);
+   end Source_File_Trim;
 
    ------------------
    -- Source_First --

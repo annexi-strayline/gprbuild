@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -482,8 +482,7 @@ package body GPR.PP is
                         Print (First_Comment_Before (Node, In_Tree), Indent);
                         Start_Line (Indent);
 
-                        if Non_Limited_Project_Node_Of (Node, In_Tree) =
-                             Empty_Project_Node
+                        if No (Non_Limited_Project_Node_Of (Node, In_Tree))
                         then
                            Write_String ("limited ", Indent);
                         end if;
@@ -535,12 +534,9 @@ package body GPR.PP is
                   Write_String ("package ", Indent);
                   Output_Name (Name_Of (Node, In_Tree), Indent);
 
-                  if Project_Of_Renamed_Package_Of (Node, In_Tree) /=
-                       Empty_Project_Node
+                  if Present (Project_Of_Renamed_Package_Of (Node, In_Tree))
                   then
-                     if First_Declarative_Item_Of (Node, In_Tree) =
-                          Empty_Project_Node
-                     then
+                     if No (First_Declarative_Item_Of (Node, In_Tree)) then
                         Write_String (" renames ", Indent);
                      else
                         Write_String (" extends ", Indent);
@@ -555,11 +551,8 @@ package body GPR.PP is
                      Output_Name (Name_Of (Node, In_Tree), Indent);
                   end if;
 
-                  if Project_Of_Renamed_Package_Of (Node, In_Tree) /=
-                       Empty_Project_Node
-                    and then
-                     First_Declarative_Item_Of (Node, In_Tree) =
-                       Empty_Project_Node
+                  if Present (Project_Of_Renamed_Package_Of (Node, In_Tree))
+                    and then No (First_Declarative_Item_Of (Node, In_Tree))
                   then
                      Write_String (";", Indent);
                      Write_End_Of_Line_Comment (Node);
@@ -571,8 +564,7 @@ package body GPR.PP is
                      Print (First_Comment_After (Node, In_Tree),
                             Indent + Increment);
 
-                     if First_Declarative_Item_Of (Node, In_Tree) /=
-                       Empty_Project_Node
+                     if Present (First_Declarative_Item_Of (Node, In_Tree))
                      then
                         Print
                           (First_Declarative_Item_Of (Node, In_Tree),
@@ -711,9 +703,9 @@ package body GPR.PP is
                      Output_Name (Name_Of (Node, In_Tree), Indent);
                      Write_String (" : ", Indent);
 
-                     if Project_Node_Of (Node, In_Tree) /= Empty_Project_Node
-                         and then
-                        Project_Node_Of (Node, In_Tree) /= Type_Project
+                     if Present (Project_Node_Of (Node, In_Tree))
+                       and then
+                         Project_Node_Of (Node, In_Tree) /= Type_Project
                      then
                         Output_Name (Name_Of (Type_Project, In_Tree), Indent);
                         Write_Char ('.');
@@ -800,7 +792,11 @@ package body GPR.PP is
 
                when N_External_Value =>
                   pragma Debug (Indicate_Tested (N_External_Value));
-                  Write_String ("external (", Indent);
+                  if Expression_Kind_Of (Node, In_Tree) = List then
+                     Write_String ("external_as_list (", Indent);
+                  else
+                     Write_String ("external (", Indent);
+                  end if;
                   Print (External_Reference_Of (Node, In_Tree), Indent);
 
                   if Present (External_Default_Of (Node, In_Tree)) then

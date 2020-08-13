@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2019, AdaCore                     --
+--                     Copyright (C) 2006-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -20,6 +20,7 @@
 --  the driver for gnatbind. It gets its input from gprbuild through the
 --  binding exchange file and gives back its results through the same file.
 
+with Ada.Characters.Handling; use Ada.Characters.Handling;
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Containers.Indefinite_Vectors;
 with Ada.Directories;
@@ -86,7 +87,7 @@ procedure Gprbind is
    Dash_gnatiw : constant String := "-gnatiw";
    Dash_gnatws : constant String := "-gnatws";
 
-   GCC_Version : Character := '0';
+   GCC_Version : Natural := 0;
    Gcc_Version_String : constant String := "gcc version ";
 
    Shared_Libgcc : constant String := "-shared-libgcc";
@@ -157,6 +158,10 @@ procedure Gprbind is
    procedure Add_To_Display_Line (S : String);
    --  Add an argument to the Display_Line
 
+   function Head_Natural_In (S : String) return Natural;
+   --  Locate the first uninterrupted sequence of digits
+   --  in S and return the corresponding Natural value.
+
    Binding_Options_Table : String_Vectors.Vector;
 
    Binding_Option_Dash_V_Specified : Boolean := False;
@@ -216,6 +221,32 @@ procedure Gprbind is
       Display_Line (Display_Last + 1 .. Display_Last + S'Length) := S;
       Display_Last := Display_Last + S'Length;
    end Add_To_Display_Line;
+
+   ---------------------
+   -- Head_Natural_In --
+   ---------------------
+
+   function Head_Natural_In (S : String) return Natural is
+      First, Last : Integer;
+   begin
+      --  Search the first index which holds a digit
+
+      First := S'First;
+      while First <= S'Last and then not Is_Digit (S (First)) loop
+         First := First + 1;
+      end loop;
+
+      pragma Assert (First <= S'Last);
+
+      --  See how far we can go with only digits from there
+
+      Last := First;
+      while Last < S'Last and then Is_Digit (S (Last + 1)) loop
+         Last := Last + 1;
+      end loop;
+
+      return Natural'Value (S (First .. Last));
+   end Head_Natural_In;
 
 begin
    Set_Program_Name ("gprbind");
@@ -434,7 +465,7 @@ begin
                   elsif Line (1 .. Last) = "ada" then
                      Get_Line (IO_File, Line, Last);
 
-                     if Last > 5 and then Line (1 .. 5) = "GNAT " then
+                     if Last > 5 and then Line (1 .. 5) = GNAT_And_Space then
                         GNAT_Version := new String'(Line (6 .. Last));
                         GNAT_Version_Set := True;
                      end if;
@@ -601,8 +632,7 @@ begin
       then
          Dash_O_Specified := True;
          Dash_O_File_Specified := True;
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (Option (4 .. Option'Last));
+         Set_Name_Buffer (Option (4 .. Option'Last));
          Objects_Path := Name_Find;
       end if;
    end loop;
@@ -900,13 +930,12 @@ begin
 
    if Main_ALI /= null or else not ALI_Files_Table.Is_Empty then
       Initialize_ALI;
-      Name_Len := 0;
 
       if Main_ALI /= null then
-         Add_Str_To_Name_Buffer (Main_ALI.all);
+         Set_Name_Buffer (Main_ALI.all);
 
       else
-         Add_Str_To_Name_Buffer (ALI_Files_Table.First_Element);
+         Set_Name_Buffer (ALI_Files_Table.First_Element);
       end if;
 
       declare
@@ -969,9 +998,7 @@ begin
       Compiler_Options.Append (Compiler_Trailing_Options);
 
       if Verbose_Low_Mode then
-         Name_Len := 0;
-
-         Add_Str_To_Name_Buffer (Ada_Compiler_Path.all);
+         Set_Name_Buffer (Ada_Compiler_Path.all);
 
          --  Remove the executable suffix, if present
 
@@ -1023,7 +1050,9 @@ begin
             if Last > Gcc_Version_String'Length and then
               Line (1 .. Gcc_Version_String'Length) = Gcc_Version_String
             then
-               GCC_Version := Line (Gcc_Version_String'Length + 1);
+               GCC_Version :=
+                 Head_Natural_In
+                   (Line (Gcc_Version_String'Length + 1 .. Last));
                exit;
             end if;
          end loop;
@@ -1195,8 +1224,7 @@ begin
                         Prev_Dir_First : Positive;
                         Nmb            : Natural;
                      begin
-                        Name_Len := 0;
-                        Add_Str_To_Name_Buffer (Line (3 .. Last));
+                        Set_Name_Buffer (Line (3 .. Last));
 
                         while Name_Buffer (Name_Len) = Directory_Separator
                           or else Name_Buffer (Name_Len) = '/'
@@ -1283,7 +1311,7 @@ begin
                   Put_Line (IO_File, Line (1 .. Last));
 
                   if Shared_Libgcc_Default = 'T'
-                    and then GCC_Version >= '3'
+                    and then GCC_Version >= 3
                     and then not Libgcc_Specified
                   then
                      Put_Line (IO_File, Static_Libgcc);
@@ -1293,7 +1321,7 @@ begin
                   Static_Libs := False;
                   Put_Line (IO_File, Line (1 .. Last));
 
-                  if GCC_Version >= '3'
+                  if GCC_Version >= 3
                     and then not Libgcc_Specified
                   then
                      Put_Line (IO_File, Shared_Libgcc);

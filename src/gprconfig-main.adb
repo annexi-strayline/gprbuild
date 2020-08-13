@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2019, AdaCore                     --
+--                     Copyright (C) 2006-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -35,11 +35,9 @@ with GPR.Version;
 
 procedure GprConfig.Main is
 
-   Default_Output_File : constant String := "default.cgpr";
-   --  Name of the configuration file used by gprbuild by default
-   --  ??? Should be shared with gprbuild
-
-   Output_File : Unbounded_String := To_Unbounded_String (Default_Output_File);
+   Output_File : Unbounded_String :=
+                   To_Unbounded_String (GPR.Util.Default_Config_Name);
+   --  Init with name of the configuration file used by gprbuild by default
 
    Selected_Targets_Set : Targets_Set_Id;
    --  Targets set id for the selected target
@@ -324,7 +322,7 @@ procedure GprConfig.Main is
       Put_Line (" -v       : verbose mode.");
       Put_Line (" -q       : quiet output.");
       Put_Line (" -o file  : Name and directory of the output file.");
-      Put_Line ("            default is " & To_String (Output_File));
+      Put_Line ("            default is " & GPR.Util.Default_Config_Name);
       Put_Line (" --db dir : Parse dir as an additional knowledge base.");
       Put_Line (" --db-    : Do not load the standard knowledge base from:");
       Put_Line ("   " & Default_Knowledge_Base_Directory);
@@ -490,6 +488,11 @@ begin
          Compilers,
          Target_Specified,
          Selected_Target);
+
+      --  Selected target may have changed due to fallback, need to update
+      --  corresponding target set.
+      Get_Targets_Set
+        (Base, To_String (Selected_Target), Selected_Targets_Set);
    else
       declare
          Iter : All_Iterator (Length (Filters));

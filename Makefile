@@ -139,16 +139,16 @@ complete: all install libgpr.install.static
 libgpr.build: $(foreach t, $(LIBGPR_TYPES), libgpr.build.$(t))
 
 libgpr.build.shared:
-	${BUILDER} -XLIBRARY_TYPE=relocatable \
-		-XXMLADA_BUILD=relocatable $(GPR_GPR)
+	${LIBGPR_BUILDER} -XLIBRARY_TYPE=relocatable \
+		-XXMLADA_BUILD=relocatable
 
 libgpr.build.static:
-	${BUILDER} -XLIBRARY_TYPE=static \
-		-XXMLADA_BUILD=static $(GPR_GPR)
+	${LIBGPR_BUILDER} -XLIBRARY_TYPE=static \
+		-XXMLADA_BUILD=static
 
 libgpr.build.static-pic:
-	${BUILDER} -XLIBRARY_TYPE=static-pic \
-		-XXMLADA_BUILD=static-pic $(GPR_GPR)
+	${LIBGPR_BUILDER} -XLIBRARY_TYPE=static-pic \
+		-XXMLADA_BUILD=static-pic
 
 libgpr.install: libgpr.uninstall $(foreach t, $(LIBGPR_TYPES), libgpr.install.$(t))
 

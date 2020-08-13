@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                    Copyright (C) 2015-2018, AdaCore                      --
+--                    Copyright (C) 2015-2020, AdaCore                      --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -18,11 +18,8 @@
 
 with Ada.Text_IO; use Ada.Text_IO;
 
-with GPR.Err;
 with GPR.Names;  use GPR.Names;
 with GPR.Output; use GPR.Output;
-with GPR.Scans;
-with GPR.Sinput;
 with GPR.Util;
 
 package body Gprls is
@@ -190,44 +187,18 @@ package body Gprls is
       U      : Unit_Id;
       Status : out File_Status)
    is
-      use GPR.Scans;
-      Stamp : constant Time_Stamp_Type := File_Stamp (Source.Path.Name);
       SD : constant Sdep_Id := Corresponding_Sdep_Entry (ALI, U);
-      Source_Index : Source_File_Index;
-      Checksums_Match : Boolean;
    begin
-      if Stamp = Sdep.Table (SD).Stamp then
+      if File_Stamp (Source.Path.Name) = Sdep.Table (SD).Stamp then
          Status := OK;
 
+      elsif Util.Calculate_Checksum (Source)
+        and then Source.Checksum = Sdep.Table (SD).Checksum
+      then
+         Status := Checksum_OK;
+
       else
-         Checksums_Match := False;
-         Source_Index :=
-           Sinput.Load_File (Get_Name_String (Source.Path.Name));
-
-         if Source_Index /= No_Source_File then
-
-            Err.Scanner.Initialize_Scanner
-              (Source_Index, Err.Scanner.Ada);
-
-            --  Scan the complete file to compute its
-            --  checksum.
-
-            loop
-               Err.Scanner.Scan;
-               exit when Token = Tok_EOF;
-            end loop;
-
-            if Scans.Checksum = Sdep.Table (SD).Checksum then
-               Checksums_Match := True;
-            end if;
-         end if;
-
-         if Checksums_Match then
-            Status := Checksum_OK;
-
-         else
-            Status := Not_Same;
-         end if;
+         Status := Not_Same;
       end if;
    end Find_Status;
 
@@ -235,12 +206,7 @@ package body Gprls is
      (Source   : GPR.Source_Id;
       Stamp    : Time_Stamp_Type;
       Checksum : Word;
-      Status   : out File_Status)
-   is
-      Source_Index : Source_File_Index;
-      Checksums_Match : Boolean;
-      use GPR.Scans;
-
+      Status   : out File_Status) is
    begin
       if Source = No_Source then
          Status := Not_Found;
@@ -248,35 +214,13 @@ package body Gprls is
       elsif File_Stamp (Source.Path.Name) = Stamp then
          Status := OK;
 
+      elsif Util.Calculate_Checksum (Source)
+        and then Source.Checksum = Checksum
+      then
+         Status := Checksum_OK;
+
       else
-         Checksums_Match := False;
-         Source_Index :=
-           Sinput.Load_File (Get_Name_String (Source.Path.Name));
-
-         if Source_Index /= No_Source_File then
-
-            Err.Scanner.Initialize_Scanner
-              (Source_Index, Err.Scanner.Ada);
-
-            --  Scan the complete file to compute its
-            --  checksum.
-
-            loop
-               Err.Scanner.Scan;
-               exit when Token = Tok_EOF;
-            end loop;
-
-            if Scans.Checksum = Checksum then
-               Checksums_Match := True;
-            end if;
-         end if;
-
-         if Checksums_Match then
-            Status := Checksum_OK;
-
-         else
-            Status := Not_Same;
-         end if;
+         Status := Not_Same;
       end if;
    end Find_Status;
 
@@ -1015,8 +959,7 @@ package body Gprls is
 
                begin
                   while Path /= null loop
-                     Name_Len := 0;
-                     Add_Str_To_Name_Buffer (Path.Path.all);
+                     Set_Name_Buffer (Path.Path.all);
                      Add_Char_To_Name_Buffer (Directory_Separator);
                      Add_Str_To_Name_Buffer (Fname);
 

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -2200,7 +2200,7 @@ package body GPR.Env is
    begin
       Free (Self.Path);
       Self.Path := new String'(Path);
-      Projects_Paths.Reset (Self.Cache);
+      Self.Cache.Clear;
    end Set_Path;
 
    -----------------------
@@ -2251,11 +2251,10 @@ package body GPR.Env is
 
             if not Is_Absolute_Path (Self.Path (First .. Last)) then
                Add_Str_To_Name_Buffer (Get_Current_Dir);  -- ??? System call
-               Add_Char_To_Name_Buffer (Directory_Separator);
             end if;
 
-            Add_Str_To_Name_Buffer (Self.Path (First .. Last));
-            Add_Char_To_Name_Buffer (Directory_Separator);
+            Add_Str_To_Name_Buffer
+              (Ensure_Directory (Self.Path (First .. Last)));
             Add_Str_To_Name_Buffer (Path);
 
             if Current_Verbosity = High then
@@ -2282,20 +2281,40 @@ package body GPR.Env is
       Project_File_Name  : String;
       Directory          : String;
       Path               : out Path_Name_Type)
+
    is
-      Result  : String_Access;
-      Has_Dot : Boolean := False;
-      Key     : Name_Id;
+      File : constant String :=
+               Ensure_Extension (Project_File_Name, Project_File_Extension);
+      --  Check if File contains an extension (a dot before a directory
+      --  separator). If it is the case we do not try project file with an
+      --  added extension as it is not possible to have multiple dots on a
+      --  project file name.
 
-      File : constant String := Project_File_Name;
-      --  Have to do a copy, in case the parameter is Name_Buffer, which we
-      --  modify below.
+      Result : String_Access;
+      --  Keep temporary search results here before final conversion into Path
 
-      Cached_Path : Path_Name_Type;
-      --  This should be commented rather than making us guess from the name???
+      function Is_Regular_File_Cached (Name : String) return Boolean;
+      --  Calls GNAT.OS_Lib.Is_Regular_File is Name not found in Self.Cache
+      --  and put result into the cache.
+
+      ----------------------------
+      -- Is_Regular_File_Cached --
+      ----------------------------
+
+      function Is_Regular_File_Cached (Name : String) return Boolean is
+         Position : constant Projects_Paths.Cursor := Self.Cache.Find (Name);
+      begin
+         if Projects_Paths.Has_Element (Position) then
+            return Projects_Paths.Element (Position);
+         end if;
+
+         return Result : constant Boolean := Is_Regular_File (Name) do
+            Self.Cache.Insert (Name, Result);
+         end return;
+      end Is_Regular_File_Cached;
 
       function Try_Path_Name is new
-        Find_Name_In_Path (Check_Filename => Is_Regular_File);
+        Find_Name_In_Path (Check_Filename => Is_Regular_File_Cached);
       --  Find a file in the project search path
 
    --  Start of processing for Find_Project
@@ -2305,86 +2324,12 @@ package body GPR.Env is
 
       if Current_Verbosity = High then
          Debug_Increase_Indent
-           ("Searching for project """ & File & """ in """
-            & Directory & '"');
+           ("Searching for project """ & File & """ in """ & Directory & '"');
       end if;
 
-      --  Check the project cache
-
-      Name_Len := File'Length;
-      Name_Buffer (1 .. Name_Len) := File;
-      Key := Name_Find;
-      Cached_Path := Projects_Paths.Get (Self.Cache, Key);
-
-      --  Check if File contains an extension (a dot before a
-      --  directory separator). If it is the case we do not try project file
-      --  with an added extension as it is not possible to have multiple dots
-      --  on a project file name.
-
-      Check_Dot : for K in reverse File'Range loop
-         if File (K) = '.' then
-            Has_Dot := True;
-            exit Check_Dot;
-         end if;
-
-         exit Check_Dot when Is_Directory_Separator (File (K));
-      end loop Check_Dot;
-
-      --  If we have found project in the cache, check if in the directory
-
-      if Cached_Path /= No_Path then
-         declare
-            Cached : constant String := Get_Name_String (Cached_Path);
-         begin
-            if (not Has_Dot
-                and then Cached =
-                  GNAT.OS_Lib.Normalize_Pathname
-                    (File & Project_File_Extension,
-                     Directory      => Directory,
-                     Resolve_Links  => Opt.Follow_Links_For_Files,
-                     Case_Sensitive => True))
-              or else
-                Cached =
-                  GNAT.OS_Lib.Normalize_Pathname
-                    (File,
-                     Directory      => Directory,
-                     Resolve_Links  => Opt.Follow_Links_For_Files,
-                     Case_Sensitive => True)
-            then
-               Path := Cached_Path;
-               Debug_Decrease_Indent;
-               return;
-            end if;
-         end;
+      if not Is_Absolute_Path (File) and then Directory /= "" then
+         Result := Try_Path_Name (Self, Ensure_Directory (Directory) & File);
       end if;
-
-      if not Is_Absolute_Path (File) then
-
-         --  First we try <directory>/<file_name>.<extension>
-
-         if not Has_Dot then
-            Result :=
-              Try_Path_Name
-                (Self,
-                 Directory & Directory_Separator
-                 & File & Project_File_Extension);
-         end if;
-
-         --  Then we try <directory>/<file_name>
-
-         if Result = null then
-            Result :=
-              Try_Path_Name (Self, Directory & Directory_Separator & File);
-         end if;
-      end if;
-
-      --  Then we try <file_name>.<extension>
-
-      if Result = null and then not Has_Dot then
-         Result := Try_Path_Name (Self, File & Project_File_Extension);
-      end if;
-
-      --  Then we try <file_name>
 
       if Result = null then
          Result := Try_Path_Name (Self, File);
@@ -2397,20 +2342,14 @@ package body GPR.Env is
          return;
 
       else
-         declare
-            Final_Result : constant String :=
-                             GNAT.OS_Lib.Normalize_Pathname
-                               (Result.all,
-                                Directory      => Directory,
-                                Resolve_Links  => Opt.Follow_Links_For_Files,
-                                Case_Sensitive => True);
-         begin
-            Free (Result);
-            Name_Len := Final_Result'Length;
-            Name_Buffer (1 .. Name_Len) := Final_Result;
-            Path := Name_Find;
-            Projects_Paths.Set (Self.Cache, Key, Path);
-         end;
+         Set_Name_Buffer
+           (GNAT.OS_Lib.Normalize_Pathname
+              (Result.all,
+               Directory      => Directory,
+               Resolve_Links  => Opt.Follow_Links_For_Files,
+               Case_Sensitive => True));
+         Free (Result);
+         Path := Name_Find;
       end if;
 
       Debug_Decrease_Indent;
@@ -2423,7 +2362,7 @@ package body GPR.Env is
    procedure Free (Self : in out Project_Search_Path) is
    begin
       Free (Self.Path);
-      Projects_Paths.Reset (Self.Cache);
+      Self.Cache.Clear;
    end Free;
 
    ----------
@@ -2447,7 +2386,7 @@ package body GPR.Env is
 
    procedure Reset_Cache (Self : in out Project_Search_Path) is
    begin
-      Projects_Paths.Reset (Self.Cache);
+      Self.Cache.Clear;
    end Reset_Cache;
 
 end GPR.Env;

@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2019, AdaCore                     --
+--                     Copyright (C) 2011-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -1786,11 +1786,9 @@ package body Gprbuild.Compile is
                            Src_TS     : Time_Stamp_Type;
 
                         begin
-                           Name_Len := 0;
-                           Add_Str_To_Name_Buffer (Src_Name);
+                           Set_Name_Buffer (Src_Name);
                            Src_Name_Id := Name_Find;
-                           Name_Len := 0;
-                           Add_Str_To_Name_Buffer (Unescaped);
+                           Set_Name_Buffer (Unescaped);
                            Unescaped_Id := Name_Find;
 
                            Source_2 := Source_Paths_Htable.Get
@@ -1820,8 +1818,7 @@ package body Gprbuild.Compile is
                                        --  imported project. Record its
                                        --  project, for later processing.
 
-                                       Imports.Set
-                                         (Source_2.Project, True);
+                                       Imports.Set (Source_2.Project, True);
 
                                     else
                                        --  It is a source of a project that
@@ -1832,7 +1829,9 @@ package body Gprbuild.Compile is
                                     end if;
                                  end if;
 
-                                 if not Source_2.In_Interfaces then
+                                 if not Source_2.In_Interfaces
+                                   and then not Source_2.Locally_Removed
+                                 then
                                     --  It is not a source in the interfaces
                                     --  of its project. Report an error and
                                     --  invalidate the compilation.
@@ -3244,8 +3243,7 @@ package body Gprbuild.Compile is
                      "include switches");
 
                   for Index in 1 .. Directories.Last loop
-                     Name_Len := 0;
-                     Add_Str_To_Name_Buffer (Switch.all);
+                     Set_Name_Buffer (Switch.all);
                      Add_Str_To_Name_Buffer
                        (Escape_Path
                           (Get_Name_String (Directories.Table (Index))));
@@ -3293,8 +3291,7 @@ package body Gprbuild.Compile is
                         "disk full when writing include switches spec file");
                   end if;
 
-                  Name_Len := 0;
-                  Add_Str_To_Name_Buffer ("+ @");
+                  Set_Name_Buffer ("+ @");
                   Add_Str_To_Name_Buffer
                     (Escape_Path (Get_Name_String (Switches_File_Name)));
                   Name_Len := Name_Len + 1;
@@ -3509,7 +3506,7 @@ package body Gprbuild.Compile is
                Add_Multi_Unit_Switches (Id);
                Add_Object_Path_Switches (Id);
                Compiler :=
-                 Get_Compiler_Driver_Path (Project_Tree, Id.Language);
+                 Get_Compiler_Driver_Path (Source_Project, Id.Language);
 
                if Compiler /= null then
                   Spawn_Compiler_And_Register
@@ -3523,11 +3520,11 @@ package body Gprbuild.Compile is
             else
                Print_Compilation_Outputs (Source.Id);
 
-               if Source.Closure or else
-                 (Builder_Data (Source.Tree).Closure_Needed
-                  and then
-                   (Id.Language.Config.Dependency_Kind = ALI_File
-                    or else Id.Language.Config.Dependency_Kind = ALI_Closure))
+               if Source.Closure
+                 or else
+                   (Builder_Data (Source.Tree).Closure_Needed
+                    and then
+                    Id.Language.Config.Dependency_Kind in ALI_Dependency)
                then
                   Record_ALI_For (Source, The_ALI);
 
@@ -3618,7 +3615,7 @@ package body Gprbuild.Compile is
                   when None     => null;
                   when Makefile =>
                      Compilation_OK := Phase_2_Makefile (Source_Identity);
-                  when ALI_File | ALI_Closure =>
+                  when ALI_Dependency =>
                      Compilation_OK := Phase_2_ALI (Source_Identity);
                end case;
 

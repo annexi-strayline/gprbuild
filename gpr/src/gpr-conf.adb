@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---            Copyright (C) 2006-2019, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2020, Free Software Foundation, Inc.       --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,11 +22,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Directories;   use Ada.Directories;
-with Ada.Exceptions;    use Ada.Exceptions;
+with Ada.Directories; use Ada.Directories;
 
-with GNAT.Case_Util; use GNAT.Case_Util;
-with GNAT.HTable;    use GNAT.HTable;
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+with GNAT.Case_Util;            use GNAT.Case_Util;
 with GNAT.Table;
 
 with GPR.Env;
@@ -82,23 +81,15 @@ package body GPR.Conf is
    First_Compiler_Root : Compiler_Root_Ptr := null;
    --  Head of the list of compiler roots
 
-   package RTS_Languages is new GNAT.HTable.Simple_HTable
-     (Header_Num => GPR.Header_Num,
-      Element    => Name_Id,
-      No_Element => No_Name,
-      Key        => Name_Id,
-      Hash       => GPR.Hash,
-      Equal      => "=");
+   function Get_Element_Or_Empty
+     (Self : Language_Maps.Map; Lang : Name_Id) return String;
+   --  Returns String from element or empty string if does not exists
+
+   RTS_Languages : Language_Maps.Map;
    --  Stores the runtime names for the various languages. This is in general
    --  set from a --RTS command line option.
 
-   package Toolchain_Languages is new GNAT.HTable.Simple_HTable
-     (Header_Num => GPR.Header_Num,
-      Element    => Name_Id,
-      No_Element => No_Name,
-      Key        => Name_Id,
-      Hash       => GPR.Hash,
-      Equal      => "=");
+   Toolchain_Languages : Language_Maps.Map;
    --  Stores the toolchain names for the various languages
 
    package Db_Switch_Args is new GNAT.Table
@@ -114,9 +105,9 @@ package body GPR.Conf is
    -----------------------
 
    function Check_Target
-     (Config_File        : GPR.Project_Id;
+     (Config_File        : Project_Id;
       Autoconf_Specified : Boolean;
-      Project_Tree       : GPR.Project_Tree_Ref;
+      Project_Tree       : Project_Tree_Ref;
       Target             : String := "") return Boolean;
    --  Check that the config file's target matches Target.
    --  Target should be set to the empty string when the user did not specify
@@ -129,13 +120,9 @@ package body GPR.Conf is
    --  Search for Name in the config files directory. Return full path if
    --  found, or null otherwise.
 
-   procedure Raise_Invalid_Config (Msg : String);
-   pragma No_Return (Raise_Invalid_Config);
-   --  Raises exception Invalid_Config with given message
-
    procedure Apply_Config_File
-     (Config_File  : GPR.Project_Id;
-      Project_Tree : GPR.Project_Tree_Ref);
+     (Config_File  : Project_Id;
+      Project_Tree : Project_Tree_Ref);
    --  Apply the configuration file settings to all the projects in the
    --  project tree. The Project_Tree must have been parsed first, and
    --  processed through the first phase so that all its projects are known.
@@ -173,8 +160,8 @@ package body GPR.Conf is
    -----------------------
 
    procedure Apply_Config_File
-     (Config_File  : GPR.Project_Id;
-      Project_Tree : GPR.Project_Tree_Ref)
+     (Config_File  : Project_Id;
+      Project_Tree : Project_Tree_Ref)
    is
       procedure Add_Attributes
         (Project_Tree : Project_Tree_Ref;
@@ -229,6 +216,30 @@ package body GPR.Conf is
                   --  the value of the configuration attribute.
 
                   User_Attr.Value := Conf_Attr.Value;
+                  Shared.Variable_Elements.Table (User_Attr_Id) := User_Attr;
+
+               elsif User_Attr.Value.Kind = Single
+                 and then User_Attr.Name = Name_Target
+                 and then User_Attr.Value.From_Implicit_Target
+               then
+
+                  --  The Target attribute is declared in user project but
+                  --  its value derives from implicit evaluation of 'Target
+                  --  attribute, e.g.:
+                  --
+                  --  abstract project Config is
+                  --  end Config;
+                  --
+                  --  with "config.gpr";
+                  --  project P is
+                  --     for Target use Config'Target;
+                  --  end P;
+                  --
+                  --  In such case the effective target might change due to
+                  --  target fallback, so it needs to be overwritten by the
+                  --  value from configuration project.
+
+                  User_Attr.Value.Value := Conf_Attr.Value.Value;
                   Shared.Variable_Elements.Table (User_Attr_Id) := User_Attr;
 
                elsif User_Attr.Value.Kind = List
@@ -500,7 +511,7 @@ package body GPR.Conf is
    function Check_Target
      (Config_File        : Project_Id;
       Autoconf_Specified : Boolean;
-      Project_Tree       : GPR.Project_Tree_Ref;
+      Project_Tree       : Project_Tree_Ref;
       Target             : String := "") return Boolean
    is
       Shared   : constant Shared_Project_Tree_Data_Access :=
@@ -533,20 +544,32 @@ package body GPR.Conf is
             return False;
 
          else
-            if Tgt_Name /= No_Name then
-               Raise_Invalid_Config
-                 ("mismatched targets: """
-                  & Get_Name_String (Tgt_Name) & """ in configuration, """
-                  & Target & """ specified");
-            else
-               Raise_Invalid_Config
-                 ("no target specified in configuration file");
-            end if;
+            raise Invalid_Config with
+              (if Tgt_Name = No_Name
+               then "no target specified in configuration file"
+               else "mismatched targets: """ & Get_Name_String (Tgt_Name)
+                    & """ in configuration, """ & Target & """ specified");
          end if;
       end if;
 
       return True;
    end Check_Target;
+
+   --------------------------
+   -- Get_Element_Or_Empty --
+   --------------------------
+
+   function Get_Element_Or_Empty
+     (Self : Language_Maps.Map; Lang : Name_Id) return String
+   is
+      C : constant Language_Maps.Cursor := Self.Find (Lang);
+   begin
+      if Language_Maps.Has_Element (C) then
+         return Get_Name_String (Language_Maps.Element (C));
+      else
+         return "";
+      end if;
+   end Get_Element_Or_Empty;
 
    --------------------------------------
    -- Get_Or_Create_Configuration_File --
@@ -556,15 +579,15 @@ package body GPR.Conf is
      (Project                    : Project_Id;
       Conf_Project               : Project_Id;
       Project_Tree               : Project_Tree_Ref;
-      Project_Node_Tree          : GPR.Tree.Project_Node_Tree_Ref;
-      Env                        : in out GPR.Tree.Environment;
+      Project_Node_Tree          : Tree.Project_Node_Tree_Ref;
+      Env                        : in out Tree.Environment;
       Allow_Automatic_Generation : Boolean;
       Config_File_Name           : String                := "";
       Autoconf_Specified         : Boolean;
       Target_Name                : String                := "";
       Normalized_Hostname        : String;
       Packages_To_Check          : String_List_Access    := null;
-      Config                     : out GPR.Project_Id;
+      Config                     : out Project_Id;
       Config_File_Path           : out String_Access;
       Automatically_Generated    : out Boolean;
       On_Load_Config             : Config_File_Hook      := null;
@@ -597,13 +620,10 @@ package body GPR.Conf is
       --  If Target_Name is empty, get the specified target in the project
       --  file, if any.
 
-      procedure Get_Project_Runtimes;
-      --  Get the various Runtime (<lang>) in the project file or any project
-      --  it extends, if any are specified.
-
-      procedure Get_Project_Toolchains;
-      --  Get the various Toolchain_Name (<lang>) in the project file or any
-      --  project it extends, if any are specified.
+      procedure Get_Project_Attribute
+        (Lang_Map : in out Language_Maps.Map; Attr_Name : Name_Id);
+      --  Put the various Attr_Name (<lang>) into then Lang_Map from the
+      --  project file or any project it extends, if any are specified.
 
       function Get_Config_Switches return Argument_List_Access;
       --  Return the --config switches to use for gprconfig
@@ -619,8 +639,7 @@ package body GPR.Conf is
       ----------------------------
 
       procedure Check_Builder_Switches is
-         Get_RTS_Switches : constant Boolean :=
-                              RTS_Languages.Get_First = No_Name;
+         Get_RTS_Switches : constant Boolean := RTS_Languages.Is_Empty;
          --  If no switch --RTS have been specified on the command line, look
          --  for --RTS switches in the Builder switches.
 
@@ -774,66 +793,36 @@ package body GPR.Conf is
          end if;
       end Get_Project_Target;
 
-      --------------------------
-      -- Get_Project_Runtimes --
-      --------------------------
+      ---------------------------
+      -- Get_Project_Attribute --
+      ---------------------------
 
-      procedure Get_Project_Runtimes is
+      procedure Get_Project_Attribute
+        (Lang_Map : in out Language_Maps.Map; Attr_Name : Name_Id)
+      is
          Element : Array_Element;
          Id      : Array_Element_Id;
          Lang    : Name_Id;
          Proj    : Project_Id;
+         CL      : Language_Maps.Cursor;
+         OK      : Boolean;
 
       begin
          Proj := Project;
          while Proj /= No_Project loop
-            Id := Value_Of (Name_Runtime, Proj.Decl.Arrays, Shared);
+            Id := Value_Of (Attr_Name, Proj.Decl.Arrays, Shared);
             while Id /= No_Array_Element loop
                Element := Shared.Array_Elements.Table (Id);
                Lang := Element.Index;
 
-               if not Runtime_Name_Set_For (Lang) then
-                  Set_Runtime_For
-                    (Lang, RTS_Name => Get_Name_String (Element.Value.Value));
-               end if;
+               Lang_Map.Insert (Lang, Element.Value.Value, CL, OK);
 
                Id := Element.Next;
             end loop;
 
             Proj := Proj.Extends;
          end loop;
-      end Get_Project_Runtimes;
-
-      ----------------------------
-      -- Get_Project_Toolchains --
-      ----------------------------
-
-      procedure Get_Project_Toolchains is
-         Element : Array_Element;
-         Id      : Array_Element_Id;
-         Lang    : Name_Id;
-         Proj    : Project_Id;
-
-      begin
-         Proj := Project;
-         while Proj /= No_Project loop
-            Id := Value_Of (Name_Toolchain_Name, Proj.Decl.Arrays, Shared);
-            while Id /= No_Array_Element loop
-               Element := Shared.Array_Elements.Table (Id);
-               Lang := Element.Index;
-
-               if not Toolchain_Name_Set_For (Lang) then
-                  Set_Toolchain_For
-                    (Lang,
-                     Toolchain_Name => Get_Name_String (Element.Value.Value));
-               end if;
-
-               Id := Element.Next;
-            end loop;
-
-            Proj := Proj.Extends;
-         end loop;
-      end Get_Project_Toolchains;
+      end Get_Project_Attribute;
 
       -----------------------
       -- Default_File_Name --
@@ -910,8 +899,8 @@ package body GPR.Conf is
          --  If still not found, abort
 
          if Gprconfig_Path = null then
-            Raise_Invalid_Config
-              ("could not locate gprconfig for auto-configuration");
+            raise Invalid_Config with
+              "could not locate gprconfig for auto-configuration";
          end if;
 
          --  First, find the object directory of the Conf_Project
@@ -921,7 +910,7 @@ package body GPR.Conf is
 
          Name_Len := 0;
 
-         if Obj_Dir = Nil_Variable_Value or else Obj_Dir.Default then
+         if Obj_Dir.Value = No_Name or else Obj_Dir.Default then
 
             if Build_Tree_Dir /= null then
                Add_Str_To_Name_Buffer (Build_Tree_Dir.all);
@@ -929,8 +918,8 @@ package body GPR.Conf is
                if Get_Name_String (Conf_Project.Directory.Display_Name)'Length
                                                          < Root_Dir'Length
                then
-                  Raise_Invalid_Config
-                    ("cannot relocate deeper than object directory");
+                  raise Invalid_Config with
+                    "cannot relocate deeper than object directory";
                end if;
 
                Add_Str_To_Name_Buffer
@@ -951,8 +940,8 @@ package body GPR.Conf is
                     (Conf_Project.Directory.Display_Name)'Length <
                                                           Root_Dir'Length
                   then
-                     Raise_Invalid_Config
-                       ("cannot relocate deeper than object directory");
+                     raise Invalid_Config with
+                       "cannot relocate deeper than object directory";
                   end if;
 
                   Add_Str_To_Name_Buffer (Build_Tree_Dir.all);
@@ -1014,7 +1003,7 @@ package body GPR.Conf is
 
             if Conf_File_Name'Length = 0 then
                declare
-                  Current_Dir : constant String := Current_Directory;
+                  Current_Dir : constant String := Get_Current_Dir;
                   Path_FD     : File_Descriptor;
                   Path_Name   : Path_Name_Type;
 
@@ -1022,7 +1011,7 @@ package body GPR.Conf is
                   if Is_Directory (GPR.Tempdir.Temporary_Directory_Path) then
                      Set_Directory (GPR.Tempdir.Temporary_Directory_Path);
                   else
-                     Raise_Invalid_Config ("No temp dir specified");
+                     raise Invalid_Config with "No temp dir specified";
                   end if;
 
                   GPR.Env.Create_Temp_File
@@ -1140,8 +1129,7 @@ package body GPR.Conf is
             Config_File_Path := Locate_Config_File (Args (3).all);
 
             if Config_File_Path = null then
-               Raise_Invalid_Config
-                 ("could not create " & Args (3).all);
+               raise Invalid_Config with "could not create " & Args (3).all;
             end if;
 
             for F in Args'Range loop
@@ -1184,14 +1172,7 @@ package body GPR.Conf is
 
       function Get_Config_Switches return Argument_List_Access is
 
-         package Language_Htable is new GNAT.HTable.Simple_HTable
-           (Header_Num => GPR.Header_Num,
-            Element    => Name_Id,
-            No_Element => No_Name,
-            Key        => Name_Id,
-            Hash       => GPR.Hash,
-            Equal      => "=");
-         --  Hash table to keep the languages used in the project tree
+         Language_Htable : Language_Maps.Map;
 
          IDE : constant Package_Id :=
                  Value_Of (Name_Ide, Project.Decl.Packages, Shared);
@@ -1222,7 +1203,49 @@ package body GPR.Conf is
             List          : String_List_Id;
             Elem          : String_Element;
 
+            Current_Array_Id : Array_Id;
+            Current_Array    : Array_Data;
+            Element_Id       : Array_Element_Id;
+            Element          : Array_Element;
+            CL               : Language_Maps.Cursor;
+            OK               : Boolean;
+
          begin
+            --  Required_Toolchain_Version processing
+
+            Current_Array_Id := Project.Decl.Arrays;
+            while Current_Array_Id /= No_Array loop
+               Current_Array := Shared.Arrays.Table (Current_Array_Id);
+
+               Element_Id := Current_Array.Value;
+
+               while Element_Id /= No_Array_Element loop
+                  Element := Shared.Array_Elements.Table (Element_Id);
+
+                  if Current_Array.Name = Name_Required_Toolchain_Version then
+                     --  Attribute Required_Toolchain_Version (<language>)
+
+                     Language_Htable.Insert
+                       (Element.Index, Element.Value.Value, CL, OK);
+                     if not OK
+                       and then Language_Htable (CL) /= Element.Value.Value
+                     then
+                        if Language_Htable (CL) /= No_Name then
+                           raise Invalid_Config with
+                             "Attributes Required_Toolchain_Version differ in"
+                             & " projects tree";
+                        end if;
+
+                        Language_Htable (CL) := Element.Value.Value;
+                     end if;
+                  end if;
+
+                  Element_Id := Element.Next;
+               end loop;
+
+               Current_Array_Id := Current_Array.Next;
+            end loop;
+
             Variable :=
               Value_Of (Name_Languages, Project.Decl.Attributes, Shared);
 
@@ -1258,12 +1281,12 @@ package body GPR.Conf is
                      Get_Name_String (Variable.Value);
                      To_Lower (Name_Buffer (1 .. Name_Len));
                      Lang := Name_Find;
-                     Language_Htable.Set (Lang, Lang);
+                     Language_Htable.Insert (Lang, No_Name, CL, OK);
 
                      --  If no default language is declared, default to Ada
 
                   else
-                     Language_Htable.Set (Name_Ada, Name_Ada);
+                     Language_Htable.Insert (Name_Ada, No_Name, CL, OK);
                   end if;
                end if;
 
@@ -1279,7 +1302,7 @@ package body GPR.Conf is
                   Get_Name_String (Elem.Value);
                   To_Lower (Name_Buffer (1 .. Name_Len));
                   Lang := Name_Find;
-                  Language_Htable.Set (Lang, Lang);
+                  Language_Htable.Insert (Lang, No_Name, CL, OK);
 
                   List := Elem.Next;
                end loop;
@@ -1307,18 +1330,12 @@ package body GPR.Conf is
             With_State         => Dummy,
             Include_Aggregated => True);
 
-         Name  := Language_Htable.Get_First;
-         Count := 0;
-         while Name /= No_Name loop
-            Count := Count + 1;
-            Name := Language_Htable.Get_Next;
-         end loop;
-
-         Result := new String_List (1 .. Count);
+         Result := new String_List (1 .. Natural (Language_Htable.Length));
 
          Count := 0;
-         Name  := Language_Htable.Get_First;
-         while Name /= No_Name loop
+         for CL in Language_Htable.Iterate loop
+            Name := Language_Maps.Key (CL);
+
             if not CodePeer_Mode or else Name = Name_Ada then
                Count := Count + 1;
 
@@ -1334,13 +1351,17 @@ package body GPR.Conf is
                     Force_Lower_Case_Index  => True);
 
                declare
-                  Config_Command : constant String :=
-                    "--config=" & Get_Name_String (Name);
-
-                  Runtime_Name   : constant String :=
-                                     Runtime_Name_For (Name);
-                  Toolchain_Name : constant String :=
-                                     Toolchain_Name_For (Name);
+                  Version   : constant String :=
+                                Get_Name_String_Or_Null
+                                  (Language_Maps.Element (CL));
+                  Ver_First : constant Positive := Version'First +
+                    (if Name = Name_Ada
+                       and then Starts_With (Version, GNAT_And_Space)
+                     then GNAT_And_Space'Length else 0);
+                  Config_Common : constant String :=
+                                    "--config=" & Get_Name_String (Name) & ','
+                                    & Version (Ver_First .. Version'Last) & ','
+                                    & Runtime_Name_For (Name) & ',';
 
                begin
                   --  In CodePeer mode, we do not take into account any
@@ -1350,9 +1371,8 @@ package body GPR.Conf is
                     or else Variable = Nil_Variable_Value
                     or else Length_Of_Name (Variable.Value) = 0
                   then
-                     Result (Count) :=
-                       new String'(Config_Command & ",," & Runtime_Name
-                                   & ",," & Toolchain_Name);
+                     Result (Count) := new String'
+                       (Config_Common & ',' & Toolchain_Name_For (Name));
                   else
                      At_Least_One_Compiler_Command := True;
 
@@ -1362,23 +1382,18 @@ package body GPR.Conf is
 
                      begin
                         if Is_Absolute_Path (Compiler_Command) then
-                           Result (Count) :=
-                             new String'
-                               (Config_Command & ",," & Runtime_Name & ","
-                                & Containing_Directory (Compiler_Command) & ","
-                                & Simple_Name (Compiler_Command));
+                           Result (Count) := new String'
+                             (Config_Common
+                              & Containing_Directory (Compiler_Command) & ","
+                              & Simple_Name (Compiler_Command));
                         else
-                           Result (Count) :=
-                             new String'
-                               (Config_Command & ",," & Runtime_Name & ",,"
-                                & Compiler_Command);
+                           Result (Count) := new String'
+                             (Config_Common & ',' & Compiler_Command);
                         end if;
                      end;
                   end if;
                end;
             end if;
-
-            Name  := Language_Htable.Get_Next;
          end loop;
 
          if Count /= Result'Last then
@@ -1416,8 +1431,17 @@ package body GPR.Conf is
       Config := No_Project;
 
       Get_Project_Target;
-      Get_Project_Runtimes;
-      Get_Project_Toolchains;
+
+      --  Get the various Toolchain_Name (<lang>) in the project file or any
+      --  project it extends, if any are specified.
+
+      Get_Project_Attribute (Toolchain_Languages, Name_Toolchain_Name);
+
+      --  Get the various Runtime (<lang>) in the project file or any project
+      --  it extends, if any are specified.
+
+      Get_Project_Attribute (RTS_Languages, Name_Runtime);
+
       Check_Builder_Switches;
 
       --  Makes the Ada RTS absolute if it is not a base name and check if the
@@ -1504,8 +1528,8 @@ package body GPR.Conf is
                --  by gprconfig.
 
                elsif not Is_Base_Name (Runtime_Dir) then
-                  Raise_Invalid_Config
-                    ("invalid runtime directory " & RTS_Dir.all);
+                  raise Invalid_Config with
+                    "invalid runtime directory " & RTS_Dir.all;
                end if;
 
                Free (RTS_Dir);
@@ -1519,22 +1543,24 @@ package body GPR.Conf is
       if Config_File_Name = No_Configuration_File then
          Config_File_Path := null;
 
-      else
-         if Conf_File_Name'Length > 0 then
-            Config_File_Path := Locate_Config_File (Conf_File_Name.all);
-         else
-            Config_File_Path := Locate_Config_File (Default_File_Name);
-         end if;
+      elsif Conf_File_Name'Length > 0 then
+         declare
+            CFN : constant String :=
+                    Ensure_Extension
+                      (Conf_File_Name.all, Config_Project_File_Extension);
+         begin
+            Config_File_Path := Locate_Config_File (CFN);
 
-         if Config_File_Path = null then
-            if not Allow_Automatic_Generation
-              and then Conf_File_Name'Length > 0
+            if Config_File_Path = null
+              and then not Allow_Automatic_Generation
             then
-               Raise_Invalid_Config
-                 ("could not locate main configuration project "
-                  & Conf_File_Name.all);
+               raise Invalid_Config with
+                 "could not locate main configuration project " & CFN;
             end if;
-         end if;
+         end;
+
+      else
+         Config_File_Path := Locate_Config_File (Default_File_Name);
       end if;
 
       Automatically_Generated :=
@@ -1552,7 +1578,7 @@ package body GPR.Conf is
       --  switch, but not when the config file is generated in memory.
 
       elsif Warn_For_RTS
-        and then RTS_Languages.Get_First /= No_Name
+        and then not RTS_Languages.Is_Empty
         and then Opt.Warning_Mode /= Opt.Suppress
         and then On_Load_Config = null
       then
@@ -1571,13 +1597,13 @@ package body GPR.Conf is
       end if;
 
       if Config_File_Path /= null then
-         GPR.Part.Parse
+         Part.Parse
            (In_Tree           => Project_Node_Tree,
             Project           => Config_Project_Node,
             Project_File_Name => Config_File_Path.all,
-            Errout_Handling   => GPR.Part.Finalize_If_Error,
+            Errout_Handling   => Part.Finalize_If_Error,
             Packages_To_Check => Packages_To_Check,
-            Current_Directory => Current_Directory,
+            Current_Directory => Get_Current_Dir,
             Is_Config_File    => True,
             Env               => Env);
       else
@@ -1590,8 +1616,8 @@ package body GPR.Conf is
             Project_Node_Tree => Project_Node_Tree);
       end if;
 
-      if Config_Project_Node /= Empty_Project_Node then
-         GPR.Proc.Process_Project_Tree_Phase_1
+      if Present (Config_Project_Node) then
+         Proc.Process_Project_Tree_Phase_1
            (In_Tree                => Project_Tree,
             Project                => Config,
             Packages_To_Check      => Packages_To_Check,
@@ -1603,12 +1629,10 @@ package body GPR.Conf is
             On_New_Tree_Loaded     => null);
       end if;
 
-      if Config_Project_Node = Empty_Project_Node
-         or else Config = No_Project
-      then
-         Raise_Invalid_Config
-           ("processing of configuration project """
-            & Config_File_Path.all & """ failed");
+      if No (Config_Project_Node) or else Config = No_Project then
+         raise Invalid_Config with
+           "processing of configuration project """ & Config_File_Path.all
+           & """ failed";
       end if;
 
       --  Check that the target of the configuration file is the one the user
@@ -1650,24 +1674,24 @@ package body GPR.Conf is
    ------------------------------------
 
    procedure Parse_Project_And_Apply_Config
-     (Main_Project               : out GPR.Project_Id;
-      User_Project_Node          : out GPR.Project_Node_Id;
-      Config_File_Name           : String                        := "";
+     (Main_Project               : out Project_Id;
+      User_Project_Node          : out Project_Node_Id;
+      Config_File_Name           : String                    := "";
       Autoconf_Specified         : Boolean;
       Project_File_Name          : String;
-      Project_Tree               : GPR.Project_Tree_Ref;
-      Project_Node_Tree          : GPR.Tree.Project_Node_Tree_Ref;
-      Env                        : in out GPR.Tree.Environment;
+      Project_Tree               : Project_Tree_Ref;
+      Project_Node_Tree          : Tree.Project_Node_Tree_Ref;
+      Env                        : in out Tree.Environment;
       Packages_To_Check          : String_List_Access;
-      Allow_Automatic_Generation : Boolean                       := True;
+      Allow_Automatic_Generation : Boolean                   := True;
       Automatically_Generated    : out Boolean;
       Config_File_Path           : out String_Access;
-      Target_Name                : String                        := "";
+      Target_Name                : String                    := "";
       Normalized_Hostname        : String;
-      On_Load_Config             : Config_File_Hook              := null;
-      Implicit_Project           : Boolean                       := False;
-      On_New_Tree_Loaded         : GPR.Proc.Tree_Loaded_Callback := null;
-      Gprconfig_Options          : String_Vectors.Vector         :=
+      On_Load_Config             : Config_File_Hook          := null;
+      Implicit_Project           : Boolean                   := False;
+      On_New_Tree_Loaded         : Proc.Tree_Loaded_Callback := null;
+      Gprconfig_Options          : String_Vectors.Vector     :=
         String_Vectors.Empty_Vector)
    is
       Success          : Boolean := False;
@@ -1681,8 +1705,7 @@ package body GPR.Conf is
 
       N_Hostname : String_Access := new String'(Normalized_Hostname);
 
-      Finalization : GPR.Part.Errout_Mode :=
-                       GPR.Part.Always_Finalize;
+      Finalization : Part.Errout_Mode := Part.Always_Finalize;
 
       Conf_File_Name : String_Access;
 
@@ -1710,6 +1733,7 @@ package body GPR.Conf is
 
       if Target_Name = "" then
          Opt.Target_Value  := new String'(N_Hostname.all);
+         Opt.Target_Value_Canonical  := new String'(N_Hostname.all);
          Opt.Target_Origin := Default;
          Native_Target := True;
 
@@ -1722,6 +1746,12 @@ package body GPR.Conf is
       else
          Opt.Target_Value  := new String'(Target_Name);
          Opt.Target_Origin := Specified;
+         declare
+            Tgt : constant String := Target_Name;
+         begin
+            Opt.Target_Value_Canonical :=
+              new String'(Knowledge.Normalized_Target (Tgt));
+         end;
 
          --  Target specified explicitly, no point for fallback check
          Fallback_Try_Again := False;
@@ -1779,14 +1809,14 @@ package body GPR.Conf is
          Project_File_Name => Project_File_Name,
          Errout_Handling   => Finalization,
          Packages_To_Check => Packages_To_Check,
-         Current_Directory => Current_Directory,
+         Current_Directory => Get_Current_Dir,
          Is_Config_File    => False,
          Env               => Env,
          Implicit_Project  => Implicit_Project);
 
       Finalization := GPR.Part.Finalize_If_Error;
 
-      if User_Project_Node = Empty_Project_Node then
+      if No (User_Project_Node) then
          return;
       end if;
 
@@ -1827,10 +1857,9 @@ package body GPR.Conf is
                   Setup_Projects :=
                     Boolean'Value (Name_Buffer (1 .. Name_Len));
                exception
-                  when others =>
-
-                     Raise_Invalid_Config
-                       ("inconsistent value of attribute Create_Missing_Dirs");
+                  when Constraint_Error =>
+                     raise Invalid_Config with
+                       "inconsistent value of attribute Create_Missing_Dirs";
                end;
             end if;
          end;
@@ -1851,11 +1880,16 @@ package body GPR.Conf is
               and then not Variable.Default
             then
                if Get_Name_String (Variable.Value) = Opt.Target_Value.all then
-                  Native_Target := False;
+                  if not Variable.From_Implicit_Target then
+                     Native_Target := False;
+                  end if;
 
                elsif Target_Try_Again then
                   Opt.Target_Value :=
                     new String'(Get_Name_String (Variable.Value));
+                  Opt.Target_Value_Canonical :=
+                    new String'(Knowledge.Normalized_Target
+                                (Opt.Target_Value.all));
                   Target_Try_Again := False;
 
                   --  Target explicitly specified in the project file,
@@ -1866,8 +1900,8 @@ package body GPR.Conf is
                   goto Parse_Again;
 
                else
-                  Raise_Invalid_Config
-                    ("inconsistent value of attribute Target");
+                  raise Invalid_Config with
+                    "inconsistent value of attribute Target";
                end if;
             end if;
          end;
@@ -1924,7 +1958,9 @@ package body GPR.Conf is
                      N_Hostname :=
                        new String'(Get_Name_String (Variable.Value));
                      Free (Opt.Target_Value);
+                     Free (Opt.Target_Value_Canonical);
                      Opt.Target_Value  := new String'(N_Hostname.all);
+                     Opt.Target_Value_Canonical := new String'(N_Hostname.all);
 
                      Success          := False;
                      Target_Try_Again := True;
@@ -1975,10 +2011,14 @@ package body GPR.Conf is
       end if;
    end Parse_Project_And_Apply_Config;
 
+   --------------------------------
+   -- Update_Project_Search_Path --
+   --------------------------------
+
    procedure Update_Project_Search_Path
-     (Project      : GPR.Project_Id;
-      Project_Tree : GPR.Project_Tree_Ref;
-      Env          : in out GPR.Tree.Environment)
+     (Project      : Project_Id;
+      Project_Tree : Project_Tree_Ref;
+      Env          : in out Tree.Environment)
    is
       S : State := No_State;
 
@@ -2009,6 +2049,7 @@ package body GPR.Conf is
       -------------------
       -- Free_Pointers --
       -------------------
+
       procedure Free_Pointers (Ptr : in out Compiler_Root_Ptr) is
          procedure Free is new Ada.Unchecked_Deallocation
            (Compiler_Root_Data, Compiler_Root_Ptr);
@@ -2016,6 +2057,11 @@ package body GPR.Conf is
            (Runtime_Root_Data, Runtime_Root_Ptr);
 
          procedure Free_Runtimes (Ptr : in out Runtime_Root_Ptr);
+
+         -------------------
+         -- Free_Runtimes --
+         -------------------
+
          procedure Free_Runtimes (Ptr : in out Runtime_Root_Ptr) is
          begin
             if Ptr = null then
@@ -2025,6 +2071,7 @@ package body GPR.Conf is
             Free (Ptr.Root);
             Free (Ptr);
          end Free_Runtimes;
+
       begin
          if Ptr = null then
             return;
@@ -2235,24 +2282,24 @@ package body GPR.Conf is
    --------------------------------------
 
    procedure Process_Project_And_Apply_Config
-     (Main_Project               : out GPR.Project_Id;
-      User_Project_Node          : GPR.Project_Node_Id;
-      Config_File_Name           : String                        := "";
+     (Main_Project               : out Project_Id;
+      User_Project_Node          : Project_Node_Id;
+      Config_File_Name           : String                    := "";
       Autoconf_Specified         : Boolean;
-      Project_Tree               : GPR.Project_Tree_Ref;
-      Project_Node_Tree          : GPR.Tree.Project_Node_Tree_Ref;
-      Env                        : in out GPR.Tree.Environment;
+      Project_Tree               : Project_Tree_Ref;
+      Project_Node_Tree          : Tree.Project_Node_Tree_Ref;
+      Env                        : in out Tree.Environment;
       Packages_To_Check          : String_List_Access;
-      Allow_Automatic_Generation : Boolean                       := True;
+      Allow_Automatic_Generation : Boolean                   := True;
       Automatically_Generated    : out Boolean;
       Config_File_Path           : out String_Access;
-      Target_Name                : String                        := "";
+      Target_Name                : String                    := "";
       Normalized_Hostname        : String;
-      On_Load_Config             : Config_File_Hook              := null;
-      Reset_Tree                 : Boolean                       := True;
-      On_New_Tree_Loaded         : GPR.Proc.Tree_Loaded_Callback := null;
-      Do_Phase_1                 : Boolean                       := True;
-      Gprconfig_Options          : String_Vectors.Vector         :=
+      On_Load_Config             : Config_File_Hook          := null;
+      Reset_Tree                 : Boolean                   := True;
+      On_New_Tree_Loaded         : Proc.Tree_Loaded_Callback := null;
+      Do_Phase_1                 : Boolean                   := True;
+      Gprconfig_Options          : String_Vectors.Vector     :=
         String_Vectors.Empty_Vector)
    is
       Shared              : constant Shared_Project_Tree_Data_Access :=
@@ -2337,8 +2384,7 @@ package body GPR.Conf is
                      Get_Name_String (Obj_Dir.Value);
 
                   else
-                     Name_Len := 0;
-                     Add_Str_To_Name_Buffer
+                     Set_Name_Buffer
                        (Get_Name_String (Main_Project.Directory.Display_Name));
                      Add_Str_To_Name_Buffer (Get_Name_String (Obj_Dir.Value));
                   end if;
@@ -2365,7 +2411,7 @@ package body GPR.Conf is
       --  projects in the project tree.
 
       if Conf_Project = No_Project then
-         Raise_Invalid_Config ("there are no non-aggregate projects");
+         raise Invalid_Config with "there are no non-aggregate projects";
       end if;
 
       --  Find configuration file
@@ -2412,26 +2458,13 @@ package body GPR.Conf is
       end if;
    end Process_Project_And_Apply_Config;
 
-   --------------------------
-   -- Raise_Invalid_Config --
-   --------------------------
-
-   procedure Raise_Invalid_Config (Msg : String) is
-   begin
-      Raise_Exception (Invalid_Config'Identity, Msg);
-   end Raise_Invalid_Config;
-
    ----------------------
    -- Runtime_Name_For --
    ----------------------
 
    function Runtime_Name_For (Language : Name_Id) return String is
    begin
-      if RTS_Languages.Get (Language) /= No_Name then
-         return Get_Name_String (RTS_Languages.Get (Language));
-      else
-         return "";
-      end if;
+      return Get_Element_Or_Empty (RTS_Languages, Language);
    end Runtime_Name_For;
 
    --------------------------
@@ -2440,7 +2473,7 @@ package body GPR.Conf is
 
    function Runtime_Name_Set_For (Language : Name_Id) return Boolean is
    begin
-      return RTS_Languages.Get (Language) /= No_Name;
+      return RTS_Languages.Contains (Language);
    end Runtime_Name_Set_For;
 
    ---------------------
@@ -2451,7 +2484,7 @@ package body GPR.Conf is
    begin
       Name_Len := RTS_Name'Length;
       Name_Buffer (1 .. Name_Len) := RTS_Name;
-      RTS_Languages.Set (Language, Name_Find);
+      RTS_Languages.Include (Language, Name_Find);
    end Set_Runtime_For;
 
    ------------------------
@@ -2460,11 +2493,7 @@ package body GPR.Conf is
 
    function Toolchain_Name_For (Language : Name_Id) return String is
    begin
-      if Toolchain_Languages.Get (Language) /= No_Name then
-         return Get_Name_String (Toolchain_Languages.Get (Language));
-      else
-         return "";
-      end if;
+      return Get_Element_Or_Empty (Toolchain_Languages, Language);
    end Toolchain_Name_For;
 
    ----------------------------
@@ -2473,7 +2502,7 @@ package body GPR.Conf is
 
    function Toolchain_Name_Set_For (Language : Name_Id) return Boolean is
    begin
-      return Toolchain_Languages.Get (Language) /= No_Name;
+      return Toolchain_Languages.Contains (Language);
    end Toolchain_Name_Set_For;
 
    -----------------------
@@ -2484,7 +2513,7 @@ package body GPR.Conf is
    begin
       Name_Len := Toolchain_Name'Length;
       Name_Buffer (1 .. Name_Len) := Toolchain_Name;
-      Toolchain_Languages.Set (Language, Name_Find);
+      Toolchain_Languages.Include (Language, Name_Find);
    end Set_Toolchain_For;
 
    ----------------------------

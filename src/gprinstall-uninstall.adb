@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2012-2018, AdaCore                     --
+--                     Copyright (C) 2012-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -189,9 +189,9 @@ package body Gprinstall.Uninstall is
                --  ok, if we are running in force mode or the file has already
                --  been removed.
 
-               if File_Digest = Expected_Digest
+               if Removed
                  or else Force_Installations
-                 or else Removed
+                 or else File_Digest = Expected_Digest
                then
                   Files.Include (Pathname);
 

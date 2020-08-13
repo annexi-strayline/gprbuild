@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2006-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2006-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -27,7 +27,6 @@ with Ada.Characters.Handling;   use Ada.Characters.Handling;
 with Ada.Command_Line;          use Ada.Command_Line;
 with Ada.Containers;            use Ada.Containers;
 with Ada.Strings.Hash;
-with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Directories;           use Ada.Directories;
 with Ada.Environment_Variables; use Ada.Environment_Variables;
 with Ada.Exceptions;            use Ada.Exceptions;
@@ -64,9 +63,6 @@ package body GPR.Knowledge is
 
    package String_Maps is new Ada.Containers.Indefinite_Hashed_Maps
      (String, Unbounded_String, Ada.Strings.Hash_Case_Insensitive, "=");
-
-   package String_Sets is new Ada.Containers.Indefinite_Ordered_Sets
-     (String);
 
    procedure Unchecked_Free is new Ada.Unchecked_Deallocation
      (Pattern_Matcher, Pattern_Matcher_Access);
@@ -117,10 +113,6 @@ package body GPR.Knowledge is
    --  Return the value of a predefined or user-defined variable.
    --  If the variable is not defined a warning is emitted and an empty
    --  string is returned.
-
-   function Get_Name_String_Or_Null (Name : Name_Id) return String;
-   --  Return the string stored in Name (or the empty string if Name is
-   --  No_Name)
 
    procedure Put_Verbose (Config : Configuration);
    --  Debug put for Config
@@ -3678,7 +3670,7 @@ package body GPR.Knowledge is
       end loop;
       New_Line (Output);
       Put (Output, "--  from ");
-      Put (Output, Current_Directory);
+      Put (Output, Get_Current_Dir);
       New_Line (Output);
 
       Put_Line (Output, "configuration project " & Project_Name & " is");
@@ -3742,7 +3734,7 @@ package body GPR.Knowledge is
          begin
             while Has_Element (C) loop
                if GNAT.Regpat.Match
-                 (Target_Lists.Element (C).all, Target) > 0
+                 (Target_Lists.Element (C).all, Target & "") > Target'First - 1
                then
                   return I;
                end if;
@@ -3856,20 +3848,6 @@ package body GPR.Knowledge is
          return Name_Find;
       end if;
    end Get_String_Or_No_Name;
-
-   -----------------------------
-   -- Get_Name_String_Or_Null --
-   -----------------------------
-
-   function Get_Name_String_Or_Null (Name : Name_Id) return String is
-   begin
-      if Name = No_Name then
-         return "";
-      else
-         Get_Name_String (Name);
-         return Name_Buffer (1 .. Name_Len);
-      end if;
-   end Get_Name_String_Or_Null;
 
    -------------------
    -- Set_Selection --
@@ -4116,9 +4094,11 @@ package body GPR.Knowledge is
          return False;
       end Foreach_Nth_Compiler;
 
-      C          : Compiler_Lists.Cursor;
-      Extra_Dirs : constant String := Extra_Dirs_From_Filters (Filters);
-      Found_All  : Boolean := True;
+      C                  : Compiler_Lists.Cursor;
+      Extra_Dirs         : constant String :=
+        Extra_Dirs_From_Filters (Filters);
+      Found_All          : Boolean := True;
+      Found_All_Fallback : Boolean := True;
 
    begin
       Iter.Filters   := Filters;
@@ -4143,12 +4123,18 @@ package body GPR.Knowledge is
          C := First (Filters);
          for F in Iter.Found_One'Range loop
             if not Iter.Found_One (F) then
+               if Languages_Known.Contains
+                 (Compiler_Lists.Element (C).Language_LC)
+               then
+                  --  Fallback should not be triggered for unknown languages
+                  Found_All_Fallback := False;
+               end if;
                Found_All := False;
             end if;
             Next (C);
          end loop;
 
-         if not Found_All then
+         if not Found_All_Fallback then
             --  Looking for corresponding fallback set
             declare
                Fallback_List : constant String_Lists.List :=
@@ -4175,7 +4161,12 @@ package body GPR.Knowledge is
                      Found_All := True;
                      C := First (Filters);
                      for F in Local_Iter.Found_One'Range loop
-                        if not Local_Iter.Found_One (F) then
+                        if not Local_Iter.Found_One (F)
+                          and then Languages_Known.Contains
+                            (Compiler_Lists.Element (C).Language_LC)
+                        then
+                           --  Not finding a compiler for an unknown language
+                           --  should not invalidate fallback search.
                            Found_All := False;
                         end if;
                         Next (C);

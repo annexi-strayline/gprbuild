@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -27,6 +27,8 @@
 
 --  Children of this package implement various services on these data types
 
+with Ada.Containers.Hashed_Maps;
+with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Containers.Ordered_Sets;
 
 with GNAT.Dynamic_HTables; use GNAT.Dynamic_HTables;
@@ -205,25 +207,13 @@ package GPR is
       --  although this is not private, clients should not rely on the exact
       --  way in which this string is represented, and instead should use the
       --  subprograms below.
+      --  Note : the Empty_Time_Stamp value less than any non-empty time stamp
+      --  value.
 
       Dummy_Time_Stamp : constant Time_Stamp_Type := (others => '0');
       --  This is used for dummy time stamp values used in the D lines for
       --  non-existent files, and is intended to be an impossible value.
 
-      function "="  (Left, Right : Time_Stamp_Type) return Boolean;
-      function "<=" (Left, Right : Time_Stamp_Type) return Boolean;
-      function ">=" (Left, Right : Time_Stamp_Type) return Boolean;
-      function "<"  (Left, Right : Time_Stamp_Type) return Boolean;
-      function ">"  (Left, Right : Time_Stamp_Type) return Boolean;
-      --  Comparison functions on time stamps. Note that two time stamps are
-      --  defined as being equal if they have the same day/month/year and the
-      --  hour/minutes/seconds values are within 2 seconds of one another. This
-      --  deals with rounding effects in library file time stamps caused by
-      --  copying operations during installation. We have particularly noticed
-      --  that WinNT seems susceptible to such changes.
-      --
-      --  Note : the Empty_Time_Stamp value looks equal to itself, and less
-      --  than any non-empty time stamp value.
    end Stamps;
 
    use Stamps;
@@ -270,6 +260,8 @@ package GPR is
    Error_Unit_Name : constant Unit_Name_Type := Unit_Name_Type (Error_Name);
    --  The special Unit_Name_Type value Error_Unit_Name is used to indicate
    --  a unit name where some previous processing has found an error.
+
+   package String_Sets is new Ada.Containers.Indefinite_Ordered_Sets (String);
 
    ------------------------------
    -- File and Path Name Types --
@@ -365,12 +357,13 @@ package GPR is
    --  Tri-state to decide if -lgnarl is needed when linking
 
    type Attribute_Default_Value is
-     (Read_Only_Value,     --  For read only attributes (Name, Project_Dir)
-      Empty_Value,         --  Empty string or empty string list
-      Dot_Value,           --  "." or (".")
-      Object_Dir_Value,    --  'Object_Dir
-      Target_Value,        --  'Target (special rules)
-      Runtime_Value);      --  'Runtime (special rules)
+     (Read_Only_Value,          --  For read only attributes (Name,Project_Dir)
+      Empty_Value,              --  Empty string or empty string list
+      Dot_Value,                --  "." or (".")
+      Object_Dir_Value,         --  'Object_Dir
+      Target_Value,             --  'Target (special rules)
+      Runtime_Value,            --  'Runtime (special rules)
+      Canonical_Target_Value);  --  'Canonical_Target (special rules)
    --  Describe the default values of attributes that are referenced but not
    --  declared.
 
@@ -420,6 +413,8 @@ package GPR is
    --  The standard config and user project file name extensions. They are not
    --  constants, because Canonical_Case_File_Name is called on these variables
    --  in the body of Prj.
+
+   GNAT_And_Space : constant String := "GNAT ";
 
    function Empty_File   return File_Name_Type;
    function Empty_String return Name_Id;
@@ -471,10 +466,11 @@ package GPR is
    --  processing the project tree (unknown package name).
 
    type Variable_Value (Kind : Variable_Kind := Undefined) is record
-      Project     : Project_Id := No_Project;
-      Location    : Source_Ptr := No_Location;
-      String_Type : Project_Node_Id := Empty_Project_Node;
-      Default     : Boolean    := False;
+      Project              : Project_Id := No_Project;
+      Location             : Source_Ptr := No_Location;
+      String_Type          : Project_Node_Id := Empty_Project_Node;
+      Default              : Boolean    := False;
+      From_Implicit_Target : Boolean := False;
       case Kind is
          when Undefined =>
             null;
@@ -490,6 +486,16 @@ package GPR is
    --  current value is the default one for the variable. String_Type is
    --  Empty_Project_Node, except for typed variables where it designates
    --  the string type node.
+   --
+   --  From_Implicit_Target is only changed to True when evaluating
+   --  an expression that depends on 'Target reference, and the target is not
+   --  explicitly declared in corresponding project. In such case the 'Target
+   --  is still evaluated to normalized hostname, however at configuration
+   --  phase it is not possible to distinguish this case from real explicit
+   --  native target specification. So if in root project we have
+   --     for Target use Imported_Project'Target;
+   --  and Imported_Project has no explicit target declaration it is otherwise
+   --  not possible to understand that target fallback if needed.
 
    Nil_Variable_Value : constant Variable_Value;
    --  Value of a non existing variable or array element
@@ -635,6 +641,9 @@ package GPR is
       --  The dependency file is an ALI file and the source must be recompiled
       --  if the object or ALI file is more recent than any source in the full
       --  closure.
+
+   subtype ALI_Dependency is
+     Dependency_File_Kind range ALI_File .. ALI_Closure;
 
    Makefile_Dependency_Suffix : constant String := ".d";
    ALI_Dependency_Suffix      : constant String := ".ali";
@@ -1180,6 +1189,15 @@ package GPR is
       Source_TS : Time_Stamp_Type := Empty_Time_Stamp;
       --  Time stamp of the source file
 
+      Checksum  : Word := 0;
+      --  Checksum calculated from source file
+
+      Checksum_Src : File_Name_Type := No_File;
+      --  Source of checksum.
+      --  No_File        - No checksum
+      --  First_Name_Id  - Calculated from source file
+      --  Other values   - From dependency file of source simple name
+
       Object_Project : Project_Id := No_Project;
       --  Project where the object file is. This might be different from
       --  Project when using extending project files.
@@ -1256,6 +1274,8 @@ package GPR is
                        Display_File           => No_File,
                        Path                   => No_Path_Information,
                        Source_TS              => Empty_Time_Stamp,
+                       Checksum               => 0,
+                       Checksum_Src           => No_File,
                        Object_Project         => No_Project,
                        Object                 => No_File,
                        Current_Object_Path    => No_Path,
@@ -1319,6 +1339,15 @@ package GPR is
    function Value (Image : String) return Casing_Type;
    --  Similar to 'Value (but avoid use of this attribute in compiler)
    --  Raises Constraint_Error if not a Casing_Type image.
+
+   function Hex_Image (Item : Word; Length : Positive := 8) return String;
+   --  Returns hexadecimal Item representation.
+   --  Result string would be with size Length.
+   --  If Length is not enough for representation, raise Constrant_Error.
+
+   procedure Hex_Image (Item : Word; Result : out String);
+   --  Write Item hexadecimal representation into Result. Raise
+   --  Constraint_Error if Result length is not enough.
 
    --  The following record contains data for a naming scheme
 
@@ -2188,6 +2217,9 @@ package GPR is
       Library_TS : Time_Stamp_Type := Empty_Time_Stamp;
       --  The timestamp of a library file in a library project
 
+      Was_Built : Boolean := False;
+      --  The library project has been built in the current gprbuild execution
+
       Library_Src_Dir : Path_Information := No_Path_Information;
       --  If a Stand-Alone Library project, path name of the directory where
       --  the sources of the interfaces of the library are copied. By default,
@@ -2217,9 +2249,6 @@ package GPR is
 
       Symbol_Data : Symbol_Record := No_Symbols;
       --  Symbol file name, reference symbol file name, symbol policy
-
-      Need_To_Build_Lib : Boolean := False;
-      --  True if the library of a Library Project needs to be built or rebuilt
 
       -------------
       -- Sources --
@@ -2353,9 +2382,9 @@ package GPR is
       Encapsulated_Libs : Boolean    := True;
       Locally_Removed   : Boolean    := True) return Source_Iterator;
    --  Returns an iterator for all the sources of a project tree, or a specific
-   --  project, or a specific language. Include sources from aggregated libs if
-   --  Encapsulated_Libs is True. If Locally_Removed is set to False the
-   --  Locally_Removed files won't be reported.
+   --  project, or a specific language. Include sources from encapsulated
+   --  stand-alone libs if Encapsulated_Libs is True. If Locally_Removed is set
+   --  to False the Locally_Removed files won't be reported.
 
    function Element (Iter : Source_Iterator) return Source_Id;
    --  Return the current source (or No_Source if there are no more sources)
@@ -2833,7 +2862,21 @@ package GPR is
    --  True when no target is specified on the command line or in the main
    --  project.
 
+   function To_Hash (Item : Name_Id) return Ada.Containers.Hash_Type;
+
+   package Language_Maps is new Ada.Containers.Hashed_Maps
+     (Key_Type        => Name_Id,
+      Element_Type    => Name_Id,
+      Hash            => To_Hash,
+      Equivalent_Keys => "=");
+   --  Hash table to keep the languages and its required versions used in
+   --  the project tree.
+
 private
+
+   function To_Hash (Item : Name_Id) return Ada.Containers.Hash_Type
+   is (Ada.Containers.Hash_Type (Item));
+
    Tool_Name : String_Access := null;
 
    Serious_Errors_Detected : Nat := 0;
@@ -2849,11 +2892,12 @@ private
    Ignored : constant Variable_Kind := Single;
 
    Nil_Variable_Value : constant Variable_Value :=
-                          (Project     => No_Project,
-                           Kind        => Undefined,
-                           Location    => No_Location,
-                           Default     => False,
-                           String_Type => Empty_Project_Node);
+                          (Project              => No_Project,
+                           Kind                 => Undefined,
+                           Location             => No_Location,
+                           Default              => False,
+                           String_Type          => Empty_Project_Node,
+                           From_Implicit_Target => False);
 
    type Source_Iterator is record
       In_Tree : Project_Tree_Ref;

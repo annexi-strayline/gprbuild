@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -27,8 +27,7 @@
 with Ada.Calendar;                      use Ada;
 with Ada.Containers.Indefinite_Vectors;
 
-with GNAT.HTable;
-with GNAT.MD5;     use GNAT.MD5;
+with GNAT.MD5; use GNAT.MD5;
 
 with GPR.ALI;
 with GPR.Osint; use GPR.Osint;
@@ -392,6 +391,9 @@ package GPR.Util is
    function Is_Ada_Predefined_Unit (Unit : String) return Boolean;
    --  Return True if Unit is an Ada runtime unit
 
+   function Starts_With (Item : String; Prefix : String) return Boolean;
+   --  Return True if Item starts with Prefix
+
    generic
       with procedure Action (Source : Source_Id);
    procedure For_Interface_Sources
@@ -639,6 +641,9 @@ package GPR.Util is
       Version_String : String);
    --  Display version of a tool when switch --version is used
 
+   function Calculate_Checksum (Source : Source_Id) return Boolean;
+   --  Calculate Source checksum from source file, returns True on success
+
    generic
       with procedure Usage;
       --  Print tool-specific part of --help message
@@ -660,8 +665,8 @@ package GPR.Util is
    --  This also performs the check for aggregated project trees.
 
    function Get_Compiler_Driver_Path
-     (Project_Tree : Project_Tree_Ref;
-      Lang         : Language_Ptr) return String_Access;
+     (Project : Project_Id;
+      Lang    : Language_Ptr) return String_Access;
    --  Get, from the config, the path of the compiler driver. This is first
    --  looked for on the PATH if needed.
    --  Returns "null" if no compiler driver was specified for the language, and
@@ -707,6 +712,10 @@ package GPR.Util is
 
       function Normalized_Hostname return String;
       --  Return the normalized name of the host on which gprbuild is running.
+      --  The knowledge base must have been parsed first.
+
+      function Normalized_Target (Target_Name : String) return String;
+      --  Return the normalized name of the specified target.
       --  The knowledge base must have been parsed first.
 
       procedure Parse_Knowledge_Base
@@ -762,6 +771,10 @@ package GPR.Util is
 
    function Ensure_Suffix (Item : String; Suffix : String) return String;
    --  Returns Item if it ends with Suffix otherwise returns Item & Suffix
+
+   function Ensure_Extension (Filename : String; Ext : String) return String;
+   --  If Filename has any extension returns it as is, otherwise returns it
+   --  appended with Ext.
 
    function Ensure_Directory (Path : String) return String;
    --  Returns Path with an ending directory separator
@@ -843,13 +856,7 @@ package GPR.Util is
    Compiler_Subst_Option     : constant String := "--compiler-subst=";
    Compiler_Pkg_Subst_Option : constant String := "--compiler-pkg-subst=";
 
-   package Compiler_Subst_HTable is new GNAT.HTable.Simple_HTable
-     (Header_Num => GPR.Header_Num,
-      Element    => Name_Id,
-      No_Element => No_Name,
-      Key        => Name_Id,
-      Hash       => GPR.Hash,
-      Equal      => "=");
+   Compiler_Subst_HTable : Language_Maps.Map;
    --  A hash table to get the compiler to substitute from the from the
    --  language name. For example, if the command line option
    --  "--compiler-subst=ada,gnatpp" was given, then this mapping will include
@@ -924,5 +931,9 @@ private
       Info : Source_Info;
       Next : Natural;
    end record;
+
+   function Starts_With (Item : String; Prefix : String) return Boolean
+   is (Item'Length >= Prefix'Length
+       and then Item (Item'First .. Item'First + Prefix'Length - 1) = Prefix);
 
 end GPR.Util;

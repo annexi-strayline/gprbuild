@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2019, AdaCore                     --
+--                     Copyright (C) 2006-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -176,10 +176,6 @@ package body Gprclean is
             end loop;
 
             if Delete_File then
-               if not Do_Nothing then
-                  Set_Writable (Name (1 .. Last));
-               end if;
-
                Delete (Dir, Name (1 .. Last));
             end if;
          end if;
@@ -299,10 +295,6 @@ package body Gprclean is
 
                            elsif In_Generated then
                               if Is_Regular_File (Name (1 .. Last)) then
-                                 if not Do_Nothing then
-                                    Set_Writable (Name (1 .. Last));
-                                 end if;
-
                                  Delete (Obj_Directory.all, Name (1 .. Last));
                               end if;
                            end if;
@@ -310,10 +302,6 @@ package body Gprclean is
                      end loop;
 
                      Ada.Text_IO.Close (Exchange_File);
-
-                     if not Do_Nothing then
-                        Set_Writable (Library_Exchange_File_Name);
-                     end if;
 
                      Delete (Obj_Directory.all, Library_Exchange_File_Name);
                   end if;
@@ -346,10 +334,6 @@ package body Gprclean is
                            or else Project.Library_Kind = Relocatable)
                           and then Name (1 .. Last) = DLL_Name)
                      then
-                        if not Do_Nothing then
-                           Set_Writable (Name (1 .. Last));
-                        end if;
-
                         Delete (Lib_Directory, Name (1 .. Last));
                      end if;
                   end if;
@@ -393,10 +377,6 @@ package body Gprclean is
                                         Is_Symbolic_Link (Name (1 .. Last)))
                                       and then Name (1 .. Last) = Maj_Version
                                     then
-                                       if not Do_Nothing then
-                                          Set_Writable (Name (1 .. Last));
-                                       end if;
-
                                        Delete
                                          (Lib_Directory, Name (1 .. Last));
                                     end if;
@@ -420,10 +400,6 @@ package body Gprclean is
                            if Is_Regular_File (Name (1 .. Last))
                              and then Name (1 .. Last) = Lib_Version
                            then
-                              if not Do_Nothing then
-                                 Set_Writable (Name (1 .. Last));
-                              end if;
-
                               Delete (Lib_Directory, Name (1 .. Last));
                            end if;
                         end loop;
@@ -489,10 +465,6 @@ package body Gprclean is
                      end if;
 
                      if Delete_File then
-                        if not Do_Nothing then
-                           Set_Writable (Name (1 .. Last));
-                        end if;
-
                         Delete (Lib_ALI_Directory, Name (1 .. Last));
                      end if;
 
@@ -782,7 +754,7 @@ package body Gprclean is
                   loop
                      declare
                         Partial : constant String :=
-                          Partial_Name
+                                    Partial_Name
                                       (Get_Name_String (Project.Library_Name),
                                        Partial_Number,
                                        Object_Suffix);
@@ -1131,29 +1103,33 @@ package body Gprclean is
 
       if Do_Nothing then
          Put_Line (Full_Name (1 .. Last));
+         return;
+      end if;
 
-      --  Otherwise, delete the file if it is writable
+      --  Otherwise, delete the file if it is writable or after making it
+      --  writable if forced deletions are requested.
+
+      if Is_Writable_File (Full_Name (1 .. Last)) then
+         Delete_File (Full_Name (1 .. Last), Success);
+
+      elsif Force_Deletions then
+         Set_Writable (Full_Name (1 .. Last));
+         Delete_File (Full_Name (1 .. Last), Success);
 
       else
-         if Force_Deletions
-           or else Is_Writable_File (Full_Name (1 .. Last))
-         then
-            Delete_File (Full_Name (1 .. Last), Success);
+         Success := False;
+      end if;
+
+      if Verbose_Mode or else not Quiet_Output then
+         if not Success then
+            Put ("Warning: """);
+            Put (Full_Name (1 .. Last));
+            Put_Line (""" could not be deleted");
+
          else
-            Success := False;
-         end if;
-
-         if Verbose_Mode or else not Quiet_Output then
-            if not Success then
-               Put ("Warning: """);
-               Put (Full_Name (1 .. Last));
-               Put_Line (""" could not be deleted");
-
-            else
-               Put ("""");
-               Put (Full_Name (1 .. Last));
-               Put_Line (""" has been deleted");
-            end if;
+            Put ("""");
+            Put (Full_Name (1 .. Last));
+            Put_Line (""" has been deleted");
          end if;
       end if;
    end Delete;

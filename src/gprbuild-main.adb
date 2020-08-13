@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2019, AdaCore                     --
+--                     Copyright (C) 2011-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -571,8 +571,7 @@ procedure Gprbuild.Main is
          Db_Directory_Expected := False;
          Knowledge.Parse_Knowledge_Base (Project_Tree, Arg);
 
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (Arg);
+         Set_Name_Buffer (Arg);
          Add_Db_Switch_Arg (Name_Find);
 
          --  Set the processor/language for the following switches
@@ -594,8 +593,7 @@ procedure Gprbuild.Main is
       elsif Arg'Length > 7 and then Arg (1 .. 7) = "-cargs:" then
          Current_Processor := Compiler;
 
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (Arg (8 .. Arg'Last));
+         Set_Name_Buffer (Arg (8 .. Arg'Last));
          To_Lower (Name_Buffer (1 .. Name_Len));
 
          declare
@@ -646,8 +644,7 @@ procedure Gprbuild.Main is
 
          Current_Processor := Binder;
 
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (Arg (8 .. Arg'Last));
+         Set_Name_Buffer (Arg (8 .. Arg'Last));
          To_Lower (Name_Buffer (1 .. Name_Len));
 
          declare
@@ -849,21 +846,14 @@ procedure Gprbuild.Main is
                   --  so a friendlier error message isn't needed here.
                end if;
 
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer (Lang);
+               Set_Name_Buffer (Lang);
                To_Lower (Name_Buffer (1 .. Name_Len));
 
                declare
                   Lang_Id : constant Name_Id := Name_Find;
                begin
-                  Name_Len := 0;
-                  Add_Str_To_Name_Buffer (Comp);
-
-                  declare
-                     Comp_Id : constant Name_Id := Name_Find;
-                  begin
-                     Compiler_Subst_HTable.Set (Lang_Id, Comp_Id);
-                  end;
+                  Set_Name_Buffer (Comp);
+                  Compiler_Subst_HTable.Include (Lang_Id, Name_Find);
                end;
             end;
 
@@ -887,8 +877,7 @@ procedure Gprbuild.Main is
                   --  package Pretty_Printer in the project file.
                end if;
 
-               Name_Len := 0;
-               Add_Str_To_Name_Buffer (Package_Name);
+               Set_Name_Buffer (Package_Name);
                To_Lower (Name_Buffer (1 .. Name_Len));
                Compiler_Pkg_Subst := Name_Find;
             end;
@@ -915,8 +904,7 @@ procedure Gprbuild.Main is
 
                else
                   Build_Script_Name :=
-                    new String'
-                      (Ada.Directories.Current_Directory & '/' & Script_Name);
+                    new String'(Get_Current_Dir & Script_Name);
                end if;
             end;
 
@@ -1050,8 +1038,7 @@ procedure Gprbuild.Main is
             begin
                for J in RTS_Language_Option'Length + 2 .. Arg'Last loop
                   if Arg (J) = '=' then
-                     Name_Len := 0;
-                     Add_Str_To_Name_Buffer
+                     Set_Name_Buffer
                        (Arg (RTS_Language_Option'Length + 1 .. J - 1));
                      To_Lower (Name_Buffer (1 .. Name_Len));
                      Language_Name := Name_Find;
@@ -1725,8 +1712,7 @@ procedure Gprbuild.Main is
 
       --  Get the name id for "-L";
 
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer ("-L");
+      Set_Name_Buffer ("-L");
       Dash_L := Name_Find;
 
       --  Get the command line arguments, starting with --version and --help
@@ -1940,7 +1926,7 @@ procedure Gprbuild.Main is
          Put ("gprbuild [-P<proj>] [<proj>.gpr] [opts] [name]");
          New_Line;
          Put ("    {[-cargs opts] [-cargs:lang opts] [-largs opts]" &
-                    " [-gargs opts]}");
+                    " [-kargs opts] [-gargs opts]}");
          New_Line;
          New_Line;
          Put ("  name is zero or more file names");
@@ -1953,6 +1939,11 @@ procedure Gprbuild.Main is
          New_Line;
 
          Display_Usage_Version_And_Help;
+
+         --  Line for --no-project
+
+         Put_Line ("  --no-project");
+         Put_Line ("           Do not use project file");
 
          --  Line for --distributed
 
@@ -2319,7 +2310,7 @@ procedure Gprbuild.Main is
 
          --  Line for -ws
 
-         Put ("  -ws      Suppress all warnings");
+         Put ("  -ws      Suppress all gprbuild-specific warnings");
          New_Line;
 
          --  Line for -x
@@ -2374,6 +2365,11 @@ procedure Gprbuild.Main is
          --  Line for -largs
 
          Put ("  -largs opts    opts are passed to the linker");
+         New_Line;
+
+         --  Line for -kargs
+
+         Put ("  -kargs opts    opts are passed to gprconfig");
          New_Line;
 
          --  Line for -gargs
@@ -2495,7 +2491,7 @@ begin
       Fail_Program
         (Project_Tree,
          """" & Project_File_Name.all & """ processing failed",
-         Flush_Messages => User_Project_Node /= Empty_Project_Node);
+         Flush_Messages => Present (User_Project_Node));
    end if;
 
    if Configuration_Project_Path /= null then

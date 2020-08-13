@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2012-2017, AdaCore                     --
+--                     Copyright (C) 2012-2020, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -33,7 +33,8 @@ with Ada.Text_IO;                           use Ada.Text_IO;
 with Ada.Unchecked_Deallocation;
 with System.Multiprocessors;                use System;
 
-with GNAT.Command_Line;       use GNAT;
+with GNAT.Command_Line;         use GNAT;
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.CRC32;
 with GNAT.Exception_Traces;
 with GNAT.OS_Lib;             use GNAT.OS_Lib;
@@ -43,21 +44,21 @@ with GNAT.Strings;
 with GNAT.Traceback.Symbolic; use GNAT.Traceback;
                               use GNAT.Traceback.Symbolic;
 
-with GPR.Compilation;               use GPR.Compilation;
-with GPR.Compilation.Protocol;      use GPR.Compilation.Protocol;
-with GPR.Compilation.Sync;          use GPR.Compilation.Sync;
-with GPR.Util;                      use GPR.Util;
+with GPR.Compilation;          use GPR.Compilation;
+with GPR.Compilation.Protocol; use GPR.Compilation.Protocol;
+with GPR.Compilation.Sync;     use GPR.Compilation.Sync;
+with GPR.Util;                 use GPR.Util;
 with GPR.Version;
 
-with GPR;                           use GPR;
-with GPR.Opt;                       use GPR.Opt;
-with GPR.Knowledge;                 use GPR.Knowledge;
+with GPR;                      use GPR;
+with GPR.Opt;                  use GPR.Opt;
+with GPR.Knowledge;            use GPR.Knowledge;
 with GPR.Env;
-with GPR.Names;                     use GPR.Names;
-with GPR.Part;                      use GPR.Part;
+with GPR.Names;                use GPR.Names;
+with GPR.Part;                 use GPR.Part;
 with GPR.Proc;
-with GPR.Tree;                      use GPR.Tree;
-with GPR.Snames;                    use GPR.Snames;
+with GPR.Tree;                 use GPR.Tree;
+with GPR.Snames;               use GPR.Snames;
 
 procedure Gprslave is
 
@@ -408,7 +409,7 @@ procedure Gprslave is
    Verbose        : aliased Boolean := False;
    Debug          : aliased Boolean := False;
    Root_Directory : aliased GNAT.Strings.String_Access :=
-                       new String'(Current_Directory);
+                       new String'(Get_Current_Dir);
    --  Root directoty for the gprslave environment. All projects sources and
    --  compilations are done under this directory.
    Hash           : aliased GNAT.Strings.String_Access;
@@ -937,8 +938,7 @@ procedure Gprslave is
             RD : constant String := Root_Directory.all;
          begin
             Free (Root_Directory);
-            Root_Directory :=
-              new String'(Ensure_Directory (Current_Directory) & RD);
+            Root_Directory := new String'(Get_Current_Dir & RD);
          end;
       end if;
 
@@ -1253,6 +1253,8 @@ procedure Gprslave is
          procedure Look_Driver (Project_Name : String; Is_Config : Boolean);
          --  Set Driver with the found driver for the Language
 
+         Config_Filename    : constant String :=
+                                "slave_tmp-" & Language & ".cgpr";
          Key                : constant String :=
                                 To_String (Builder.D.Target) & '+' & Language;
          Position           : constant Drivers_Cache.Cursor :=
@@ -1278,8 +1280,7 @@ procedure Gprslave is
             GPR.Tree.Initialize (Project_Node_Tree);
 
             GPR.Part.Parse
-              (Project_Node_Tree, Project_Node,
-               Project_Name,
+              (Project_Node_Tree, Project_Node, Project_Name,
                Errout_Handling   => GPR.Part.Finalize_If_Error,
                Packages_To_Check => null,
                Is_Config_File    => Is_Config,
@@ -1350,11 +1351,6 @@ procedure Gprslave is
 
             Free (Project_Node_Tree);
             Free (Project_Tree);
-
-         exception
-            --  Never propagate an exception, the driver won't be set anyway
-            when others =>
-               null;
          end Look_Driver;
 
       begin
@@ -1391,7 +1387,7 @@ procedure Gprslave is
             --  Generate configuration project file
 
             Generate_Configuration
-              (Base, Compilers, "slave_tmp.cgpr",
+              (Base, Compilers, Config_Filename,
                To_String (Builder.D.Target),
                Selected_Targets_Set);
 
@@ -1403,8 +1399,8 @@ procedure Gprslave is
 
             --  Parse it to find the driver for this language
 
-            Look_Driver ("slave_tmp.cgpr", Is_Config => True);
-            Directories.Delete_File ("slave_tmp.cgpr");
+            Look_Driver (Config_Filename, Is_Config => True);
+            Directories.Delete_File (Config_Filename);
 
             --  Language is not found in the knowledge base, check the project
             --  to see if there is a definition for the language.
@@ -1413,10 +1409,20 @@ procedure Gprslave is
                Look_Driver (Project, Is_Config => False);
 
                --  Ensure that we have a full-path name
+
                declare
                   Exe : OS_Lib.String_Access :=
                           Locate_Exec_On_Path (To_String (Driver));
                begin
+                  if Exe = null then
+                     Display
+                       (Builder,
+                        "Can't locate " & To_String (Driver) & " in path",
+                        Is_Debug => True);
+
+                     return Key;
+                  end if;
+
                   Driver := To_Unbounded_String (Exe.all);
                   Free (Exe);
                end;
@@ -1437,7 +1443,14 @@ procedure Gprslave is
          end if;
 
       exception
-         when others =>
+         when E : others =>
+
+            Display
+              (Builder,
+               Ada.Exceptions.Exception_Information (E) & ASCII.LF
+               & "on get driver for " & Language & " by key " & Key,
+               Is_Debug => True);
+
             --  Be sure we never propagate an exception from this routine, in
             --  case of problem we just return the key, this will be used as an
             --  executable and will be reported to the master as a proper build
@@ -2090,7 +2103,8 @@ procedure Gprslave is
                               for Artifact of
                                 Expand_Artifacts
                                   (Root      => R_Dir,
-                                   Base_Name => Base_Name (Obj_File),
+                                   Base_Name =>
+                                     Directories.Base_Name (Obj_File),
                                    Patterns  =>
                                      Builder.D.Included_Artifact_Patterns)
                               loop

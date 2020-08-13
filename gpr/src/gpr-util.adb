@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -39,6 +39,7 @@ with Ada.Exceptions;
 
 with GNAT.Calendar.Time_IO;     use GNAT.Calendar.Time_IO;
 with GNAT.Case_Util;            use GNAT.Case_Util;
+with GNAT.HTable;
 with GNAT.Regexp;               use GNAT.Regexp;
 with GNAT.Table;
 with GNAT.Calendar;             use GNAT.Calendar;
@@ -113,6 +114,10 @@ package body GPR.Util is
       Hash       => GPR.Hash,
       Equal      => "=");
 
+   True_Checksum : constant File_Name_Type := File_Name_Type (First_Name_Id);
+   --  Special constant to declare that checksum in Source record is calculated
+   --  from source file content.
+
    function To_Path_String_Access
      (Path_Addr : Address;
       Path_Len  : Integer) return String_Access;
@@ -148,6 +153,46 @@ package body GPR.Util is
          return Integer (strlen (S));
       end if;
    end C_String_Length;
+
+   ------------------------
+   -- Calculate_Checksum --
+   ------------------------
+
+   function Calculate_Checksum (Source : Source_Id) return Boolean is
+      Source_Index : Source_File_Index;
+   begin
+      if Source.Checksum_Src = True_Checksum then
+         --  Checksum already calculated
+         return True;
+      end if;
+
+      Source_Index :=
+        Sinput.Load_File (Get_Name_String (Source.Path.Display_Name));
+
+      if Source_Index /= No_Source_File then
+         Err.Scanner.Initialize_Scanner (Source_Index, Err.Scanner.Ada);
+
+         --  Scan the complete file to compute its
+         --  checksum.
+
+         loop
+            Err.Scanner.Scan;
+            exit when Token = Tok_EOF;
+         end loop;
+
+         Source.Checksum     := Scans.Checksum;
+         Source.Checksum_Src := True_Checksum;
+
+         --  To avoid using too much memory, free the
+         --  memory allocated.
+
+         Sinput.Clear_Source_File_Table;
+
+         return True;
+      end if;
+
+      return False;
+   end Calculate_Checksum;
 
    ----------------------------
    -- Clear_Time_Stamp_Cache --
@@ -410,22 +455,19 @@ package body GPR.Util is
 
    function Create_Name (Name : String) return File_Name_Type is
    begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (Name);
+      Set_Name_Buffer (Name);
       return Name_Find;
    end Create_Name;
 
    function Create_Name (Name : String) return Name_Id is
    begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (Name);
+      Set_Name_Buffer (Name);
       return Name_Find;
    end Create_Name;
 
    function Create_Name (Name : String) return Path_Name_Type is
    begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (Name);
+      Set_Name_Buffer (Name);
       return Name_Find;
    end Create_Name;
 
@@ -912,8 +954,7 @@ package body GPR.Util is
 
       begin
          if Ada.Directories.Exists (Filename) then
-            Name_Len := 0;
-            Add_Str_To_Name_Buffer (Filename);
+            Set_Name_Buffer (Filename);
             Lib_File := Name_Find;
             Text := Osint.Read_Library_Info (Lib_File);
             Result :=
@@ -1805,8 +1846,7 @@ package body GPR.Util is
                end if;
 
                if Truncated then
-                  Name_Len := 0;
-                  Add_Str_To_Name_Buffer (Name (1 .. Last));
+                  Set_Name_Buffer (Name (1 .. Last));
 
                   Value := GPR.Util.Value_Of
                     (Name                    => Name_Find,
@@ -1822,9 +1862,7 @@ package body GPR.Util is
                      Last := Last - 1;
                   end loop;
 
-                  Name_Len := 0;
-                  Add_Str_To_Name_Buffer (Name (1 .. Last));
-                  Add_Str_To_Name_Buffer ("ali");
+                  Set_Name_Buffer (Name (1 .. Last) & "ali");
 
                   Value := GPR.Util.Value_Of
                     (Name                    => Name_Find,
@@ -2206,20 +2244,6 @@ package body GPR.Util is
 
    function Is_Ada_Predefined_Unit (Unit : String) return Boolean is
       Lower_Unit : String := Unit;
-
-      function Starts_With (Unit : String; Str : String) return Boolean;
-      --  Return True if Unit starts with Str
-
-      -----------------
-      -- Starts_With --
-      -----------------
-
-      function Starts_With (Unit : String; Str : String) return Boolean is
-      begin
-         return Unit'Length >= Str'Length
-           and then Unit (Unit'First .. Unit'First + Str'Length - 1) = Str;
-      end Starts_With;
-
    begin
       To_Lower (Lower_Unit);
 
@@ -2739,8 +2763,7 @@ package body GPR.Util is
       procedure Add_String (S : String) is
       begin
          if S'Length > 0 then
-            Name_Len := 0;
-            Add_Str_To_Name_Buffer (S);
+            Set_Name_Buffer (S);
             List.Append (Name_Find);
          end if;
       end Add_String;
@@ -3457,6 +3480,23 @@ package body GPR.Util is
       end if;
    end Ensure_Directory;
 
+   ----------------------
+   -- Ensure_Extension --
+   ----------------------
+
+   function Ensure_Extension (Filename : String; Ext : String) return String is
+   begin
+      for Char of reverse Filename loop
+         if Char = '.' then
+            return Filename;
+         elsif Is_Directory_Separator (Char) then
+            exit;
+         end if;
+      end loop;
+
+      return Filename & Ext;
+   end Ensure_Extension;
+
    -------------------
    -- Ensure_Suffix --
    -------------------
@@ -3681,24 +3721,21 @@ package body GPR.Util is
    ------------------------------
 
    function Get_Compiler_Driver_Path
-     (Project_Tree : Project_Tree_Ref;
-      Lang         : Language_Ptr) return String_Access
-   is
-      pragma Unreferenced (Project_Tree);
+     (Project : Project_Id;
+      Lang    : Language_Ptr) return String_Access is
    begin
       if Lang.Config.Compiler_Driver_Path = null then
          declare
-            Compiler : Name_Id := Compiler_Subst_HTable.Get (Lang.Name);
-         begin
+            CL : constant Language_Maps.Cursor :=
+                   Compiler_Subst_HTable.Find (Lang.Name);
+            Compiler : constant Name_Id :=
+                         (if Language_Maps.Has_Element (CL)
+                          then Language_Maps.Element (CL)
+                          else Name_Id (Lang.Config.Compiler_Driver));
             --  If --compiler-subst was used to specify an alternate compiler,
-            --  then Compiler /= No_Name. In the usual case, Compiler =
-            --  No_Name, so we set Compiler to the Compiler_Driver from the
-            --  config file.
-
-            if Compiler = No_Name then
-               Compiler := Name_Id (Lang.Config.Compiler_Driver);
-            end if;
-
+            --  then Language_Maps.Has_Element (CL). In other case set Compiler
+            --  to the Compiler_Driver from the config file.
+         begin
             --  No compiler found, return now
 
             if Compiler = No_Name then
@@ -3707,8 +3744,11 @@ package body GPR.Util is
 
             declare
                Compiler_Name : constant String :=
-                 (if CodePeer_Mode then "codepeer-gcc"
-                  else Get_Name_String (Compiler));
+                                 (if CodePeer_Mode then "codepeer-gcc"
+                                  elsif GnatProve_Mode
+                                    and then Lang.Name = Name_Ada
+                                  then "gnat2why"
+                                  else Get_Name_String (Compiler));
             begin
                if Compiler_Name = "" then
                   return null;
@@ -3718,8 +3758,11 @@ package body GPR.Util is
                  Locate_Exec_On_Path (Compiler_Name);
 
                if Lang.Config.Compiler_Driver_Path = null then
-                  raise Constraint_Error
-                    with "unable to locate """ & Compiler_Name & '"';
+                  Err.Error_Msg
+                    (Gprbuild_Flags,
+                     "unable to locate """ & Compiler_Name & '"',
+                     Project => Project);
+                  return null;
                end if;
             end;
          end;
@@ -4222,34 +4265,30 @@ package body GPR.Util is
       Externally_Built : constant Boolean := In_Project.Externally_Built;
       --  True if the project of the source is externally built
 
+      Processed : Name_Id_Set.Set;
+      --  Source files processed for ALI_Closure mode
+
       function Process_Makefile_Deps
         (Dep_Name, Obj_Dir : String)    return Boolean;
-      function Process_ALI_Deps         return Boolean;
-      function Process_ALI_Closure_Deps return Boolean;
+      function Process_ALI_Deps (Closure : Boolean) return Boolean;
       --  Process the dependencies for the current source file for the various
       --  dependency modes.
-      --  They return True if the file needs to be recompiled
+      --  They return True if the file needs to be recompiled.
 
       procedure Cleanup;
       --  Cleanup local variables
 
       function Check_Time_Stamps
-        (Path  : String;
-         Stamp : Time_Stamp_Type)
-         return Boolean;
+        (Path : String; Stamp : Time_Stamp_Type) return Boolean;
 
       -----------------------
       -- Check_Time_Stamps --
       -----------------------
 
       function Check_Time_Stamps
-        (Path  : String;
-         Stamp : Time_Stamp_Type)
-         return Boolean
-      is
+        (Path : String; Stamp : Time_Stamp_Type) return Boolean is
       begin
-         Name_Len := 0;
-         Add_Str_To_Name_Buffer (Path);
+         Set_Name_Buffer (Path);
 
          declare
             TS   : constant Time_Stamp_Type :=
@@ -4587,8 +4626,7 @@ package body GPR.Util is
                               --  Get the time stamp of the source, which is
                               --  not necessarily a source of any project.
 
-                              Name_Len := 0;
-                              Add_Str_To_Name_Buffer (Src_Name);
+                              Set_Name_Buffer (Src_Name);
                               Src_TS := File_Stamp
                                            (Path_Name_Type'(Name_Find));
 
@@ -4699,15 +4737,12 @@ package body GPR.Util is
       -- Process_ALI_Deps --
       ----------------------
 
-      function Process_ALI_Deps return Boolean is
-         Text     : Text_Buffer_Ptr :=
-                      Read_Library_Info_From_Full
-                       (File_Name_Type (Source.Dep_Path),
-                        Source.Dep_TS'Access);
-         Sfile    : File_Name_Type;
-         Dep_Src  : GPR.Source_Id;
-         Proj     : Project_Id;
-
+      function Process_ALI_Deps (Closure : Boolean) return Boolean is
+         Text  : Text_Buffer_Ptr :=
+                   Read_Library_Info_From_Full
+                     (File_Name_Type (Source.Dep_Path),
+                      Source.Dep_TS'Access);
+         Proj  : Project_Id;
          Found : Boolean := False;
 
          Conf_Paths_Found :  Config_Paths_Found := (Conf_Paths'Range => False);
@@ -4811,6 +4846,10 @@ package body GPR.Util is
 
          declare
             Projects : array (1 .. Num_Ext) of Project_Id;
+            Sfile    : File_Name_Type;
+            Dep_Src  : GPR.Source_Id;
+            Position : Name_Id_Set.Cursor;
+            Inserted : Boolean := True;
          begin
             Proj := ALI_Project;
             for J in Projects'Range loop
@@ -4823,13 +4862,19 @@ package body GPR.Util is
             loop
                Sfile := ALI.Sdep.Table (D).Sfile;
 
-               if ALI.Sdep.Table (D).Stamp /= Empty_Time_Stamp then
+               if Closure then
+                  Processed.Insert (Name_Id (Sfile), Position, Inserted);
+               end if;
+
+               if Inserted
+                 and then ALI.Sdep.Table (D).Stamp /= Empty_Time_Stamp
+               then
                   Dep_Src := Source_Files_Htable.Get
                     (Tree.Source_Files_HT, Sfile);
                   Found := False;
 
-                  if Dep_Src = No_Source and then
-                    ALI.Sdep.Table (D).Checksum = 0
+                  if Dep_Src = No_Source
+                    and then ALI.Sdep.Table (D).Checksum = 0
                   then
                      --  Probably preprocessing dependencies. Look for the file
                      --  in the directory of the source, then the other source
@@ -4853,8 +4898,7 @@ package body GPR.Util is
 
                         procedure Get_Path (Dir : String) is
                         begin
-                           Name_Len := 0;
-                           Add_Str_To_Name_Buffer (Dir);
+                           Set_Name_Buffer (Dir);
                            Add_Char_To_Name_Buffer (Directory_Separator);
                            Add_Str_To_Name_Buffer (File);
                            Path := Name_Find;
@@ -4933,8 +4977,8 @@ package body GPR.Util is
                      end;
 
                   else
-                     if Dep_Src = No_Source and then
-                       not Is_Ada_Predefined_File_Name (Sfile)
+                     if Dep_Src = No_Source
+                       and then not Is_Ada_Predefined_File_Name (Sfile)
                      then
                         if Opt.Verbosity_Level > Opt.Low then
                            Put ("  -> """);
@@ -4953,76 +4997,135 @@ package body GPR.Util is
                         then
                            Found := True;
 
+                           if Dep_Src.Checksum /= ALI.Sdep.Table (D).Checksum
+                           then
+                              --  Checksum saved in source file differ from
+                              --  ALI D line checksum.
+
+                              case Dep_Src.Checksum_Src is
+                                 when No_File =>
+                                    --  Checksum was not saved. Save it.
+
+                                    Dep_Src.Checksum_Src := Source.File;
+                                    Dep_Src.Checksum :=
+                                      ALI.Sdep.Table (D).Checksum;
+
+                                 when True_Checksum =>
+                                    --  Checksum calculated from file and D
+                                    --  record from ALI does not fit it. We
+                                    --  have to rebuild source.
+
+                                    return True;
+
+                                 when others =>
+                                    if Dep_Src.File = Dep_Src.Checksum_Src then
+                                       --  The checksum saved from the D record
+                                       --  of the source itself. It is more
+                                       --  reliable than the D line of the
+                                       --  other sources. Rebuild the source.
+
+                                       return True;
+                                    end if;
+
+                                    --  If we have 2 different sources with D
+                                    --  lines referenced to the Dep_Src with
+                                    --  different checksum, we should calculate
+                                    --  checksum from source file.
+
+                                    declare
+                                       Prev_Src : constant File_Name_Type :=
+                                                    Dep_Src.Checksum_Src;
+                                       Prev_Chs : constant Word :=
+                                                    Dep_Src.Checksum;
+                                       Prev_Sid : Source_Id;
+                                    begin
+                                       if Calculate_Checksum (Dep_Src) then
+                                          if Dep_Src.Checksum /= Prev_Chs then
+                                             --  Saved D line checksum from
+                                             --  previos source was wrond. We
+                                             --  have to rebuild previous
+                                             --  source file.
+
+                                             Prev_Sid :=
+                                               Source_Files_Htable.Get
+                                                 (Tree.Source_Files_HT,
+                                                  Prev_Src);
+
+                                             --  Delete obsolete ALI file.
+
+                                             Delete_File
+                                               (Get_Name_String
+                                                  (Prev_Sid.Dep_Path));
+
+                                             --  Insert the source into the
+                                             --  queue again.
+
+                                             Queue.Insert
+                                               (Source =>
+                                                  (Tree, Prev_Sid,
+                                                   Closure => True),
+                                                With_Roots => True,
+                                                Repeat     => True);
+                                          end if;
+
+                                          if Dep_Src.Checksum
+                                            /= ALI.Sdep.Table (D).Checksum
+                                          then
+                                             --  If calculated checksum differ
+                                             --  from D line checksum, we have
+                                             --  to compile this Source.
+
+                                             return True;
+                                          end if;
+                                       end if;
+                                    end;
+                              end case;
+                           end if;
+
                            if (Opt.Minimal_Recompilation
-                               and then ALI.Sdep.Table (D).Stamp /=
-                                 Dep_Src.Source_TS) or else
-                             ((ALI.Sdep.Table (D).Stamp = Dep_Src.Source_TS)
+                               and then ALI.Sdep.Table (D).Stamp
+                                        /= Dep_Src.Source_TS)
+                             or else
+                             (ALI.Sdep.Table (D).Stamp = Dep_Src.Source_TS
                               and then Opt.Checksum_Recompilation)
                            then
                               --  If minimal recompilation is in action,
                               --  replace the stamp of the source file in
                               --  the table if checksums match.
 
-                              declare
-                                 Source_Index : Source_File_Index;
-
-                              begin
-                                 Source_Index :=
-                                   Sinput.Load_File
-                                     (Get_Name_String
-                                        (Dep_Src.Path.Display_Name));
-
-                                 if Source_Index /= No_Source_File then
-
-                                    Err.Scanner.Initialize_Scanner
-                                      (Source_Index, Err.Scanner.Ada);
-
-                                    --  Scan the complete file to compute its
-                                    --  checksum.
-
-                                    loop
-                                       Err.Scanner.Scan;
-                                       exit when Token = Tok_EOF;
-                                    end loop;
-
-                                    if Scans.Checksum =
-                                      ALI.Sdep.Table (D).Checksum
-                                    then
-                                       if Opt.Verbosity_Level > Opt.Low then
-                                          Put ("   ");
-                                          Put
-                                            (Get_Name_String
-                                               (ALI.Sdep.Table (D).Sfile));
-                                          Put (": up to date, " &
-                                                 "different timestamps " &
-                                                 "but same checksum");
-                                          New_Line;
-                                       end if;
-
-                                       ALI.Sdep.Table (D).Stamp :=
-                                         Dep_Src.Source_TS;
-
-                                    elsif Opt.Checksum_Recompilation then
-                                       if Opt.Verbosity_Level > Opt.Low then
-                                          Put ("   ");
-                                          Put
-                                            (Get_Name_String
-                                               (ALI.Sdep.Table (D).Sfile));
-                                          Put (": changed, " &
-                                                 "same timestamp " &
-                                                 "but different checksums");
-                                          New_Line;
-                                       end if;
-
-                                       return True;
+                              if Calculate_Checksum (Dep_Src) then
+                                 if Dep_Src.Checksum
+                                    = ALI.Sdep.Table (D).Checksum
+                                 then
+                                    if Opt.Verbosity_Level > Opt.Low then
+                                       Put ("   ");
+                                       Put
+                                         (Get_Name_String
+                                            (ALI.Sdep.Table (D).Sfile));
+                                       Put (": up to date, " &
+                                              "different timestamps " &
+                                              "but same checksum");
+                                       New_Line;
                                     end if;
+
+                                    ALI.Sdep.Table (D).Stamp :=
+                                      Dep_Src.Source_TS;
+
+                                 elsif Opt.Checksum_Recompilation then
+                                    if Opt.Verbosity_Level > Opt.Low then
+                                       Put ("   ");
+                                       Put
+                                         (Get_Name_String
+                                            (ALI.Sdep.Table (D).Sfile));
+                                       Put (": changed, " &
+                                              "same timestamp " &
+                                              "but different checksums");
+                                       New_Line;
+                                    end if;
+
+                                    return True;
                                  end if;
-
-                                 --  To avoid using too much memory, free the
-                                 --  memory allocated.
-
-                                 Sinput.Clear_Source_File_Table;
-                              end;
+                              end if;
                            end if;
 
                            if ALI.Sdep.Table (D).Stamp /= Dep_Src.Source_TS
@@ -5042,26 +5145,31 @@ package body GPR.Util is
                               end if;
 
                               return True;
-
-                           else
-                              for J in Projects'Range loop
-                                 if Dep_Src.Project = Projects (J) then
-                                    if Opt.Verbosity_Level > Opt.Low then
-                                       Put_Line
-                                         ("   -> dependency file not in " &
-                                          "object directory of project """ &
-                                          Get_Name_String
-                                            (Projects
-                                               (Projects'Last).Display_Name) &
-                                          """");
-                                    end if;
-
-                                    return True;
-                                 end if;
-                              end loop;
-
-                              exit;
                            end if;
+
+                           for J in Projects'Range loop
+                              if Dep_Src.Project = Projects (J) then
+                                 if Opt.Verbosity_Level > Opt.Low then
+                                    Put_Line
+                                      ("   -> dependency file not in " &
+                                         "object directory of project """ &
+                                         Get_Name_String
+                                         (Projects
+                                              (Projects'Last).Display_Name) &
+                                         """");
+                                 end if;
+
+                                 return True;
+                              end if;
+                           end loop;
+
+                           if Closure
+                             and then Process_ALI_Deps (Closure => True)
+                           then
+                              return True;
+                           end if;
+
+                           exit;
                         end if;
 
                         Dep_Src := Dep_Src.Next_With_File_Name;
@@ -5130,475 +5238,6 @@ package body GPR.Util is
 
          return False;
       end Process_ALI_Deps;
-
-      package Processed_Sources is new GNAT.Table
-        (Table_Component_Type => GPR.Source_Id,
-         Table_Index_Type     => Positive,
-         Table_Low_Bound      => 1,
-         Table_Initial        => 10,
-         Table_Increment      => 100);
-
-      ------------------------------
-      -- Process_ALI_Closure_Deps --
-      ------------------------------
-
-      function Process_ALI_Closure_Deps return Boolean is
-         Attr : aliased File_Attributes := Unknown_Attributes;
-         Text     : Text_Buffer_Ptr :=
-                      Read_Library_Info_From_Full
-                        (File_Name_Type (Source.Dep_Path), Attr'Access);
-         Sfile    : File_Name_Type;
-         Dep_Src  : GPR.Source_Id;
-         Proj     : Project_Id;
-         TS0      : Time_Stamp_Type;
-
-         Found : Boolean := False;
-
-         Last_Processed_Source : Natural := 0;
-         Next_Source : GPR.Source_Id;
-         Insert_Source : Boolean := False;
-
-         Other_ALI : ALI.ALI_Id;
-      begin
-         if Text = null then
-            if Opt.Verbosity_Level > Opt.Low then
-               Put ("    -> cannot read ");
-               Put_Line (Get_Name_String (Source.Dep_Path));
-            end if;
-
-            return True;
-         end if;
-
-         TS0 := File_Stamp (Source.Dep_Path);
-
-         --  Read only the necessary lines of the ALI file
-
-         The_ALI :=
-           ALI.Scan_ALI
-             (File_Name_Type (Source.Dep_Path),
-              Text,
-              Ignore_ED     => False,
-              Err           => True,
-              Read_Lines    => "PDW");
-         Free (Text);
-
-         if The_ALI = ALI.No_ALI_Id then
-            if Opt.Verbosity_Level > Opt.Low then
-               Put ("    -> ");
-               Put (Get_Name_String (Source.Dep_Path));
-               Put_Line (" is incorrectly formatted");
-            end if;
-
-            return True;
-         end if;
-
-         if ALI.ALIs.Table (The_ALI).Compile_Errors then
-            if Opt.Verbosity_Level > Opt.Low then
-               Put_Line ("    -> last compilation had errors");
-            end if;
-
-            return True;
-         end if;
-
-         if Object_Check and then ALI.ALIs.Table (The_ALI).No_Object then
-            if Opt.Verbosity_Level > Opt.Low then
-               Put_Line
-                 ("    -> no object generated during last compilation");
-            end if;
-
-            return True;
-         end if;
-
-         if Check_Source_Info_In_ALI (The_ALI, Tree) = No_Name then
-            return True;
-         end if;
-
-         Processed_Sources.Init;
-         Processed_Sources.Append (Source);
-         Last_Processed_Source := 2;
-
-         --  We need to check that the ALI file is in the correct object
-         --  directory. If it is in the object directory of a project
-         --  that is extended and it depends on a source that is in one
-         --  of its extending projects, then the ALI file is not in the
-         --  correct object directory.
-
-         ALI_Project := Source.Object_Project;
-
-         --  Count the extending projects
-
-         Num_Ext := 0;
-         Proj := ALI_Project;
-         loop
-            Proj := Proj.Extended_By;
-            exit when Proj = No_Project;
-            Num_Ext := Num_Ext + 1;
-         end loop;
-
-         declare
-            Projects : array (1 .. Num_Ext) of Project_Id;
-         begin
-            Proj := ALI_Project;
-            for J in Projects'Range loop
-               Proj := Proj.Extended_By;
-               Projects (J) := Proj;
-            end loop;
-
-            for D in ALI.ALIs.Table (The_ALI).First_Sdep ..
-              ALI.ALIs.Table (The_ALI).Last_Sdep
-            loop
-               Sfile := ALI.Sdep.Table (D).Sfile;
-
-               if ALI.Sdep.Table (D).Stamp /= Empty_Time_Stamp then
-                  Dep_Src := Source_Files_Htable.Get
-                    (Tree.Source_Files_HT, Sfile);
-                  Found := False;
-
-                  if Dep_Src /= No_Source then
-                     Insert_Source := True;
-                     for J in 1 .. Processed_Sources.Last loop
-                        if Processed_Sources.Table (J) = Dep_Src then
-                           Insert_Source := False;
-                           exit;
-                        end if;
-                     end loop;
-
-                     if Insert_Source then
-                        Processed_Sources.Append (Dep_Src);
-                     end if;
-                  end if;
-
-                  while Dep_Src /= No_Source loop
-                     Initialize_Source_Record (Dep_Src);
-
-                     if not Dep_Src.Locally_Removed
-                       and then Dep_Src.Unit /= No_Unit_Index
-                     then
-                        Found := True;
-
-                        if Opt.Minimal_Recompilation
-                          and then ALI.Sdep.Table (D).Stamp /=
-                          Dep_Src.Source_TS
-                        then
-                           --  If minimal recompilation is in action, replace
-                           --  the stamp of the source file in the table if
-                           --  checksums match.
-
-                           declare
-                              Source_Index : Source_File_Index;
-
-                           begin
-                              Source_Index :=
-                                Sinput.Load_File
-                                  (Get_Name_String
-                                      (Dep_Src.Path.Display_Name));
-
-                              if Source_Index /= No_Source_File then
-
-                                 Err.Scanner.Initialize_Scanner
-                                   (Source_Index, Err.Scanner.Ada);
-
-                                 --  Scan the complete file to compute its
-                                 --  checksum.
-
-                                 loop
-                                    Err.Scanner.Scan;
-                                    exit when Token = Tok_EOF;
-                                 end loop;
-
-                                 if Scans.Checksum =
-                                   ALI.Sdep.Table (D).Checksum
-                                 then
-                                    if Opt.Verbosity_Level > Opt.Low then
-                                       Put ("   ");
-                                       Put
-                                         (Get_Name_String
-                                            (ALI.Sdep.Table (D).Sfile));
-                                       Put (": up to date, " &
-                                            "different timestamps " &
-                                            "but same checksum");
-                                       New_Line;
-                                    end if;
-
-                                    ALI.Sdep.Table (D).Stamp :=
-                                      Dep_Src.Source_TS;
-                                 end if;
-                              end if;
-
-                              --  To avoid using too much memory, free the
-                              --  memory allocated.
-
-                              Sinput.Clear_Source_File_Table;
-                           end;
-                        end if;
-
-                        if ALI.Sdep.Table (D).Stamp /= Dep_Src.Source_TS then
-                           if Opt.Verbosity_Level > Opt.Low then
-                              Put ("   -> different time stamp for ");
-                              Put_Line (Get_Name_String (Sfile));
-
-                              if Debug.Debug_Flag_T then
-                                 Put ("   in ALI file: ");
-                                 Put_Line
-                                   (String (ALI.Sdep.Table (D).Stamp));
-                                 Put ("   actual file: ");
-                                 Put_Line (String (Dep_Src.Source_TS));
-                              end if;
-                           end if;
-
-                           return True;
-
-                        else
-                           for J in Projects'Range loop
-                              if Dep_Src.Project = Projects (J) then
-                                 if Opt.Verbosity_Level > Opt.Low then
-                                    Put_Line
-                                      ("   -> dependency file not in " &
-                                       "object directory of project """ &
-                                       Get_Name_String
-                                         (Projects
-                                           (Projects'Last).Display_Name) &
-                                       """");
-                                 end if;
-
-                                 return True;
-                              end if;
-                           end loop;
-
-                           exit;
-                        end if;
-                     end if;
-
-                     Dep_Src := Dep_Src.Next_With_File_Name;
-                  end loop;
-
-                  --  If the source was not found and the runtime source
-                  --  directory is defined, check if the file exists there, and
-                  --  if it does, check its timestamp.
-
-                  if not Found and then Runtime_Source_Dirs /= No_Name_List
-                  then
-                     declare
-                        R_Dirs : Name_List_Index := Runtime_Source_Dirs;
-                     begin
-                        while R_Dirs /= No_Name_List loop
-                           declare
-                              Nam_Nod : constant Name_Node :=
-                                Tree.Shared.Name_Lists.Table (R_Dirs);
-                           begin
-                              if Check_Time_Stamps
-                                (Get_Name_String (Nam_Nod.Name) &
-                                   Directory_Separator &
-                                   Get_Name_String (Sfile),
-                                 ALI.Sdep.Table (D).Stamp)
-                              then
-                                 return True;
-                              end if;
-
-                              R_Dirs := Nam_Nod.Next;
-                           end;
-                        end loop;
-                     end;
-                  end if;
-               end if;
-            end loop;
-         end;
-
-         while Last_Processed_Source <= Processed_Sources.Last loop
-            Next_Source := Processed_Sources.Table (Last_Processed_Source);
-
-            if not Next_Source.Project.Externally_Built
-              and then
-               (Next_Source.Unit = No_Unit_Index
-                or else Next_Source.Kind /= Sep)
-            then
-               declare
-                  Attrib : aliased File_Attributes := Unknown_Attributes;
-               begin
-                  Text :=
-                    Read_Library_Info_From_Full
-                      (File_Name_Type (Next_Source.Dep_Path), Attrib'Access);
-               end;
-
-               if Text = null then
-                  if Opt.Verbosity_Level > Opt.Low then
-                     Put ("    -> cannot read ");
-                     Put_Line (Get_Name_String (Next_Source.Dep_Path));
-                  end if;
-
-                  return True;
-               end if;
-
-               --  Read only the necessary lines of the ALI file
-
-               Other_ALI :=
-                 ALI.Scan_ALI
-                   (File_Name_Type (Next_Source.Dep_Path),
-                    Text,
-                    Ignore_ED     => False,
-                    Err           => True,
-                    Read_Lines    => "PDW");
-               Free (Text);
-
-               if Other_ALI = ALI.No_ALI_Id then
-                  if Opt.Verbosity_Level > Opt.Low then
-                     Put ("    -> ");
-                     Put (Get_Name_String (Next_Source.Dep_Path));
-                     Put_Line (" is incorrectly formatted");
-                  end if;
-
-                  return True;
-               end if;
-
-               if ALI.ALIs.Table (Other_ALI).Compile_Errors then
-                  if Opt.Verbosity_Level > Opt.Low then
-                     Put  ("    -> last compilation of ");
-                     Put  (Get_Name_String (Next_Source.Dep_Path));
-                     Put_Line (" had errors");
-                  end if;
-
-                  return True;
-               end if;
-
-               for D in ALI.ALIs.Table (Other_ALI).First_Sdep ..
-                 ALI.ALIs.Table (Other_ALI).Last_Sdep
-               loop
-                  Sfile := ALI.Sdep.Table (D).Sfile;
-
-                  if ALI.Sdep.Table (D).Stamp /= Empty_Time_Stamp then
-                     Dep_Src := Source_Files_Htable.Get
-                       (Tree.Source_Files_HT, Sfile);
-                     Found := False;
-
-                     if Dep_Src /= No_Source then
-                        Insert_Source := True;
-                        for J in 1 .. Processed_Sources.Last loop
-                           if Processed_Sources.Table (J) = Dep_Src then
-                              Insert_Source := False;
-                              exit;
-                           end if;
-                        end loop;
-
-                        if Insert_Source then
-                           Processed_Sources.Append (Dep_Src);
-                        end if;
-                     end if;
-
-                     while Dep_Src /= No_Source loop
-                        Initialize_Source_Record (Dep_Src);
-
-                        if not Dep_Src.Locally_Removed
-                          and then Dep_Src.Unit /= No_Unit_Index
-                        then
-                           Found := True;
-
-                           if Opt.Minimal_Recompilation
-                             and then ALI.Sdep.Table (D).Stamp /=
-                             Dep_Src.Source_TS
-                           then
-                              --  If minimal recompilation is in action,
-                              --  replace the stamp of the source file in
-                              --  the table if checksums match.
-
-                              declare
-                                 Source_Index : Source_File_Index;
-
-                              begin
-                                 Source_Index :=
-                                   Sinput.Load_File
-                                     (Get_Name_String
-                                        (Dep_Src.Path.Display_Name));
-
-                                 if Source_Index /= No_Source_File then
-
-                                    Err.Scanner.Initialize_Scanner
-                                      (Source_Index, Err.Scanner.Ada);
-
-                                    --  Scan the complete file to compute its
-                                    --  checksum.
-
-                                    loop
-                                       Err.Scanner.Scan;
-                                       exit when Token = Tok_EOF;
-                                    end loop;
-
-                                    if Scans.Checksum =
-                                      ALI.Sdep.Table (D).Checksum
-                                    then
-                                       ALI.Sdep.Table (D).Stamp :=
-                                         Dep_Src.Source_TS;
-                                    end if;
-                                 end if;
-
-                                 --  To avoid using too much memory, free the
-                                 --  memory allocated.
-
-                                 Sinput.Clear_Source_File_Table;
-                              end;
-                           end if;
-
-                           if ALI.Sdep.Table (D).Stamp /= Dep_Src.Source_TS
-                           then
-                              if Opt.Verbosity_Level > Opt.Low then
-                                 Put
-                                   ("   -> different time stamp for ");
-                                 Put_Line (Get_Name_String (Sfile));
-
-                                 if Debug.Debug_Flag_T then
-                                    Put ("   in ALI file: ");
-                                    Put_Line
-                                      (String (ALI.Sdep.Table (D).Stamp));
-                                    Put ("   actual file: ");
-                                    Put_Line (String (Dep_Src.Source_TS));
-                                 end if;
-                              end if;
-
-                              return True;
-
-                           --  Favor comparison against object file if possible
-                           --  since object file may have been created later
-                           --  than ALI file.
-
-                           elsif Object_Check
-                             and then Source.Language.Config.Object_Generated
-                           then
-                              if Dep_Src.Source_TS > Source.Object_TS then
-                                 if Opt.Verbosity_Level > Opt.Low then
-                                    Put ("   -> file ");
-                                    Put
-                                      (Get_Name_String
-                                         (Dep_Src.Path.Display_Name));
-                                    Put_Line (" more recent than object file");
-                                 end if;
-
-                                 return True;
-                              end if;
-
-                           elsif Dep_Src.Source_TS > TS0 then
-                              if Opt.Verbosity_Level > Opt.Low then
-                                 Put ("   -> file ");
-                                 Put
-                                   (Get_Name_String
-                                      (Dep_Src.Path.Display_Name));
-                                 Put_Line (" more recent than ALI file");
-                              end if;
-
-                              return True;
-
-                           end if;
-                        end if;
-
-                        Dep_Src := Dep_Src.Next_With_File_Name;
-                     end loop;
-                  end if;
-               end loop;
-            end if;
-
-            Last_Processed_Source := Last_Processed_Source + 1;
-         end loop;
-
-         return False;
-      end Process_ALI_Closure_Deps;
 
       -------------
       -- Cleanup --
@@ -5759,11 +5398,8 @@ package body GPR.Util is
          --  to recompile.
 
          if Object_Check
-           and then
-             (Source.Language.Config.Dependency_Kind = ALI_File
-              or else Source.Language.Config.Dependency_Kind = ALI_Closure)
-           and then
-             Source.Object_TS < Stamp
+           and then Source.Language.Config.Dependency_Kind in ALI_Dependency
+           and then Source.Object_TS < Stamp
          then
             if Opt.Verbosity_Level > Opt.Low then
                Put  ("      -> ALI file ");
@@ -5845,14 +5481,14 @@ package body GPR.Util is
             end if;
 
          when ALI_File =>
-            if Process_ALI_Deps then
+            if Process_ALI_Deps (Closure => False) then
                Must_Compile := True;
                Cleanup;
                return;
             end if;
 
          when ALI_Closure =>
-            if Process_ALI_Closure_Deps then
+            if Process_ALI_Deps (Closure => True) then
                Must_Compile := True;
                Cleanup;
                return;
@@ -6131,8 +5767,7 @@ begin
    declare
       Ext : String_Access := GNAT.OS_Lib.Get_Target_Executable_Suffix;
    begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (Ext.all);
+      Set_Name_Buffer (Ext.all);
       Executable_Extension_On_Target := Name_Enter;
       Free (Ext);
    end;

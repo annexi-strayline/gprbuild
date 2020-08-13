@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2004-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -436,9 +436,14 @@ package Gpr_Build_Util is
       function Is_Virtually_Empty return Boolean;
       --  Returns True if queue is empty or if all object directories are busy
 
-      procedure Insert (Source  : Source_Info; With_Roots : Boolean := False);
+      procedure Insert
+        (Source  : Source_Info;
+         With_Roots : Boolean := False;
+         Repeat     : Boolean := False);
       function Insert
-        (Source  : Source_Info; With_Roots : Boolean := False) return Boolean;
+        (Source     : Source_Info;
+         With_Roots : Boolean := False;
+         Repeat     : Boolean := False) return Boolean;
       --  Insert source in the queue. The second version returns False if the
       --  Source was already marked in the queue. If With_Roots is True and the
       --  source is in Format_Gprbuild mode (ie with a project), this procedure
@@ -447,6 +452,8 @@ package Gpr_Build_Util is
       --  Ada and C files connected through pragma Export/Import). When the
       --  roots are computed, they are also stored in the corresponding
       --  Source_Id for later reuse by the binder.
+      --  If Repeat is True source inserted into the queue even if it was
+      --  alredy processed.
 
       procedure Insert_Project_Sources
         (Project        : Project_Id;

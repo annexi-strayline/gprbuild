@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -30,8 +30,9 @@ with Ada.Strings.Fixed;           use Ada.Strings.Fixed;
 with Ada.Strings.Maps.Constants;  use Ada.Strings;
 with Ada.Text_IO;                 use Ada.Text_IO;
 
-with GNAT.Sockets;      use GNAT; use GNAT.Sockets;
-with GNAT.String_Split; use GNAT.String_Split;
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+with GNAT.Sockets;              use GNAT; use GNAT.Sockets;
+with GNAT.String_Split;         use GNAT.String_Split;
 
 with GPR.Compilation.Process;
 with GPR.Names;                     use GPR.Names;
@@ -632,9 +633,6 @@ package body GPR.Compilation.Slave is
       Dep_Name : String := "";
       Env      : String := "") return GPR.Compilation.Id
    is
-      CWD : constant String := Current_Directory;
-      --  CWD is the directory from which the command is run
-
       RD  : constant String := To_String (Root_Dir);
 
       S   : Slave := Slaves.Get_Free;
@@ -764,7 +762,7 @@ package body GPR.Compilation.Slave is
       Send_Exec
         (S.Channel,
          Get_Name_String (Project.Path.Display_Name),
-         Filter_String (CWD, Sep => ""),
+         Filter_String (Get_Current_Dir, Sep => ""),
          Language, Options, Obj_Name, Dep_Name, Env,
          Filter_String'Access);
 

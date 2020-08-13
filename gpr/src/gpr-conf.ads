@@ -53,24 +53,24 @@ package GPR.Conf is
    --  Add one argument to the --db switch
 
    procedure Parse_Project_And_Apply_Config
-     (Main_Project               : out GPR.Project_Id;
-      User_Project_Node          : out GPR.Project_Node_Id;
-      Config_File_Name           : String                        := "";
+     (Main_Project               : out Project_Id;
+      User_Project_Node          : out Project_Node_Id;
+      Config_File_Name           : String                    := "";
       Autoconf_Specified         : Boolean;
       Project_File_Name          : String;
-      Project_Tree               : GPR.Project_Tree_Ref;
-      Project_Node_Tree          : GPR.Tree.Project_Node_Tree_Ref;
-      Env                        : in out GPR.Tree.Environment;
+      Project_Tree               : Project_Tree_Ref;
+      Project_Node_Tree          : Tree.Project_Node_Tree_Ref;
+      Env                        : in out Tree.Environment;
       Packages_To_Check          : String_List_Access;
-      Allow_Automatic_Generation : Boolean                       := True;
+      Allow_Automatic_Generation : Boolean                   := True;
       Automatically_Generated    : out Boolean;
       Config_File_Path           : out String_Access;
-      Target_Name                : String                        := "";
+      Target_Name                : String                    := "";
       Normalized_Hostname        : String;
-      On_Load_Config             : Config_File_Hook              := null;
-      Implicit_Project           : Boolean                       := False;
-      On_New_Tree_Loaded         : GPR.Proc.Tree_Loaded_Callback := null;
-      Gprconfig_Options          : String_Vectors.Vector         :=
+      On_Load_Config             : Config_File_Hook          := null;
+      Implicit_Project           : Boolean                   := False;
+      On_New_Tree_Loaded         : Proc.Tree_Loaded_Callback := null;
+      Gprconfig_Options          : String_Vectors.Vector     :=
         String_Vectors.Empty_Vector);
    --  Find the main configuration project and parse the project tree rooted at
    --  this configuration project.
@@ -117,24 +117,24 @@ package GPR.Conf is
    --  has been processed succesfully.
 
    procedure Process_Project_And_Apply_Config
-     (Main_Project               : out GPR.Project_Id;
-      User_Project_Node          : GPR.Project_Node_Id;
-      Config_File_Name           : String                        := "";
+     (Main_Project               : out Project_Id;
+      User_Project_Node          : Project_Node_Id;
+      Config_File_Name           : String                    := "";
       Autoconf_Specified         : Boolean;
-      Project_Tree               : GPR.Project_Tree_Ref;
-      Project_Node_Tree          : GPR.Tree.Project_Node_Tree_Ref;
-      Env                        : in out GPR.Tree.Environment;
+      Project_Tree               : Project_Tree_Ref;
+      Project_Node_Tree          : Tree.Project_Node_Tree_Ref;
+      Env                        : in out Tree.Environment;
       Packages_To_Check          : String_List_Access;
-      Allow_Automatic_Generation : Boolean                       := True;
+      Allow_Automatic_Generation : Boolean                   := True;
       Automatically_Generated    : out Boolean;
       Config_File_Path           : out String_Access;
-      Target_Name                : String                        := "";
+      Target_Name                : String                    := "";
       Normalized_Hostname        : String;
-      On_Load_Config             : Config_File_Hook              := null;
-      Reset_Tree                 : Boolean                       := True;
-      On_New_Tree_Loaded         : GPR.Proc.Tree_Loaded_Callback := null;
-      Do_Phase_1                 : Boolean                       := True;
-      Gprconfig_Options          : String_Vectors.Vector         :=
+      On_Load_Config             : Config_File_Hook          := null;
+      Reset_Tree                 : Boolean                   := True;
+      On_New_Tree_Loaded         : Proc.Tree_Loaded_Callback := null;
+      Do_Phase_1                 : Boolean                   := True;
+      Gprconfig_Options          : String_Vectors.Vector     :=
         String_Vectors.Empty_Vector);
    --  Same as above, except the project must already have been parsed through
    --  GPR.Part.Parse, and only the processing of the project and the
@@ -155,18 +155,18 @@ package GPR.Conf is
    Invalid_Config : exception;
 
    procedure Get_Or_Create_Configuration_File
-     (Project                    : GPR.Project_Id;
+     (Project                    : Project_Id;
       Conf_Project               : Project_Id;
-      Project_Tree               : GPR.Project_Tree_Ref;
-      Project_Node_Tree          : GPR.Tree.Project_Node_Tree_Ref;
-      Env                        : in out GPR.Tree.Environment;
+      Project_Tree               : Project_Tree_Ref;
+      Project_Node_Tree          : Tree.Project_Node_Tree_Ref;
+      Env                        : in out Tree.Environment;
       Allow_Automatic_Generation : Boolean;
       Config_File_Name           : String                := "";
       Autoconf_Specified         : Boolean;
       Target_Name                : String                := "";
       Normalized_Hostname        : String;
       Packages_To_Check          : String_List_Access    := null;
-      Config                     : out GPR.Project_Id;
+      Config                     : out Project_Id;
       Config_File_Path           : out String_Access;
       Automatically_Generated    : out Boolean;
       On_Load_Config             : Config_File_Hook      := null;
@@ -181,8 +181,8 @@ package GPR.Conf is
    --  Any error in generating or parsing the config file is reported via the
    --  Invalid_Config exception, with an appropriate message.
    --
-   --  On exit, Configuration_Project_Path is never null (if none could be
-   --  found, Os.Fail was called and the program exited anyway).
+   --  On exit, Config_File_Path is never null (if none could be found, Os.Fail
+   --  was called and the program exited anyway).
    --
    --  The choice and generation of a configuration file depends on several
    --  attributes of the user's project file (given by the Project argument),
@@ -205,9 +205,9 @@ package GPR.Conf is
    --  should be processed).
 
    procedure Update_Project_Search_Path
-     (Project      : GPR.Project_Id;
-      Project_Tree : GPR.Project_Tree_Ref;
-      Env          : in out GPR.Tree.Environment);
+     (Project      : Project_Id;
+      Project_Tree : Project_Tree_Ref;
+      Env          : in out Tree.Environment);
    --  Add compiler-specific predefined directories to the project search path.
 
 --     procedure Add_Default_GNAT_Naming_Scheme
