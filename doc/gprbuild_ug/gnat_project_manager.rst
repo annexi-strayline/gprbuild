@@ -5241,6 +5241,12 @@ Package Linker Attributes
     Value is the switch to specify the map file name that the linker needs to
     create.
 
+  * **Unconditionally_Linked**: single, indexed, case-insensitive index
+
+    Index is a language name. Indicates that all object files of this language
+    going to be linked unconditionally. Only case-insensitive values allowed
+    are "true" and "false", the default.
+
 * **Configuration - Linking**
 
   * **Driver**: single

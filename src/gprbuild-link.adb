@@ -1742,6 +1742,7 @@ package body Gprbuild.Link is
       Find_Binding_Languages (Main_File.Tree, Main_File.Project);
 
       --  Build the objects list
+
       if Builder_Data (Main_File.Tree).There_Are_Binder_Drivers then
          Binding_Options.Clear;
 
@@ -1793,8 +1794,7 @@ package body Gprbuild.Link is
 
                      if Last > 0 then
                         if Line (1) = '[' then
-                           Section :=
-                             Get_Binding_Section (Line (1 .. Last));
+                           Section := Get_Binding_Section (Line (1 .. Last));
 
                         else
                            case Section is
@@ -1803,8 +1803,7 @@ package body Gprbuild.Link is
                                  Binder_Object_TS :=
                                    File_Stamp
                                      (Path_Name_Type'
-                                          (Create_Name
-                                               (Line (1 .. Last))));
+                                        (Create_Name (Line (1 .. Last))));
 
                                  Objects.Append (Line (1 .. Last));
 
@@ -1814,8 +1813,7 @@ package body Gprbuild.Link is
                                    Resolve_Links => Opt.Follow_Links_For_Files,
                                    Case_Sensitive => False) /=
                                    Normalize_Pathname
-                                  (Get_Name_String
-                                     (Main_Source.Object_Path),
+                                   (Get_Name_String (Main_Source.Object_Path),
                                    Resolve_Links => Opt.Follow_Links_For_Files,
                                    Case_Sensitive => False)
                                    and then
@@ -1888,6 +1886,26 @@ package body Gprbuild.Link is
             B_Data := B_Data.Next;
          end loop Binding_Loop;
       end if;
+
+      --  Add object files for unconditionally linked languages
+
+      declare
+         Lang : Language_Ptr := Main_Proj.Languages;
+         Src  : Source_Id;
+      begin
+         while Lang /= No_Language_Index loop
+            if Lang.Unconditional_Linking then
+               Src := Lang.First_Source;
+
+               while Src /= No_Source loop
+                  Objects.Append (Get_Name_String (Src.Object_Path));
+                  Src := Src.Next_In_Lang;
+               end loop;
+            end if;
+
+            Lang := Lang.Next;
+         end loop;
+      end;
 
       --  Add the global archive, if there is one
 
@@ -2653,9 +2671,11 @@ package body Gprbuild.Link is
          end;
 
          --  Get the Linker_Options, if any
+
          Add_Linker_Options (Other_Arguments, For_Project => Main_Proj);
 
          --  Add the linker switches specified on the command line
+
          Add_Arguments
            (Other_Arguments,
             Command_Line_Linker_Options,
@@ -3417,6 +3437,7 @@ package body Gprbuild.Link is
          end if;
 
          --  Complete the command line if needed
+
          for Obj of Objects loop
             Add_Argument
               (Arguments,

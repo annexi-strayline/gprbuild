@@ -995,6 +995,9 @@ package GPR is
                         Mapping_Files_Htable.Nil;
       --  Hash table containing the mapping of the sources to their path names
 
+      Unconditional_Linking : Boolean := False;
+      --  All object files of this language should be linked unconditionally
+
       Next : Language_Ptr := No_Language_Index;
       --  Next language of the project
 

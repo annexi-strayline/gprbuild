@@ -1212,6 +1212,9 @@ package body GPR.Nmsc is
          --  Process the simple attributes of package Linker of a
          --  configuration project.
 
+         procedure Process_Linker (Arrays : Array_Id);
+         --  Process the associated array attributes of package Linker
+
          procedure Resp_File_Format
            (Name    : Name_Id;
             Format  : out Response_File_Format;
@@ -2193,6 +2196,61 @@ package body GPR.Nmsc is
             end loop;
          end Process_Linker;
 
+         procedure Process_Linker (Arrays : Array_Id) is
+            Current_Array_Id : Array_Id;
+            Current_Array    : Array_Data;
+            Element_Id       : Array_Element_Id;
+            Element          : Array_Element;
+
+         begin
+            --  Process the associated array attributes of package Clean
+
+            Current_Array_Id := Arrays;
+
+            while Current_Array_Id /= No_Array loop
+               Current_Array := Shared.Arrays.Table (Current_Array_Id);
+
+               if Current_Array.Name = Name_Unconditional_Linking then
+                  Element_Id := Current_Array.Value;
+
+                  while Element_Id /= No_Array_Element loop
+                     Element := Shared.Array_Elements.Table (Element_Id);
+
+                     --  Get the name of the language
+
+                     Lang_Index :=
+                       Get_Language_From_Name
+                         (Project, Get_Name_String (Element.Index));
+
+                     if Lang_Index /= No_Language_Index then
+                        --  Attribute Unconditional_Linking (<language>)
+
+                        begin
+                           Lang_Index.Unconditional_Linking :=
+                             Boolean'Value
+                               (Get_Name_String (Element.Value.Value));
+                        exception
+                           when Constraint_Error =>
+                              Error_Msg
+                                (Data.Flags,
+                                 "illegal value for Unconditional_Linking",
+                                 Element.Value.Location,
+                                 Project);
+                        end;
+                     end if;
+
+                     Element_Id := Element.Next;
+                  end loop;
+               end if;
+
+               Current_Array_Id := Current_Array.Next;
+            end loop;
+         end Process_Linker;
+
+         ----------------------
+         -- Resp_File_Format --
+         ----------------------
+
          procedure Resp_File_Format
            (Name    : Name_Id;
             Format  : out Response_File_Format;
@@ -2271,6 +2329,7 @@ package body GPR.Nmsc is
                --  Process attributes of package Linker
 
                Process_Linker (Element.Decl.Attributes);
+               Process_Linker (Element.Decl.Arrays);
 
             elsif Element.Name = Name_Naming then
 

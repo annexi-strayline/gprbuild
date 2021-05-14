@@ -346,6 +346,7 @@ package body GPR.Snames is
       Add_Name ("additional_patterns");
       Add_Name ("origin_project");
       Add_Name ("library_reference_symbol_file");
+      Add_Name ("unconditional_linking");
       Add_Name ("");
       Add_Name (".");
       Add_Name ("*");
