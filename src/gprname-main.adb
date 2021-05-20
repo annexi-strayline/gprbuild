@@ -42,8 +42,6 @@ with System.Regexp; use System.Regexp;
 
 procedure GPRName.Main is
 
-   Subdirs_Switch : constant String := "--subdirs=";
-
    Usage_Output : Boolean := False;
    --  Set to True when usage is output, to avoid multiple output
 
@@ -483,14 +481,6 @@ procedure GPRName.Main is
                Arguments.Append (New_Arguments);
             end;
 
-         --  --subdirs=
-
-         elsif Arg'Length > Subdirs_Switch'Length
-           and then Arg (1 .. Subdirs_Switch'Length) = Subdirs_Switch
-         then
-            Subdirs :=
-              new String'(Arg (Subdirs_Switch'Length + 1 .. Arg'Last));
-
          --  --ignore-predefined-units
 
          elsif Arg = "--ignore-predefined-units" then
@@ -718,8 +708,6 @@ procedure GPRName.Main is
            ("  --target=<targ> indicates the target of the GNAT compiler");
          New_Line;
          Put_Line ("  --RTS=dir     specify the Ada runtime");
-         Put_Line ("  --subdirs=dir use dir as suffix to obj/lib/exec " &
-                   "directories");
          Put_Line ("  --no-backup   do not create backup of project file");
          New_Line;
          Put_Line ("  --ignore-duplicate-files  ignore duplicate basenames");
