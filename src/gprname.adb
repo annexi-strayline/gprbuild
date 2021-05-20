@@ -19,7 +19,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Characters.Handling;   use Ada.Characters.Handling;
 with Ada.Containers.Ordered_Maps;
 with Ada.Text_IO;               use Ada.Text_IO;
 
@@ -66,9 +65,7 @@ package body GPRName is
 
    Path_Name : String_Access;
 
-   Path_Last : Natural;
-
-   Directory_Last    : Natural := 0;
+   Directory_Last   : Natural := 0;
 
    Output_Name      : String_Access;
    Output_Name_Last : Natural;
@@ -290,27 +287,22 @@ package body GPRName is
 
       --  Delete the file if it already exists
 
-      Delete_File
-        (Path_Name (Directory_Last + 1 .. Path_Last),
-         Success => Discard);
+      Delete_File (Path_Name.all, Success => Discard);
 
       --  Create a new one
 
       if Opt.Verbose_Mode then
          Put ("Creating new file """);
-         Put (Path_Name (Directory_Last + 1 .. Path_Last));
+         Put (Path_Name (Directory_Last + 1 .. Path_Name'Last));
          Put_Line ("""");
       end if;
 
-      Output_FD := Create_New_File
-        (Path_Name (Directory_Last + 1 .. Path_Last),
-         Fmode => Text);
+      Output_FD := Create_New_File (Path_Name.all, Fmode => Text);
 
       --  Fails if project file cannot be created
 
       if Output_FD = Invalid_FD then
-         GPR.Com.Fail
-           ("cannot create new """ & Path_Name (1 .. Path_Last) & """");
+         GPR.Com.Fail ("cannot create new """ & Path_Name.all & """");
       end if;
 
       --  Delete the source list file, if it already exists
@@ -1095,10 +1087,10 @@ package body GPRName is
    ----------------
 
    procedure Initialize
-     (File_Path         : String;
-      Preproc_Switches  : String_Vectors.Vector;
-      Very_Verbose      : Boolean;
-      Flags             : Processing_Flags)
+     (File_Path        : String;
+      Preproc_Switches : String_Vectors.Vector;
+      Very_Verbose     : Boolean;
+      Flags            : Processing_Flags)
    is
    begin
       GPRName.Very_Verbose := Initialize.Very_Verbose;
@@ -1138,64 +1130,21 @@ package body GPRName is
 
       --  Get the path and file names
 
-      Path_Name := new
-        String (1 .. File_Path'Length + Project_File_Extension'Length);
-      Path_Last := File_Path'Length;
-
-      if File_Names_Case_Sensitive then
-         Path_Name (1 .. Path_Last) := File_Path;
-      else
-         Path_Name (1 .. Path_Last) := To_Lower (File_Path);
-      end if;
-
-      Path_Name (Path_Last + 1 .. Path_Name'Last) :=
-        Project_File_Extension;
+      Path_Name := new String'(File_Path);
 
       --  Get the end of directory information, if any
 
-      for Index in reverse 1 .. Path_Last loop
+      for Index in reverse Path_Name'Range loop
          if Path_Name (Index) = Directory_Separator then
             Directory_Last := Index;
             exit;
          end if;
       end loop;
 
-      if Path_Last < Project_File_Extension'Length + 1
-        or else Path_Name
-          (Path_Last - Project_File_Extension'Length + 1 .. Path_Last)
-        /= Project_File_Extension
-      then
-         Path_Last := Path_Name'Last;
-      end if;
-
-      Output_Name := new String'(Path_Name (1 .. Path_Last));
+      Output_Name := new String'(Path_Name.all);
       Output_Name_Last := Output_Name'Last - 4;
 
-      --  If there is already a project file with the specified name, parse
-      --  it to get the components that are not automatically generated.
-
-      if Is_Regular_File (Output_Name (1 .. Path_Last)) then
-         if Opt.Verbose_Mode then
-            Put ("Parsing already existing project file """);
-            Put (Output_Name.all);
-            Put_Line ("""");
-         end if;
-
-      else
-         declare
-            File : File_Type;
-         begin
-            Create (File, Out_File, Output_Name.all);
-            Put (File, "project ");
-            Put (File, Path_Name (Directory_Last + 1 .. Output_Name_Last));
-            Put_Line (File, " is");
-            Put (File, "end ");
-            Put (File, Path_Name (Directory_Last + 1 .. Output_Name_Last));
-            Put_Line (File, ";");
-            Close (File);
-            Opt.No_Backup := True;
-         end;
-      end if;
+      pragma Assert (Is_Regular_File (Output_Name.all));
 
       GPR.Attr.PM.Remove_Unknown_Packages;
 
@@ -1380,13 +1329,10 @@ package body GPRName is
 
       --  Back up project file if it already exists
 
-      if not Opt.No_Backup
-        and then Is_Regular_File (Path_Name (1 .. Path_Last))
-      then
+      if not Opt.No_Backup and then Is_Regular_File (Path_Name.all) then
          declare
             Discard    : Boolean;
-            Saved_Path : constant String :=
-              Path_Name (1 .. Path_Last) & ".saved_";
+            Saved_Path : constant String := Path_Name.all & ".saved_";
             Nmb        : Natural;
 
          begin
@@ -1398,7 +1344,7 @@ package body GPRName is
                begin
                   if not Is_Regular_File (FN) then
                      Copy_File
-                       (Name     => Path_Name (1 .. Path_Last),
+                       (Name     => Path_Name.all,
                         Pathname => FN,
                         Mode     => Overwrite,
                         Success  => Discard);
