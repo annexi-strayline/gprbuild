@@ -57,8 +57,6 @@ package body GPRName is
    Tree : constant GPR.Project_Node_Tree_Ref := new Project_Node_Tree_Data;
    --  The project tree where the project file is parsed
 
-   Root_Environment : GPR.Tree.Environment;
-
    Args : Argument_List_Access;
    --  The list of arguments for calls to the compiler to get the unit names
    --  and kinds (spec or body) in the Ada sources.
