@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                    Copyright (C) 2015-2020, AdaCore                      --
+--                    Copyright (C) 2015-2021, AdaCore                      --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -329,6 +329,23 @@ procedure Gprls.Main is
       Object_Paths : Paths := No_Paths;
 
       Path : Path_Access;
+
+      procedure Put_Path (Path : String);
+      --  Put path prefixed with 3 spaces to standard output add directory
+      --  separator at the end if absent.
+
+      procedure Put_Path (Path : String) is
+      begin
+         Put ("   ");
+         Put (Path);
+
+         if Path (Path'Last) /= Directory_Separator then
+            Put_Line ("" & Directory_Separator);
+         else
+            New_Line;
+         end if;
+      end Put_Path;
+
    begin
       New_Line;
       Display_Version ("GPRLS", "2015");
@@ -346,7 +363,7 @@ procedure Gprls.Main is
 
       Path := Source_Paths.First;
       while Path /= null loop
-         Put_Line ("   " & Path.Path.all);
+         Put_Path (Path.Path.all);
          Path := Path.Next;
       end loop;
 
@@ -363,7 +380,7 @@ procedure Gprls.Main is
 
       Path := Object_Paths.First;
       while Path /= null loop
-         Put_Line ("   " & Path.Path.all);
+         Put_Path (Path.Path.all);
          Path := Path.Next;
       end loop;
 
@@ -390,7 +407,7 @@ procedure Gprls.Main is
                end loop;
 
                if Path (First .. Last) /= "." then
-                  Put_Line ("   " & Path (First .. Last));
+                  Put_Path (Path (First .. Last));
                end if;
 
                First := Last + 1;
