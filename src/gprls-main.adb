@@ -334,8 +334,20 @@ procedure Gprls.Main is
       --  Put path prefixed with 3 spaces to standard output add directory
       --  separator at the end if absent.
 
+      --------------
+      -- Put_Path --
+      --------------
+
       procedure Put_Path (Path : String) is
       begin
+         if Path'Length > 1
+           and then Path (Path'Last - 1 .. Path'Last)
+                    = (1 .. 2 => Directory_Separator)
+         then
+            Put_Path (Path (Path'First .. Path'Last - 1));
+            return;
+         end if;
+
          Put ("   ");
          Put (Path);
 
