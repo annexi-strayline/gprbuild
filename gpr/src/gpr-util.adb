@@ -5380,7 +5380,8 @@ package body GPR.Util is
                Dep_Path : constant String :=
                             Normalize_Pathname
                               (Get_Name_String (Source.Dep_Name),
-                               Get_Name_String (In_Project.Library_Dir.Name),
+                               Get_Name_String
+                                 (In_Project.Library_ALI_Dir.Name),
                                Resolve_Links => Opt.Follow_Links_For_Files);
                Lib_Stamp : constant Time_Stamp_Type := File_Stamp (Dep_Path);
             begin
