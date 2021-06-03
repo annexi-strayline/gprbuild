@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -901,7 +901,6 @@ package body GPR.ALI is
          begin
             UL.Uname                    := Get_Unit_Name;
             UL.Predefined               := False;
-            UL.Internal                 := False;
             UL.My_ALI                   := Id;
             UL.Sfile                    := Get_File_Name (Lower => True);
             UL.Pure                     := False;

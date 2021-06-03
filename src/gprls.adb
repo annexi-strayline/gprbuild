@@ -478,7 +478,6 @@ package body Gprls is
            U.Shared_Passive      or else
            U.RCI                 or else
            U.Predefined          or else
-           U.Internal            or else
            U.Is_Generic          or else
            U.Init_Scalars        or else
            U.SAL_Interface       or else
@@ -521,10 +520,6 @@ package body Gprls is
 
             if U.Predefined then
                Put (" Predefined");
-            end if;
-
-            if U.Internal then
-               Put (" Internal");
             end if;
 
             if U.Is_Generic then
@@ -922,10 +917,6 @@ package body Gprls is
 
          if Units.Table (U).Predefined then
             Output_Token (T_Predefined);
-         end if;
-
-         if Units.Table (U).Internal then
-            Output_Token (T_Internal);
          end if;
 
          if Units.Table (U).Is_Generic then
