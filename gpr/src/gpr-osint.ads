@@ -211,6 +211,9 @@ package GPR.Osint is
    function File_Stamp (Name : Path_Name_Type) return Time_Stamp_Type;
    --  Same as above for a path name
 
+   function File_Stamp (Name : String) return Time_Stamp_Type;
+   --  Same as above for a string filename
+
    type Exit_Code_Type is
      (E_Success,    -- No warnings or errors
       E_Warnings,   -- Compiler warnings generated

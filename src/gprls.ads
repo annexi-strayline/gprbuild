@@ -120,9 +120,10 @@ private
    --  Reset to E_Fatal if bad error found
 
    type File_Name_Source (Name_Len : Natural) is record
-      File_Name : String (1 .. Name_Len);
       Source    : GPR.Source_Id;
+      Tree      : Project_Tree_Ref;
       The_ALI   : ALI_Id;
+      File_Name : String (1 .. Name_Len);
    end record;
 
    package File_Name_Vectors is new Ada.Containers.Indefinite_Vectors
@@ -165,7 +166,9 @@ private
    --  Add ALI_Name to hash table ALI_Names
 
    procedure Add_File
-     (File_Name : String; Source : GPR.Source_Id := No_Source);
+     (File_Name : String;
+      Tree      : Project_Tree_Ref;
+      Source    : GPR.Source_Id := No_Source);
    --  Add File_Name to File_Names
 
    function Find_ALI (Source : GPR.Source_Id) return ALI_Id;
@@ -194,7 +197,7 @@ private
    procedure Output_Object (O : File_Name_Type);
    --  Print out the name of the object when requested
 
-   procedure Output_Source (Sdep_I : Sdep_Id);
+   procedure Output_Source (Tree : Project_Tree_Ref; Sdep_I : Sdep_Id);
    --  Print out the name and status of the source corresponding to this
    --  sdep entry.
 

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2002-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2002-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -86,8 +86,9 @@ package body GPR.Err is
    -- Error_Msg --
    ---------------
 
-   procedure Error_Msg (Msg : String; Flag_Location : Source_Ptr) is
-
+   procedure Error_Msg
+     (Msg : String; Flag_Location : Source_Ptr; One_Line : Boolean := False)
+   is
       Next_Msg : Error_Msg_Id;
       --  Pointer to next message at insertion point
 
@@ -104,6 +105,7 @@ package body GPR.Err is
 
       Sfile : Source_File_Index;
       Line  : Line_Number;
+      Col   : Column_Number;
    begin
       Prescan_Message (Msg);
       Set_Msg_Text (Msg);
@@ -126,6 +128,7 @@ package body GPR.Err is
 
       Sfile    := Get_Source_File_Index (Sptr);
       Line     := Get_Line_Number (Sptr);
+      Col      := Get_Column_Number (Sptr);
       Prev_Msg := No_Error_Msg;
       Next_Msg := First_Error_Msg;
 
@@ -152,25 +155,21 @@ package body GPR.Err is
 
       if Prev_Msg /= No_Error_Msg
         and then Errors.Table (Prev_Msg).Line = Line
+        and then (One_Line or else Errors.Table (Prev_Msg).Col = Col)
         and then Errors.Table (Prev_Msg).Sfile = Sfile
       then
          --  Don't delete unconditional messages and at this stage, don't
          --  delete continuation lines (we attempted to delete those earlier
          --  if the parent message was deleted.
 
-         if not Is_Unconditional_Msg
-           and then not Continuation
-         then
-
+         if not Is_Unconditional_Msg and then not Continuation then
             --  Don't delete if prev msg is warning and new msg is an error.
             --  This is because we don't want a real error masked by a warning.
             --  In all other cases (that is parse errors for the same line that
             --  are not unconditional) we do delete the message. This helps to
             --  avoid junk extra messages from cascaded parsing errors
 
-            if not Errors.Table (Prev_Msg).Warn
-              or else Is_Warning_Msg
-            then
+            if not Errors.Table (Prev_Msg).Warn or else Is_Warning_Msg then
                --  All tests passed, delete the message by simply returning
                --  without any further processing.
 
@@ -545,7 +544,8 @@ package body GPR.Err is
       Msg      : String;
       Location : Source_Ptr := No_Location;
       Project  : Project_Id := null;
-      Always   : Boolean    := False)
+      Always   : Boolean    := False;
+      One_Line : Boolean    := False)
    is
       Real_Location : Source_Ptr := Location;
 
@@ -589,7 +589,7 @@ package body GPR.Err is
       --  Report the error through Errutil, so that duplicate errors are
       --  properly removed, messages are sorted, and correctly interpreted,...
 
-      Error_Msg (Msg, Real_Location);
+      Error_Msg (Msg, Real_Location, One_Line);
 
       --  Let the application know there was an error
 

@@ -226,21 +226,23 @@ package body GPR.Osint is
    -- File_Stamp --
    ----------------
 
+   function File_Stamp (Name : String) return Time_Stamp_Type is
+   begin
+      --  File_Time_Stamp will always return Invalid_Time if the file does
+      --  not exist, and OS_Time_To_GNAT_Time will convert this value to
+      --  Empty_Time_Stamp. Therefore we do not need to first test whether
+      --  the file actually exists, which saves a system call.
+
+      return OS_Time_To_GNAT_Time (File_Time_Stamp (Name));
+   end File_Stamp;
+
    function File_Stamp (Name : File_Name_Type) return Time_Stamp_Type is
    begin
       if Name = No_File then
          return Empty_Time_Stamp;
       end if;
 
-      Get_Name_String (Name);
-
-      --  File_Time_Stamp will always return Invalid_Time if the file does
-      --  not exist, and OS_Time_To_GNAT_Time will convert this value to
-      --  Empty_Time_Stamp. Therefore we do not need to first test whether
-      --  the file actually exists, which saves a system call.
-
-      return OS_Time_To_GNAT_Time
-               (File_Time_Stamp (Name_Buffer (1 .. Name_Len)));
+      return File_Stamp (Get_Name_String (Name));
    end File_Stamp;
 
    function File_Stamp (Name : Path_Name_Type) return Time_Stamp_Type is

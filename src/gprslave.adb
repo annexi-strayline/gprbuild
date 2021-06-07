@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2012-2020, AdaCore                     --
+--                     Copyright (C) 2012-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -34,8 +34,8 @@ with Ada.Unchecked_Deallocation;
 with System.Multiprocessors;                use System;
 
 with GNAT.Command_Line;         use GNAT;
-with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.CRC32;
+with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.Exception_Traces;
 with GNAT.OS_Lib;             use GNAT.OS_Lib;
 with GNAT.Sockets;            use GNAT.Sockets;
@@ -51,14 +51,14 @@ with GPR.Util;                 use GPR.Util;
 with GPR.Version;
 
 with GPR;                      use GPR;
-with GPR.Opt;                  use GPR.Opt;
-with GPR.Knowledge;            use GPR.Knowledge;
 with GPR.Env;
+with GPR.Knowledge;            use GPR.Knowledge;
 with GPR.Names;                use GPR.Names;
+with GPR.Opt;                  use GPR.Opt;
 with GPR.Part;                 use GPR.Part;
 with GPR.Proc;
-with GPR.Tree;                 use GPR.Tree;
 with GPR.Snames;               use GPR.Snames;
+with GPR.Tree;                 use GPR.Tree;
 
 procedure Gprslave is
 
@@ -395,7 +395,7 @@ procedure Gprslave is
    end IO;
 
    Compiler_Path : constant OS_Lib.String_Access :=
-                     Locate_Exec_On_Path ("gnatls");
+                     Locate_Exec_On_Path ("gprls");
 
    Slave_Id : Remote_Id;
    --  Host Id used to compose a unique job id across all running slaves
@@ -901,14 +901,11 @@ procedure Gprslave is
       Define_Switch
         (Config, Hash'Access,
          "-s:", Long_Switch => "--hash=",
-         Help => "specifiy a hash, must match with master");
+         Help => "specify a hash, must match with master");
 
       Set_Usage (Config, Usage => "[switches]");
 
-      Check_Version_And_Help
-        ("GPRSLAVE",
-         "2013",
-         Version_String => Version.Gpr_Version_String);
+      Check_Version_And_Help ("GPRSLAVE", "2013");
 
       Getopt (Config);
 
@@ -1220,7 +1217,10 @@ procedure Gprslave is
    task body Execute_Job is
 
       function Get_Driver
-        (Builder : Build_Master; Language, Project : String) return String;
+        (Builder        : Build_Master;
+         Language        : String;
+         Target, Runtime : String;
+         Project         : String) return String;
       --  Returns the compiler driver for the given language and the current
       --  target as retreived from the initial handshake context exchange.
 
@@ -1248,7 +1248,10 @@ procedure Gprslave is
       ----------------
 
       function Get_Driver
-        (Builder : Build_Master; Language, Project : String) return String
+        (Builder        : Build_Master;
+         Language        : String;
+         Target, Runtime : String;
+         Project         : String) return String
       is
          procedure Look_Driver (Project_Name : String; Is_Config : Boolean);
          --  Set Driver with the found driver for the Language
@@ -1256,7 +1259,8 @@ procedure Gprslave is
          Config_Filename    : constant String :=
                                 "slave_tmp-" & Language & ".cgpr";
          Key                : constant String :=
-                                To_String (Builder.D.Target) & '+' & Language;
+                                To_String (Builder.D.Target)
+                                & '+' & Language & "+" & Runtime;
          Position           : constant Drivers_Cache.Cursor :=
                                 Cache.Find (Key);
          Compilers, Filters : Compiler_Lists.List;
@@ -1362,7 +1366,7 @@ procedure Gprslave is
 
             Parse_Config_Parameter
               (Base              => Base,
-               Config            => Language,
+               Config            => Language & ",," & Runtime,
                Compiler          => Comp,
                Requires_Compiler => Requires_Comp);
 
@@ -1372,16 +1376,18 @@ procedure Gprslave is
                Compilers.Append (Comp);
             end if;
 
+            Get_Targets_Set (Base, Target, Selected_Targets_Set);
+
             declare
-               Unused_Target : Unbounded_String := Null_Unbounded_String;
+               Used_Target : Unbounded_String := To_Unbounded_String (Target);
             begin
                Complete_Command_Line_Compilers
                  (Base,
                   Selected_Targets_Set,
                   Filters,
                   Compilers,
-                  Target_Specified => False,
-                  Selected_Target  => Unused_Target);
+                  Target_Specified => True,
+                  Selected_Target  => Used_Target);
             end;
 
             --  Generate configuration project file
@@ -1409,6 +1415,11 @@ procedure Gprslave is
                Look_Driver (Project, Is_Config => False);
 
                --  Ensure that we have a full-path name
+
+               if Driver = Key then
+                  --  Driver not found, use <target>-gcc if it exists
+                  Driver := Builder.D.Target & "-gcc";
+               end if;
 
                declare
                   Exe : OS_Lib.String_Access :=
@@ -1570,18 +1581,20 @@ procedure Gprslave is
                   Is_Debug => True);
          end;
 
-         Create (List, Args (Job.Cmd) (6).all, String'(1 => Opts_Sep));
+         Create (List, Args (Job.Cmd) (8).all, String'(1 => Opts_Sep));
 
          Execute  : declare
             Project   : constant String :=
                           Get_Arg (Builder, Args (Job.Cmd) (1).all);
             Language  : constant String := Args (Job.Cmd) (3).all;
+            Target    : constant String := Args (Job.Cmd) (4).all;
+            Runtime   : constant String := Args (Job.Cmd) (5).all;
             Out_File  : constant String :=
                           Get_Output_File (Builder);
-            Obj_File  : constant String := Args (Job.Cmd) (4).all;
-            Dep_File  : constant String := Args (Job.Cmd) (5).all;
+            Obj_File  : constant String := Args (Job.Cmd) (6).all;
+            Dep_File  : constant String := Args (Job.Cmd) (7).all;
             Env       : constant String :=
-                          Get_Arg (Builder, Args (Job.Cmd) (7).all);
+                          Get_Arg (Builder, Args (Job.Cmd) (9).all);
             O         : Argument_List := Get_Args (Builder, List);
             First_Opt : Positive := O'First;
             Pid       : Process_Id;
@@ -1619,7 +1632,8 @@ procedure Gprslave is
 
             else
                Driver := To_Unbounded_String
-                           (Get_Driver (Builder, Language, Project));
+                           (Get_Driver (Builder, Language,
+                                        Target, Runtime, Project));
             end if;
 
             Running.Start
@@ -1828,6 +1842,17 @@ procedure Gprslave is
          Dep_Dir  : String;
          Pid      : out Process_Id) is
       begin
+         if Debug then
+            Put (Driver);
+            Put (' ');
+
+            for O of Options loop
+               Put (O.all);
+               Put (' ');
+            end loop;
+            New_Line;
+         end if;
+
          IO.Spawn (Driver, Options, Out_File, Pid);
 
          Job.Pid      := Pid;
@@ -2423,9 +2448,6 @@ procedure Gprslave is
             return;
       end;
 
-      Get_Targets_Set
-        (Base, To_String (Builder.D.Target), Selected_Targets_Set);
-
       Display
         (Builder, "Handling project : " & To_String (Builder.D.Project_Name));
       Display (Builder, "Compiling for    : " & To_String (Builder.D.Target));
@@ -2546,9 +2568,9 @@ begin
    Activate_Symbolic_Traceback;
 
    --  Always create the lib/object directories on the slave, this is needed
-   --  when parsing a projet file to retreive a specific driver.
+   --  when parsing a projet file to retrieve a specific driver.
 
-   Opt.Setup_Projects := True;
+   Opt.Create_Dirs := Create_All_Dirs;
 
    --  Setup the response handlers
 

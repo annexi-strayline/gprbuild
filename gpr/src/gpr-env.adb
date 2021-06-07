@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -1933,28 +1933,6 @@ package body GPR.Env is
       --  The path name(s) of directories where project files may reside.
       --  May be empty.
 
-      Prefix  : String_Access;
-      Runtime : String_Access;
-
-      procedure Add_Target;
-      --  Add :<prefix>/<target> to the project path
-
-      ----------------
-      -- Add_Target --
-      ----------------
-
-      procedure Add_Target is
-      begin
-         Add_Str_To_Name_Buffer
-           (Path_Separator & Prefix.all & Target_Name);
-
-         --  Note: Target_Name has a trailing / when it comes from Sdefault
-
-         if Name_Buffer (Name_Len) /= '/' then
-            Add_Char_To_Name_Buffer (Directory_Separator);
-         end if;
-      end Add_Target;
-
    --  Start of processing for Initialize_Default_Project_Path
 
    begin
@@ -2038,8 +2016,8 @@ package body GPR.Env is
 
       --  Copy to Name_Buffer, since we will need to manipulate the path
 
-      Name_Len := Self.Path'Length;
-      Name_Buffer (1 .. Name_Len) := Self.Path.all;
+      Set_Name_Buffer (Self.Path.all);
+      Free (Self.Path);
 
       --  Scan the directory path to see if "-" is one of the directories.
       --  Remove each occurrence of "-" and set Add_Default_Dir to False.
@@ -2048,7 +2026,7 @@ package body GPR.Env is
       First := 3;
       loop
          while First <= Name_Len
-           and then (Name_Buffer (First) = Path_Separator)
+           and then Name_Buffer (First) = Path_Separator
          loop
             First := First + 1;
          end loop;
@@ -2111,72 +2089,28 @@ package body GPR.Env is
          First := Last + 1;
       end loop;
 
-      Free (Self.Path);
-
       --  Set the initial value of Current_Project_Path
 
-      if Add_Default_Dir then
-         Prefix := new String'(Executable_Prefix_Path);
+      if Add_Default_Dir
+        and then Target_Name /= ""
+        and then Runtime_Name /= ""
+        and then Base_Name (Runtime_Name) /= Runtime_Name
+      then
+         declare
+            Runtime_Dir : constant String := Path_Separator
+                            & Normalize_Pathname (Runtime_Name)
+                            & Directory_Separator;
+         begin
+            --  $runtime_dir/lib/gnat
 
-         if Target_Name /= "" then
-
-            if Runtime_Name /= "" then
-               if Base_Name (Runtime_Name) = Runtime_Name then
-
-                  --  $prefix/$target/$runtime/lib/gnat
-                  Add_Target;
-                  Add_Str_To_Name_Buffer
-                    (Runtime_Name & Directory_Separator &
-                       "lib" & Directory_Separator & "gnat");
-
-                  --  $prefix/$target/$runtime/share/gpr
-                  Add_Target;
-                  Add_Str_To_Name_Buffer
-                    (Runtime_Name & Directory_Separator &
-                       "share" & Directory_Separator & "gpr");
-
-               else
-                  Runtime :=
-                    new String'(Normalize_Pathname (Runtime_Name));
-
-                  --  $runtime_dir/lib/gnat
-                  Add_Str_To_Name_Buffer
-                    (Path_Separator & Runtime.all & Directory_Separator &
-                       "lib" & Directory_Separator & "gnat");
-
-                  --  $runtime_dir/share/gpr
-                  Add_Str_To_Name_Buffer
-                    (Path_Separator & Runtime.all & Directory_Separator &
-                       "share" & Directory_Separator & "gpr");
-               end if;
-            end if;
-
-            --  $prefix/$target/lib/gnat
-
-            Add_Target;
             Add_Str_To_Name_Buffer
-              ("lib" & Directory_Separator & "gnat");
+              (Runtime_Dir & "lib" & Directory_Separator & "gnat");
 
-            --  $prefix/$target/share/gpr
+            --  $runtime_dir/share/gpr
 
-            Add_Target;
             Add_Str_To_Name_Buffer
-              ("share" & Directory_Separator & "gpr");
-         end if;
-
-         --  $prefix/share/gpr
-
-         Add_Str_To_Name_Buffer
-           (Path_Separator & Prefix.all & "share"
-            & Directory_Separator & "gpr");
-
-         --  $prefix/lib/gnat
-
-         Add_Str_To_Name_Buffer
-           (Path_Separator & Prefix.all & "lib"
-            & Directory_Separator & "gnat");
-
-         Free (Prefix);
+              (Runtime_Dir & "share" & Directory_Separator & "gpr");
+         end;
       end if;
 
       Self.Path := new String'(Name_Buffer (1 .. Name_Len));
@@ -2293,6 +2227,8 @@ package body GPR.Env is
       Result : String_Access;
       --  Keep temporary search results here before final conversion into Path
 
+      Normalized : Boolean := False;
+
       function Is_Regular_File_Cached (Name : String) return Boolean;
       --  Calls GNAT.OS_Lib.Is_Regular_File is Name not found in Self.Cache
       --  and put result into the cache.
@@ -2328,7 +2264,15 @@ package body GPR.Env is
       end if;
 
       if not Is_Absolute_Path (File) and then Directory /= "" then
-         Result := Try_Path_Name (Self, Ensure_Directory (Directory) & File);
+         Result :=
+           Try_Path_Name
+             (Self,
+              GNAT.OS_Lib.Normalize_Pathname
+                (File,
+                 Directory      => Directory,
+                 Resolve_Links  => Opt.Follow_Links_For_Files,
+                 Case_Sensitive => True));
+         Normalized := Result /= null;
       end if;
 
       if Result = null then
@@ -2342,14 +2286,14 @@ package body GPR.Env is
          return;
 
       else
-         Set_Name_Buffer
-           (GNAT.OS_Lib.Normalize_Pathname
+         Path := Get_Path_Name_Id
+           (if Normalized then Result.all
+            else GNAT.OS_Lib.Normalize_Pathname
               (Result.all,
                Directory      => Directory,
                Resolve_Links  => Opt.Follow_Links_For_Files,
                Case_Sensitive => True));
          Free (Result);
-         Path := Name_Find;
       end if;
 
       Debug_Decrease_Indent;

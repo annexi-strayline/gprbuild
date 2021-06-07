@@ -2603,7 +2603,9 @@ sources for which information is requested.
 `gprls` uses a project file, either specified through a single switch -P,
 or the default project file. If no `object_or_dependency_files` is specified
 then all the object files corresponding to the sources of the project are
-deemed to be specified.
+deemed to be specified. If `object_or_dependency_files` is specified for
+an aggregate project and there is more than one such file in different
+aggregated projects then the file found first is used to show the information.
 
 In normal mode, without option other that -P <project file>, `gprls` produces
 information for each object/dependency file: the full path of the object,

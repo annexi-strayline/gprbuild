@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2020, AdaCore                     --
+--                     Copyright (C) 2011-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -30,7 +30,7 @@ pragma Warnings (On);
 with GNAT.Command_Line;         use GNAT.Command_Line;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
-with Gpr_Build_Util;             use Gpr_Build_Util;
+with Gpr_Build_Util;            use Gpr_Build_Util;
 with Gprbuild.Compile;
 with Gprbuild.Link;
 with Gprbuild.Post_Compile;
@@ -52,7 +52,6 @@ with GPR.Snames;                 use GPR.Snames;
 with GPR.Tempdir;                use GPR.Tempdir;
 with GPR.Tree;                   use GPR.Tree;
 with GPR.Util.Aux;               use GPR.Util;
-with GPR.Version;                use GPR.Version;
 
 procedure Gprbuild.Main is
 
@@ -147,7 +146,9 @@ procedure Gprbuild.Main is
       type Option_Type is
         (Force_Compilations_Option,
          Keep_Going_Option,
-         Maximum_Processes_Option,
+         Maximum_Compilers_Option,
+         Maximum_Binders_Option,
+         Maximum_Linkers_Option,
          Quiet_Output_Option,
          Check_Switches_Option,
          Verbose_Mode_Option,
@@ -158,6 +159,9 @@ procedure Gprbuild.Main is
          Warnings_Normal,
          Warnings_Suppress,
          Indirect_Imports);
+
+      subtype Maximum_Processes_Range is Option_Type range
+        Maximum_Compilers_Option .. Maximum_Linkers_Option;
 
       procedure Register_Command_Line_Option
         (Option : Option_Type; Value : Natural := 0);
@@ -401,8 +405,7 @@ procedure Gprbuild.Main is
 
       if not Copyright_Output then
          Copyright_Output := True;
-         Display_Version
-           ("GPRBUILD", "2004", Version_String => Gpr_Version_String);
+         Display_Version ("GPRBUILD", "2004");
       end if;
    end Copyright;
 
@@ -437,8 +440,14 @@ procedure Gprbuild.Main is
                when Keep_Going_Option =>
                   Opt.Keep_Going := True;
 
-               when Maximum_Processes_Option =>
-                  Opt.Maximum_Processes := Item.Value;
+               when Maximum_Compilers_Option =>
+                  Opt.Maximum_Compilers := Item.Value;
+
+               when Maximum_Binders_Option =>
+                  Opt.Maximum_Binders := Item.Value;
+
+               when Maximum_Linkers_Option =>
+                  Opt.Maximum_Linkers := Item.Value;
 
                when Quiet_Output_Option =>
                   Opt.Quiet_Output    := True;
@@ -571,8 +580,7 @@ procedure Gprbuild.Main is
          Db_Directory_Expected := False;
          Knowledge.Parse_Knowledge_Base (Project_Tree, Arg);
 
-         Set_Name_Buffer (Arg);
-         Add_Db_Switch_Arg (Name_Find);
+         Add_Db_Switch_Arg (Get_Name_Id (Arg));
 
          --  Set the processor/language for the following switches
 
@@ -593,11 +601,8 @@ procedure Gprbuild.Main is
       elsif Arg'Length > 7 and then Arg (1 .. 7) = "-cargs:" then
          Current_Processor := Compiler;
 
-         Set_Name_Buffer (Arg (8 .. Arg'Last));
-         To_Lower (Name_Buffer (1 .. Name_Len));
-
          declare
-            Lang : constant Name_Id := Name_Find;
+            Lang : constant Name_Id := Get_Lower_Name_Id (Arg (8 .. Arg'Last));
          begin
             if Command_Line then
                Current_Comp_Option_Table :=
@@ -644,11 +649,8 @@ procedure Gprbuild.Main is
 
          Current_Processor := Binder;
 
-         Set_Name_Buffer (Arg (8 .. Arg'Last));
-         To_Lower (Name_Buffer (1 .. Name_Len));
-
          declare
-            Lang : constant Name_Id := Name_Find;
+            Lang : constant Name_Id := Get_Lower_Name_Id (Arg (8 .. Arg'Last));
          begin
             Current_Bind_Option_Table :=
               Binder_Options_HTable.Get (Lang);
@@ -846,15 +848,8 @@ procedure Gprbuild.Main is
                   --  so a friendlier error message isn't needed here.
                end if;
 
-               Set_Name_Buffer (Lang);
-               To_Lower (Name_Buffer (1 .. Name_Len));
-
-               declare
-                  Lang_Id : constant Name_Id := Name_Find;
-               begin
-                  Set_Name_Buffer (Comp);
-                  Compiler_Subst_HTable.Include (Lang_Id, Name_Find);
-               end;
+               Compiler_Subst_HTable.Include
+                 (Get_Lower_Name_Id (Lang), Get_Name_Id (Comp));
             end;
 
          elsif Arg'Length >= Compiler_Pkg_Subst_Option'Length
@@ -877,9 +872,7 @@ procedure Gprbuild.Main is
                   --  package Pretty_Printer in the project file.
                end if;
 
-               Set_Name_Buffer (Package_Name);
-               To_Lower (Name_Buffer (1 .. Name_Len));
-               Compiler_Pkg_Subst := Name_Find;
+               Compiler_Pkg_Subst := Get_Lower_Name_Id (Package_Name);
             end;
 
          elsif Arg'Length > Build_Script_Option'Length
@@ -1038,10 +1031,8 @@ procedure Gprbuild.Main is
             begin
                for J in RTS_Language_Option'Length + 2 .. Arg'Last loop
                   if Arg (J) = '=' then
-                     Set_Name_Buffer
+                     Language_Name := Get_Lower_Name_Id
                        (Arg (RTS_Language_Option'Length + 1 .. J - 1));
-                     To_Lower (Name_Buffer (1 .. Name_Len));
-                     Language_Name := Name_Find;
                      RTS_Start := J + 1;
                      exit;
                   end if;
@@ -1128,7 +1119,7 @@ procedure Gprbuild.Main is
 
             --  Out-of-tree compilation also imply -p (create missing dirs)
 
-            Opt.Setup_Projects := True;
+            Opt.Create_Dirs := Create_All_Dirs;
 
          elsif Arg'Length >= Root_Dir_Option'Length
            and then Arg (1 .. Root_Dir_Option'Length) = Root_Dir_Option
@@ -1283,16 +1274,7 @@ procedure Gprbuild.Main is
             Opt.Display_Compilation_Progress := True;
 
          elsif Arg'Length = 3 and then Arg (2) = 'd' then
-            if Arg (3) in '1' .. '9'
-              or else Arg (3) in 'a' .. 'z'
-              or else Arg (3) in 'A' .. 'Z'
-            then
-               Set_Debug_Flag (Arg (3));
-
-            else
-               Fail_Program
-                 (Project_Tree, "illegal debug switch " & Arg);
-            end if;
+            Set_Debug_Flag (Arg (3));
 
          elsif Arg'Length > 3 and then Arg (1 .. 3) = "-eI" then
             if Subst_Switch_Present then
@@ -1335,36 +1317,49 @@ procedure Gprbuild.Main is
 
          elsif Arg'Length > 2 and then Arg (2) = 'j' then
             declare
-               Max_Proc : Natural := 0;
+               Max_Proc : Natural   := 0;
+               Phase    : Character := 'a'; -- all by default
+               First    : Positive;
             begin
-               for J in 3 .. Arg'Length loop
-                  if Arg (J) in '0' .. '9' then
-                     Max_Proc := (Max_Proc * 10) +
-                       Character'Pos (Arg (J)) -
-                       Character'Pos ('0');
+               if Arg'Length > 3 and then Arg (3) not in '0' .. '9' then
+                  Phase := Arg (3);
+                  First := 4;
+               else
+                  First := 3;
+               end if;
 
-                  else
-                     Processed := False;
-                  end if;
-               end loop;
+               Max_Proc := Natural'Value (Arg (First .. Arg'Last));
 
-               if Processed then
-                  if Max_Proc = 0 then
-                     Max_Proc := Natural (Number_Of_CPUs);
-                  end if;
+               if Max_Proc = 0 then
+                  Max_Proc := Natural (Number_Of_CPUs);
 
                   if Max_Proc = 0 then
                      Max_Proc := 1;
                   end if;
-
-                  Opt.Maximum_Processes := Max_Proc;
                end if;
-            end;
 
-            if Processed and then Command_Line then
-               Register_Command_Line_Option
-                 (Maximum_Processes_Option, Opt.Maximum_Processes);
-            end if;
+               case Phase is
+                  when 'a' =>
+                     for J in Maximum_Processes_Range loop
+                        Register_Command_Line_Option (J, Max_Proc);
+                     end loop;
+                  when 'c' =>
+                     Register_Command_Line_Option
+                       (Maximum_Compilers_Option, Max_Proc);
+                  when 'b' =>
+                     Register_Command_Line_Option
+                       (Maximum_Binders_Option, Max_Proc);
+                  when 'l' =>
+                     Register_Command_Line_Option
+                       (Maximum_Linkers_Option, Max_Proc);
+                  when others =>
+                     Processed := False;
+               end case;
+
+            exception
+               when Constraint_Error =>
+                  Processed := False;
+            end;
 
          elsif Arg = "-k" then
             Opt.Keep_Going := True;
@@ -1404,7 +1399,7 @@ procedure Gprbuild.Main is
 
          elsif Arg = "-p" or else Arg = "--create-missing-dirs" then
             Forbidden_In_Package_Builder;
-            Opt.Setup_Projects := True;
+            Opt.Create_Dirs := Create_All_Dirs;
 
          elsif Arg'Length >= 2 and then Arg (2) = 'P' then
             Forbidden_In_Package_Builder;
@@ -1712,15 +1707,11 @@ procedure Gprbuild.Main is
 
       --  Get the name id for "-L";
 
-      Set_Name_Buffer ("-L");
-      Dash_L := Name_Find;
+      Dash_L := Get_Name_Id ("-L");
 
       --  Get the command line arguments, starting with --version and --help
 
-      Check_Version_And_Help
-        ("GPRBUILD",
-         "2004",
-         Version_String => Gpr_Version_String);
+      Check_Version_And_Help ("GPRBUILD", "2004");
 
       --  Check for switch --dumpmachine and, if found, output the normalized
       --  hostname and exit.
@@ -1741,6 +1732,11 @@ procedure Gprbuild.Main is
             OS_Exit (0);
          end if;
       end loop;
+
+      --  By default, gprbuild should create artefact dirs if they are
+      --  relative to the project directory
+
+      Opt.Create_Dirs := Create_Relative_Dirs_Only;
 
       --  Now process the other options
 
@@ -2202,7 +2198,16 @@ procedure Gprbuild.Main is
 
          --  Line for -jnnn
 
-         Put ("  -jnum    Use num processes to compile");
+         Put ("  -j<num>    Use <num> processes to compile, bind, and link");
+         New_Line;
+
+         Put ("  -jc<num>    Use <num> processes to compile");
+         New_Line;
+
+         Put ("  -jb<num>    Use <num> processes to bind");
+         New_Line;
+
+         Put ("  -jl<num>    Use <num> processes to link");
          New_Line;
 
          --  Line for -k
@@ -2537,33 +2542,33 @@ begin
       GPR.Err.Initialize;
    end if;
 
-   --  Adjust switches for "c" target: never perform the link phase
+   --  Adjust switches for C and jvm targets: never perform the link phase
 
    declare
-      C_Target : Boolean := False;
+      No_Link  : Boolean := False;
       Variable : Variable_Value;
    begin
-      if Target_Name.all = "c" then
-         C_Target := True;
+      if No_Link_Target (Target_Name.all) then
+         No_Link := True;
 
       else
          Variable := GPR.Util.Value_Of
            (Name_Target, Main_Project.Decl.Attributes, Project_Tree.Shared);
 
          if Variable /= Nil_Variable_Value
-           and then Get_Name_String (Variable.Value) = "c"
+           and then No_Link_Target (Get_Name_String (Variable.Value))
          then
-            C_Target := True;
+            No_Link := True;
 
             --  Set Target_Name so that e.g. gprbuild-post_compile.adb knows
-            --  that we have Target = "c".
+            --  that we have Target = c/ccg/jvm.
 
             Free (Target_Name);
-            Target_Name := new String'("c");
+            Target_Name := new String'(Get_Name_String (Variable.Value));
          end if;
       end if;
 
-      if C_Target then
+      if No_Link then
          Opt.Link_Only := False;
 
          if not Opt.Compile_Only and not Opt.Bind_Only then
@@ -2689,7 +2694,7 @@ begin
    if Debug.Debug_Flag_M then
       Put_Line
         ("Maximum number of simultaneous compilations ="
-         & Opt.Maximum_Processes'Img);
+         & Opt.Maximum_Compilers'Img);
    end if;
 
    --  Warn if --create-map-file is not supported
@@ -2727,7 +2732,8 @@ begin
 
    if Is_Open (Build_Script_File) then
       Close (Build_Script_File);
-      Opt.Maximum_Processes := 1;
+      Opt.Maximum_Binders := 1;
+      Opt.Maximum_Linkers := 1;
    end if;
 
    Post_Compile.Run;

@@ -35,6 +35,7 @@ with GNAT.Sockets;              use GNAT; use GNAT.Sockets;
 with GNAT.String_Split;         use GNAT.String_Split;
 
 with GPR.Compilation.Process;
+with GPR.Conf;
 with GPR.Names;                     use GPR.Names;
 with GPR.Opt;                       use GPR.Opt;
 with GPR.Snames;                    use GPR.Snames;
@@ -745,7 +746,8 @@ package body GPR.Compilation.Slave is
          end if;
       end Filter_String;
 
-      Pid : Remote_Id;
+      Lang_Id : constant Name_Id := Get_Name_Id (Language);
+      Pid     : Remote_Id;
 
    begin
       --  Record the rewrite information for this channel
@@ -763,7 +765,8 @@ package body GPR.Compilation.Slave is
         (S.Channel,
          Get_Name_String (Project.Path.Display_Name),
          Filter_String (Get_Current_Dir, Sep => ""),
-         Language, Options, Obj_Name, Dep_Name, Env,
+         Language, Opt.Target_Value.all, Conf.Runtime_Name_For (Lang_Id),
+         Options, Obj_Name, Dep_Name, Env,
          Filter_String'Access);
 
       Remote_Process.Increment;

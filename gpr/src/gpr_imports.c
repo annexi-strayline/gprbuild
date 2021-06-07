@@ -26,6 +26,10 @@
 extern "C" {
 #endif
 
+#define _FILE_OFFSET_BITS 64
+/* Defines that 64 bit file system interface shall be used in stat call below
+ * even if it happens in 32 bit OS */
+
 #ifdef IN_GCC
 #include "auto-host.h"
 #endif
@@ -167,6 +171,10 @@ const char *__gnat_default_libgcc_subdir = "lib";
     //  return (sb.st_mtim.tv_sec - ada_epoch_offset) * 1E9
     //  + sb.st_mtim.tv_nsec;
     // with check overflow below
+
+#if defined(__APPLE__) || defined(__NetBSD__)
+#define st_mtim st_mtimespec
+#endif
 
     if (__builtin_ssubll_overflow(sb.st_mtim.tv_sec, ada_epoch_offset, &result)) {
       return LLONG_MIN;

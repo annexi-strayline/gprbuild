@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2020, AdaCore                     --
+--                     Copyright (C) 2011-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -23,7 +23,7 @@ with Ada.Strings.Unbounded;                  use Ada.Strings.Unbounded;
 with Ada.Text_IO;                            use Ada.Text_IO;
 
 with GNAT.Directory_Operations; use GNAT, GNAT.Directory_Operations;
-with GNAT.Dynamic_HTables;      use GNAT.Dynamic_HTables;
+with GNAT.Dynamic_HTables;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
 with Gpr_Build_Util;               use Gpr_Build_Util;
@@ -398,8 +398,7 @@ package body Gprbuild.Compile is
                         end loop;
                      end if;
 
-                     Add_Str_To_Name_Buffer
-                       (Get_Name_String (Source.Id.Path.Display_Name));
+                     Get_Name_String_And_Append (Source.Id.Path.Display_Name);
                      Add_Option
                        (Name_Buffer (1 .. Name_Len),
                         Compilation_Options,
@@ -434,8 +433,6 @@ package body Gprbuild.Compile is
                           Output_File => Get_Name_String (Source.Id.Dep_Path),
                           Err_To_Out  => True,
                           Force_Local => True);
-
-                     Check_Local_Process (Comp_Data.Process);
 
                      Compilation_Htable.Set (Comp_Data.Process, Comp_Data);
 
@@ -489,7 +486,7 @@ package body Gprbuild.Compile is
                Add_Char_To_Name_Buffer (Directory_Separator);
             end if;
 
-            Add_Str_To_Name_Buffer (Get_Name_String (Path));
+            Get_Name_String_And_Append (Path);
          end if;
 
          return Name_Find;
@@ -1242,7 +1239,7 @@ package body Gprbuild.Compile is
                               Include_Path_File          => No_Path,
                               Include_Switches_Spec_File => No_Path);
 
-      package Local_Projects_HT is new Simple_HTable
+      package Local_Projects_HT is new Dynamic_HTables.Simple_HTable
         (Header_Num => GPR.Header_Num,
          Element    => Local_Project_Data,
          No_Element => No_Local_Project_Data,
@@ -1261,6 +1258,9 @@ package body Gprbuild.Compile is
       Start    : Natural;
       Finish   : Natural;
       Last_Obj : Natural;
+
+      Keep_Dep_File : Boolean := False;
+      --  We need to keep dependency file in some error cases for diagnostic
 
       The_Config_Paths : Config_Paths (1 .. 2);
       --  Paths of eventual global and local configuration pragmas files
@@ -1553,7 +1553,7 @@ package body Gprbuild.Compile is
             Get_Name_String (Nam.Name);
 
             if Nam.Next = No_Name_List then
-               Add_Str_To_Name_Buffer (Get_Name_String (Path_Name));
+               Get_Name_String_And_Append (Path_Name);
             end if;
 
             Add_Option
@@ -1639,8 +1639,11 @@ package body Gprbuild.Compile is
 
          Compilation_OK  : Boolean := True;
          Dep_File_OK     : Boolean := False;
+
+         Dep_Path : constant String := Get_Name_String (Src_Data.Id.Dep_Path);
+
       begin
-         Open (Dep_File, Get_Name_String (Src_Data.Id.Dep_Path));
+         Open (Dep_File, Dep_Path);
 
          if Is_Valid (Dep_File) then
 
@@ -1770,32 +1773,61 @@ package body Gprbuild.Compile is
 
                         declare
                            Src_Name : constant String :=
-                                        Normalize_Pathname
-                                         (Name           =>
-                                            Line (Start .. Finish),
-                                          Resolve_Links  => False,
-                                          Case_Sensitive => False);
-                           Src_Name_Id : Name_Id;
+                                        Line (Start .. Finish);
+                           --  This is a filename encoded by GCC for use as a
+                           --  Makefile dependency, with some characters
+                           --  escaped for this specific purpose. We are about
+                           --  to reuse it in a rewritten dependency file.
+                           --  We used to Normalize the path name at this
+                           --  point, and this turned out both wrong and
+                           --  unnecessary.
+                           --  It would be an error to apply Normalize_Pathname
+                           --  on it because normalised it can be different
+                           --  filename. For example on windows
+                           --  c:\path\filename.c escaped became
+                           --  c\:path\\filename.c. Normalize_Pathname would
+                           --  not understand that it is drive letter at first
+                           --  characters and prepend it with current
+                           --  directory. We do not need filename to be
+                           --  normalised in the GPR rewritten dependency file
+                           --  because it is going to be normalised relatively
+                           --  to the object directory at reading in
+                           --  GPR.Util.Need_To_Compile.Process_Makefile_Deps.
 
                            Unescaped : constant String :=
-                                     Unescape (Line (Start .. Finish));
-                           Unescaped_Id : Name_Id;
-                           --  Only use to get the time stamp
-
-                           Source_2   : Source_Id;
-                           Src_TS     : Time_Stamp_Type;
+                                         OS_Lib.Normalize_Pathname
+                                           (Unescape (Src_Name),
+                                            Directory => Dir_Name (Dep_Path),
+                                            Case_Sensitive => False);
+                           Source_2 : Source_Id;
+                           Src_TS   : Time_Stamp_Type;
 
                         begin
-                           Set_Name_Buffer (Src_Name);
-                           Src_Name_Id := Name_Find;
-                           Set_Name_Buffer (Unescaped);
-                           Unescaped_Id := Name_Find;
-
                            Source_2 := Source_Paths_Htable.Get
                              (Src_Data.Tree.Source_Paths_HT,
-                              Path_Name_Type (Src_Name_Id));
-                           Src_TS :=
-                             File_Stamp (File_Name_Type (Unescaped_Id));
+                              Get_Path_Name_Id (Unescaped));
+                           Src_TS := File_Stamp (Unescaped);
+
+                           if Src_TS = Empty_Time_Stamp then
+                              --  File from dependency list does not exist
+
+                              Put ('"');
+                              Put
+                                (Get_Name_String
+                                   (Src_Data.Id.Path.Display_Name));
+                              Put_Line ("""");
+
+                              Put (ASCII.HT & "depends on non-existent """);
+                              Put (Unescaped);
+                              Put_Line ("""");
+
+                              Put (ASCII.HT & "noted in the """);
+                              Put (Dep_Path);
+                              Put_Line ("""");
+
+                              Keep_Dep_File  := True;
+                              Compilation_OK := False;
+                           end if;
 
                            if Source_2 /= No_Source then
                               --  It is a source of a project
@@ -1841,7 +1873,7 @@ package body Gprbuild.Compile is
                                       (Get_Name_String
                                          (Src_Data.Id.Path.Display_Name));
                                     Put (""" cannot import """);
-                                    Put (Src_Name);
+                                    Put (Unescaped);
                                     Put_Line (""":");
 
                                     Put
@@ -1918,21 +1950,16 @@ package body Gprbuild.Compile is
                         --  compilation.
 
                         Put ('"');
-                        Put
-                          (Get_Name_String (Src_Data.Id.Path.Display_Name));
+                        Put (Get_Name_String (Src_Data.Id.Path.Display_Name));
                         Put (""" cannot import """);
-                        Put
-                          (Get_Name_String (Included.Path.Display_Name));
+                        Put (Get_Name_String (Included.Path.Display_Name));
                         Put_Line (""":");
 
                         Put ("  """);
                         Put
-                          (Get_Name_String
-                             (Src_Data.Id.Project.Display_Name));
-                        Put
-                          (""" does not directly import project """);
-                        Put
-                          (Get_Name_String (Included.Project.Display_Name));
+                          (Get_Name_String (Src_Data.Id.Project.Display_Name));
+                        Put (""" does not directly import project """);
+                        Put (Get_Name_String (Included.Project.Display_Name));
                         Put_Line ("""");
 
                         Compilation_OK := False;
@@ -1943,7 +1970,7 @@ package body Gprbuild.Compile is
          end if;
 
          if Compilation_OK and Dep_File_OK then
-            Create (Dep_File, Get_Name_String (Src_Data.Id.Dep_Path));
+            Create (Dep_File, Dep_Path);
             Put (Dep_File, Object_Path.all);
             Put (Dep_File, ": ");
 
@@ -1952,11 +1979,7 @@ package body Gprbuild.Compile is
                Put (Dep_File, " ");
                Put (Dep_File, String (Srcs (J).TS));
 
-               if J < Srcs.Last_Index then
-                  Put_Line (Dep_File, " \");
-               else
-                  Put_Line (Dep_File, "");
-               end if;
+               Put_Line (Dep_File, (if J < Srcs.Last_Index then " \" else ""));
             end loop;
 
             Close (Dep_File);
@@ -2414,21 +2437,21 @@ package body Gprbuild.Compile is
             if Id.Object /= No_File then
                Get_Name_String
                  (Id.Object_Project.Object_Directory.Display_Name);
-               Add_Str_To_Name_Buffer (Get_Name_String (Id.Object));
+               Get_Name_String_And_Append (Id.Object);
                Id.Object_Path := Name_Find;
             end if;
 
             if Id.Dep_Name /= No_File then
                Get_Name_String
                  (Id.Object_Project.Object_Directory.Display_Name);
-               Add_Str_To_Name_Buffer (Get_Name_String (Id.Dep_Name));
+               Get_Name_String_And_Append (Id.Dep_Name);
                Id.Dep_Path := Name_Find;
             end if;
 
             if Id.Switches /= No_File then
                Get_Name_String
                  (Id.Object_Project.Object_Directory.Display_Name);
-               Add_Str_To_Name_Buffer (Get_Name_String (Id.Switches));
+               Get_Name_String_And_Append (Id.Switches);
                Id.Switches_Path := Name_Find;
             end if;
          end if;
@@ -2484,7 +2507,7 @@ package body Gprbuild.Compile is
             end loop;
 
             Get_Name_String (Node.Name);
-            Add_Str_To_Name_Buffer (Get_Name_String (Id.Object));
+            Get_Name_String_And_Append (Id.Object);
 
             Add_Option
               (Name_Buffer (1 .. Name_Len),
@@ -2531,8 +2554,7 @@ package body Gprbuild.Compile is
             end loop;
 
             Get_Name_String (Node.Name);
-            Add_Str_To_Name_Buffer
-              (Get_Name_String (Id.Project.Object_Path_File));
+            Get_Name_String_And_Append (Id.Project.Object_Path_File);
 
             Add_Option
               (Name_Buffer (1 .. Name_Len),
@@ -2701,7 +2723,7 @@ package body Gprbuild.Compile is
 
                else
                   Get_Name_String (Node.Name);
-                  Add_Str_To_Name_Buffer (Get_Name_String (Mapping_File_Path));
+                  Get_Name_String_And_Append (Mapping_File_Path);
                   Add_Option
                     (Name_Buffer (1 .. Name_Len),
                      To      => Compilation_Options,
@@ -2776,9 +2798,8 @@ package body Gprbuild.Compile is
       ---------------------------------
 
       procedure Add_Name_Of_Source_Switches (Id : Source_Id) is
-         List        : Name_List_Index :=
-                         Id.Language.Config.Source_File_Switches;
-         Node        : Name_Node;
+         List : Name_List_Index := Id.Language.Config.Source_File_Switches;
+         Node : Name_Node;
       begin
          --  Add any source file prefix
 
@@ -2797,28 +2818,12 @@ package body Gprbuild.Compile is
 
          --  Then handle the source file
 
-         Get_Name_String (Id.Path.Display_Name);
-
-         declare
-            Source_Path : constant String := Name_Buffer (1 .. Name_Len);
-         begin
-            if Node.Name = No_Name then
-               Add_Option_Internal
-                 (Source_Path,
-                  To          => Compilation_Options,
-                  Display     => True,
-                  Simple_Name => not Opt.Verbose_Mode);
-
-            else
-               Get_Name_String (Node.Name);
-
-               Add_Option
-                 (Name_Buffer (1 .. Name_Len) & Source_Path,
-                  To          => Compilation_Options,
-                  Display     => True,
-                  Simple_Name => not Opt.Verbose_Mode);
-            end if;
-         end;
+         Add_Option
+           (Get_Name_String_Or_Null (Node.Name)
+            & Get_Name_String (Id.Path.Display_Name),
+            To          => Compilation_Options,
+            Display     => True,
+            Simple_Name => not Opt.Verbose_Mode);
       end Add_Name_Of_Source_Switches;
 
       ---------------------------------
@@ -3024,8 +3029,6 @@ package body Gprbuild.Compile is
                          then ""
                          else Get_Name_String (Source.Id.Object)),
             Response_File => Response_File);
-
-         Check_Local_Process (Process);
 
          if Last_Switches_For_File >= 0 then
             while Compilation_Options.Last_Index > Last_Switches_For_File loop
@@ -3383,7 +3386,7 @@ package body Gprbuild.Compile is
          if Data.Imported_Dirs_Switches /= null then
             for J in Data.Imported_Dirs_Switches'Range loop
                if Data.Imported_Dirs_Switches (J)'Length > 0 then
-                  Add_Option_Internal
+                  Add_Option
                     (Value   => Data.Imported_Dirs_Switches (J).all,
                      To      => Compilation_Options,
                      Display => Opt.Verbose_Mode);
@@ -3400,29 +3403,23 @@ package body Gprbuild.Compile is
          Id                     : constant Source_Id := Source.Id;
          Project_Tree           : constant Project_Tree_Ref := Source.Tree;
          Source_Project         : constant Project_Id :=
-                                    Ultimate_Extending_Project_Of
-                                      (Source.Id.Project);
+                                    Ultimate_Extending_Project_Of (Id.Project);
+         Dummy                  : Boolean;
          Compilation_Needed     : Boolean := True;
          Last_Switches_For_File : Integer;
          Mapping_File           : Path_Name_Type;
          The_ALI                : ALI.ALI_Id;
          Compiler               : OS_Lib.String_Access;
 
-         Last_Conf_Path : Natural := 0;
-
       begin
          Get_Config_Paths (Id, Source_Project);
 
-         if not Distributed_Mode then
-            Last_Conf_Path := Last_Config_Path;
-         end if;
-
          if Always_Compile or else not Source_Project.Externally_Built then
             Need_To_Compile
-              (Source         => Source.Id,
+              (Source         => Id,
                Tree           => Source.Tree,
                In_Project     => Source_Project,
-               Conf_Paths     => The_Config_Paths (1 .. Last_Conf_Path),
+               Conf_Paths     => The_Config_Paths (1 .. Last_Config_Path),
                Must_Compile   => Compilation_Needed,
                The_ALI        => The_ALI,
                Object_Check   => Object_Checked,
@@ -3454,16 +3451,16 @@ package body Gprbuild.Compile is
                --  tried to compile this source as part of another import of
                --  the corresponding project file.
 
-               if Bad_Compilations.Contains (Source.Id) then
+               if Bad_Compilations.Contains (Id) then
                   Compilation_Needed := False;
                end if;
             end if;
 
             if Compilation_Needed or else Opt.Check_Switches then
-               Set_Options_For_File (Source.Id);
+               Set_Options_For_File (Id);
 
                if Opt.Check_Switches and then not Compilation_Needed then
-                  Compilation_Needed := Check_Switches_File (Source.Id);
+                  Compilation_Needed := Check_Switches_File (Id);
                end if;
             end if;
 
@@ -3482,7 +3479,7 @@ package body Gprbuild.Compile is
                   end;
                end if;
 
-               Update_Object_Path (Source.Id, Source_Project);
+               Update_Object_Path (Id, Source_Project);
                Change_To_Object_Directory
                  (Source_Project, Must_Be_Writable => True);
 
@@ -3509,6 +3506,14 @@ package body Gprbuild.Compile is
                  Get_Compiler_Driver_Path (Source_Project, Id.Language);
 
                if Compiler /= null then
+                  if Id.Switches_Path /= No_Path then
+                     --  Need to remove .cswi file so that it doesn't get
+                     --  reused in case of compilation failure.
+
+                     OS_Lib.Delete_File
+                       (Get_Name_String (Id.Switches_Path), Dummy);
+                  end if;
+
                   Spawn_Compiler_And_Register
                     (Source                 => Source,
                      Source_Project         => Source_Project,
@@ -3518,7 +3523,7 @@ package body Gprbuild.Compile is
                end if;
 
             else
-               Print_Compilation_Outputs (Source.Id);
+               Print_Compilation_Outputs (Id);
 
                if Source.Closure
                  or else
@@ -3623,7 +3628,9 @@ package body Gprbuild.Compile is
                --  artifacts.
 
                if not Compilation_OK then
-                  if Source_Identity.Id.Dep_Path /= No_Path then
+                  if Source_Identity.Id.Dep_Path /= No_Path
+                    and then not Keep_Dep_File
+                  then
                      Delete_File
                        (Get_Name_String (Source_Identity.Id.Dep_Path),
                         No_Check);
@@ -3641,28 +3648,6 @@ package body Gprbuild.Compile is
                         No_Check);
                   end if;
 
-               elsif Current_Project.Library and then Opt.GnatProve_Mode
-                 and then Current_Project.Library_Dir.Display_Name /=
-                   Current_Project.Object_Directory.Display_Name
-                 and then Name_Id
-                   (Current_Project.Library_Dir.Display_Name) /= No_Name
-               then
-                  declare
-                     Success : Boolean;
-                     Str_Ali_File : constant String := Get_Name_String
-                       (Source_Identity.Id.Dep_Path);
-                     Str_Lib_Dir : constant String := Get_Name_String
-                       (Current_Project.Library_Dir.Display_Name);
-                  begin
-                     if Is_Regular_File (Str_Ali_File) then
-                        Copy_File
-                          (Str_Ali_File,
-                           Str_Lib_Dir,
-                           Success,
-                           Mode     => Overwrite,
-                           Preserve => Time_Stamps);
-                     end if;
-                  end;
                end if;
             end if;
 

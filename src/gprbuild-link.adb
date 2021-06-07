@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2020, AdaCore                     --
+--                     Copyright (C) 2011-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -24,9 +24,12 @@ with Ada.Unchecked_Deallocation; use Ada;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.Expect;
+with GNAT.Strings;
 
 with Gpr_Build_Util; use Gpr_Build_Util;
 with Gprexch;        use Gprexch;
+with GPR.Err;        use GPR.Err;
+with GPR.Erroutc;    use GPR.Erroutc;
 with GPR.Debug;      use GPR.Debug;
 with GPR.Names;      use GPR.Names;
 with GPR.Script;     use GPR.Script;
@@ -759,7 +762,7 @@ package body Gprbuild.Link is
 
       while Proj_List /= null loop
          if not Proj_List.Project.Library then
-            Objects.Append (Get_Objects (Proj_List.Project));
+            Objects.Append_Vector (Get_Objects (Proj_List.Project));
          end if;
 
          Proj_List := Proj_List.Next;
@@ -793,10 +796,10 @@ package body Gprbuild.Link is
 
          if First_Object = Objects.First_Index then
             --  Creation of a new archive
-            Arguments.Append (Archive_Builder_Opts);
+            Arguments.Append_Vector (Archive_Builder_Opts);
          else
             --  Append objects to an existing archive
-            Arguments.Append (Archive_Builder_Append_Opts);
+            Arguments.Append_Vector (Archive_Builder_Append_Opts);
          end if;
 
          --  Followed by the archive name
@@ -882,7 +885,7 @@ package body Gprbuild.Link is
          Arguments.Clear;
          Command.Clear;
 
-         Arguments.Append (Archive_Indexer_Opts);
+         Arguments.Append_Vector (Archive_Indexer_Opts);
          Add_Argument
            (Arguments,
             Archive_Name,
@@ -1541,8 +1544,7 @@ package body Gprbuild.Link is
          --  there is a non empty executable suffix, add the suffix to the
          --  executable name.
 
-         if Main_Proj.Config.Executable_Suffix /= No_Name
-            and then Length_Of_Name (Main_Proj.Config.Executable_Suffix) > 0
+         if Main_Proj.Config.Executable_Suffix not in No_Name | Empty_String
          then
             declare
                Suffix : String := Get_Name_String
@@ -1583,9 +1585,8 @@ package body Gprbuild.Link is
 
       else
          Get_Name_String (Main_Proj.Exec_Directory.Display_Name);
-         Name_Len := Name_Len + 1;
-         Name_Buffer (Name_Len) := Directory_Separator;
-         Add_Str_To_Name_Buffer (Get_Name_String (Exec_Name));
+         Add_Char_To_Name_Buffer (Directory_Separator);
+         Get_Name_String_And_Append (Exec_Name);
          Exec_Path_Name := Name_Find;
       end if;
 
@@ -1741,6 +1742,7 @@ package body Gprbuild.Link is
       Find_Binding_Languages (Main_File.Tree, Main_File.Project);
 
       --  Build the objects list
+
       if Builder_Data (Main_File.Tree).There_Are_Binder_Drivers then
          Binding_Options.Clear;
 
@@ -1792,8 +1794,7 @@ package body Gprbuild.Link is
 
                      if Last > 0 then
                         if Line (1) = '[' then
-                           Section :=
-                             Get_Binding_Section (Line (1 .. Last));
+                           Section := Get_Binding_Section (Line (1 .. Last));
 
                         else
                            case Section is
@@ -1802,8 +1803,7 @@ package body Gprbuild.Link is
                                  Binder_Object_TS :=
                                    File_Stamp
                                      (Path_Name_Type'
-                                          (Create_Name
-                                               (Line (1 .. Last))));
+                                        (Create_Name (Line (1 .. Last))));
 
                                  Objects.Append (Line (1 .. Last));
 
@@ -1813,8 +1813,7 @@ package body Gprbuild.Link is
                                    Resolve_Links => Opt.Follow_Links_For_Files,
                                    Case_Sensitive => False) /=
                                    Normalize_Pathname
-                                  (Get_Name_String
-                                     (Main_Source.Object_Path),
+                                   (Get_Name_String (Main_Source.Object_Path),
                                    Resolve_Links => Opt.Follow_Links_For_Files,
                                    Case_Sensitive => False)
                                    and then
@@ -1888,6 +1887,26 @@ package body Gprbuild.Link is
          end loop Binding_Loop;
       end if;
 
+      --  Add object files for unconditionally linked languages
+
+      declare
+         Lang : Language_Ptr := Main_Proj.Languages;
+         Src  : Source_Id;
+      begin
+         while Lang /= No_Language_Index loop
+            if Lang.Unconditional_Linking then
+               Src := Lang.First_Source;
+
+               while Src /= No_Source loop
+                  Objects.Append (Get_Name_String (Src.Object_Path));
+                  Src := Src.Next_In_Lang;
+               end loop;
+            end if;
+
+            Lang := Lang.Next;
+         end loop;
+      end;
+
       --  Add the global archive, if there is one
 
       if Global_Archive_Exists then
@@ -1926,8 +1945,8 @@ package body Gprbuild.Link is
          Linker_Needs_To_Be_Called := True;
 
          if Opt.Verbosity_Level > Opt.Low then
-            Put_Line ("      -> global archive is more recent than " &
-                          "executable");
+            Put_Line
+              ("      -> global archive is more recent than executable");
          end if;
       end if;
 
@@ -1937,8 +1956,6 @@ package body Gprbuild.Link is
       declare
          List : Project_List := Main_Proj.All_Imported_Projects;
          Proj : Project_Id;
-
-         Current_Dir : constant String := Get_Current_Dir;
       begin
          while List /= null loop
             Proj := List.Project;
@@ -1956,13 +1973,12 @@ package body Gprbuild.Link is
 
                if Is_Static (Proj) then
                   Add_Str_To_Name_Buffer ("lib");
-                  Add_Str_To_Name_Buffer (Get_Name_String (Proj.Library_Name));
+                  Get_Name_String_And_Append (Proj.Library_Name);
 
                   if Proj.Config.Archive_Suffix = No_File then
                      Add_Str_To_Name_Buffer (".a");
                   else
-                     Add_Str_To_Name_Buffer
-                       (Get_Name_String (Proj.Config.Archive_Suffix));
+                     Get_Name_String_And_Append (Proj.Config.Archive_Suffix);
                   end if;
 
                else
@@ -1971,17 +1987,17 @@ package body Gprbuild.Link is
                   if Proj.Config.Shared_Lib_Prefix = No_File then
                      Add_Str_To_Name_Buffer ("lib");
                   else
-                     Add_Str_To_Name_Buffer
-                       (Get_Name_String (Proj.Config.Shared_Lib_Prefix));
+                     Get_Name_String_And_Append
+                       (Proj.Config.Shared_Lib_Prefix);
                   end if;
 
-                  Add_Str_To_Name_Buffer (Get_Name_String (Proj.Library_Name));
+                  Get_Name_String_And_Append (Proj.Library_Name);
 
                   if Proj.Config.Shared_Lib_Suffix = No_File then
                      Add_Str_To_Name_Buffer (".so");
                   else
-                     Add_Str_To_Name_Buffer
-                       (Get_Name_String (Proj.Config.Shared_Lib_Suffix));
+                     Get_Name_String_And_Append
+                       (Proj.Config.Shared_Lib_Suffix);
                   end if;
                end if;
 
@@ -1989,7 +2005,8 @@ package body Gprbuild.Link is
                --  recent than the executable.
 
                declare
-                  Lib_TS : constant Time := File_Stamp (Name_Find);
+                  Lib_TS : constant Time :=
+                             File_Time_Stamp (Name_Buffer (1 .. Name_Len));
                begin
                   if Lib_TS = Osint.Invalid_Time then
                      Linker_Needs_To_Be_Called := True;
@@ -2008,8 +2025,7 @@ package body Gprbuild.Link is
                      if Opt.Verbosity_Level > Opt.Low then
                         Put ("      -> library file """);
                         Put (Name_Buffer (1 .. Name_Len));
-                        Put_Line
-                          (""" is more recent than executable");
+                        Put_Line (""" is more recent than executable");
                      end if;
 
                      exit;
@@ -2017,8 +2033,6 @@ package body Gprbuild.Link is
                end;
             end if;
          end loop;
-
-         Change_Dir (Current_Dir);
       end;
 
       if not Linker_Needs_To_Be_Called then
@@ -2046,15 +2060,14 @@ package body Gprbuild.Link is
          for J in reverse 1 .. Library_Projs.Last_Index loop
             if not Library_Projs (J).Is_Aggregated then
                if Is_Static (Library_Projs (J).Proj) then
-
                   declare
                      Proj     : constant Project_Id := Library_Projs (J).Proj;
-                     Lib_Name : constant String := Get_Name_String
-                       (Proj.Library_Name);
-                     Lib_Path : constant String := Get_Name_String
-                       (Proj.Library_Dir.Display_Name)
-                       & "lib" & Lib_Name
-                       & Archive_Suffix (Proj);
+                     Lib_Name : constant String :=
+                                  Get_Name_String (Proj.Library_Name);
+                     Lib_Path : constant String :=
+                                  Get_Name_String
+                                    (Proj.Library_Dir.Display_Name)
+                                  & "lib" & Lib_Name & Archive_Suffix (Proj);
                      Arg_List : Argument_List_Access;
                      Arg_Disp : Options_Data;
 
@@ -2083,7 +2096,6 @@ package body Gprbuild.Link is
                      --  Extract linker switches in the case of a static SAL.
 
                      if Proj.Standalone_Library = GPR.Standard then
-
                         Linking_With_Static_SALs := True;
 
                         if Archive_Builder_Path = null then
@@ -2093,33 +2105,161 @@ package body Gprbuild.Link is
                         declare
                            Status : aliased Integer;
                            Output : String_Access;
+                           EOL    : constant String := "" & ASCII.LF;
 
-                           EOL           : constant String (1 .. 1) :=
-                             (1 => ASCII.LF);
-                           Obj_Found     : Boolean := False;
                            Obj           : String_Access;
                            Obj_Path_Name : Path_Name_Type;
 
-                           Objcopy_Path : String_Access;
                            Objcopy_Exec : String_Access;
+                           Objdump_Exec : String_Access;
                            AB_Path      : constant String :=
                              Archive_Builder_Path.all;
-                           AB_Path_Len  : constant Natural := AB_Path'Length;
+                           AB_Path_Last : Natural := 0;
 
-                           Options_File           : constant String :=
-                             Lib_Name & ".linker_options";
-                           Options_File_Path_Name : Path_Name_Type;
-                           File                   : Text_File;
-
+                           File         : Text_File;
                            Lib_Dir_Name : Path_Name_Type;
 
-                           FD             : File_Descriptor;
-                           Tmp_File       : Path_Name_Type;
+                           FD       : File_Descriptor;
+                           Tmp_File : Path_Name_Type;
+                           Success  : Boolean := True;
 
-                           Success     : Boolean := True;
-                           Warning_Msg : String_Access;
+                           function Check_Objtool
+                             (Exec : out String_Access;
+                              Name : String) return Boolean;
+
+                           procedure Set_Tmp_File_Line;
+                           --  Set Tmp_File first line to Error
+
+                           procedure Decode_Line;
+                           --  Decode line from File to Name_Buffer
+
+                           -----------------------
+                           -- Set_Tmp_File_Line --
+                           -----------------------
+
+                           procedure Set_Tmp_File_Line is
+                              File : File_Type;
+                           begin
+                              Open (File, In_File, Get_Name_String (Tmp_File));
+
+                              declare
+                                 Line : constant String := Get_Line (File);
+                              begin
+                                 Error_Msg_Strlen := Line'Length;
+                                 Error_Msg_String (1 .. Line'Length) := Line;
+                              end;
+
+                              Close (File);
+                           end Set_Tmp_File_Line;
+
+                           -------------------
+                           -- Check_Objtool --
+                           -------------------
+
+                           function Check_Objtool
+                             (Exec : out String_Access;
+                              Name : String) return Boolean
+                           is
+                              Path : constant String :=
+                                       AB_Path (1 .. AB_Path_Last) & Name;
+                           begin
+                              Exec := Locate_Exec_On_Path (Path);
+
+                              if Exec = null then
+                                 --  If objtool is not found this way, try with
+                                 --  the one from the system.
+
+                                 Exec := Locate_Exec_On_Path (Name);
+
+                                 if Exec = null then
+                                    --  Warning if we didn't find any objtool
+
+                                    Error_Msg
+                                      ("?unable to locate " & Name,
+                                       Proj.Location);
+
+                                    return False;
+                                 end if;
+                              end if;
+
+                              return True;
+                           end Check_Objtool;
+
+                           Line  : String (1 .. 128);
+                           First : Positive := 42;
+                           Last  : Natural  := 1;
+
+                           -----------------
+                           -- Decode_Line --
+                           -----------------
+
+                           procedure Decode_Line is
+
+                              function Is_Hex
+                                (Str : String) return Boolean
+                              is
+                                (for all Char of Str =>
+                                    Char in '0' .. '9' | 'a' .. 'f');
+
+                           begin
+                              Name_Len := 0;
+
+                              Decoding : loop
+                                 if First > 41 then
+                                    loop
+                                       exit Decoding when End_Of_File (File);
+                                       Get_Line (File, Line, Last);
+                                       exit when Last > 43
+                                         and then Is_Hex (Line (2 .. 4))
+                                         and then Is_Hex (Line (7 .. 8))
+                                         and then
+                                           (for all J in 9 .. 41 =>
+                                              Line (J) in ' ' | '0' .. '9'
+                                                  | 'a' .. 'f')
+                                         and then Line (1) = ' '
+                                         and then Line (5 .. 6) = "0 "
+                                         and then Line (15) = ' '
+                                         and then Line (24) = ' '
+                                         and then Line (33) = ' '
+                                         and then Line (42 .. 43) = "  ";
+                                    end loop;
+                                    First := 7;
+                                 end if;
+
+                                 while First < 42 loop
+                                    Name_Len := Name_Len + 1;
+                                    Name_Buffer (Name_Len) :=
+                                      Character'Val
+                                        (Integer'Value
+                                           ("16#" & Line (First .. First + 1)
+                                            & '#'));
+                                    First := First + 2;
+                                    if Line (First) = ' ' then
+                                       First := First + 1;
+
+                                       if Line (First) = ' '
+                                         and then First < 42
+                                       then
+                                          pragma Assert
+                                            (End_Of_File (File),
+                                             Line (1 .. Last) & First'Img);
+                                          First := 42;
+                                       end if;
+                                    end if;
+
+                                    if Name_Buffer (Name_Len) = ASCII.LF then
+                                       Name_Len := Name_Len - 1;
+                                       if Name_Buffer (Name_Len) = ASCII.CR
+                                       then
+                                          Name_Len := Name_Len - 1;
+                                       end if;
+                                       exit Decoding;
+                                    end if;
+                                 end loop;
+                              end loop Decoding;
+                           end Decode_Line;
+
                         begin
-
                            --  Create the temporary file to receive (and
                            --  discard) the output from spawned processes.
 
@@ -2128,49 +2268,43 @@ package body Gprbuild.Link is
                            if FD = Invalid_FD then
                               Fail_Program
                                 (Main_File.Tree,
-                                "could not create temporary file");
+                                 "could not create temporary file");
                            else
-                              Record_Temp_File (Main_File.Tree.Shared,
-                                                Tmp_File);
+                              Record_Temp_File
+                                (Main_File.Tree.Shared, Tmp_File);
                            end if;
 
                            --  Use the archive builder path to compute the
                            --  path to objcopy.
 
-                           if AB_Path_Len > 2 and then AB_Path
-                             (AB_Path_Len - 1 .. AB_Path_Len) = "ar"
+                           if AB_Path'Length > 2
+                             and then
+                               AB_Path (AB_Path'Last - 1 .. AB_Path'Last)
+                               = "ar"
                            then
-                              Objcopy_Path := new String'
-                                (AB_Path (1 .. AB_Path_Len - 2) & "objcopy");
+                              AB_Path_Last := AB_Path'Last - 2;
 
-                           elsif AB_Path_Len > 6 and then AB_Path
-                             (AB_Path_Len - 5 .. AB_Path_Len) = "ar.exe"
+                           elsif AB_Path'Length > 6
+                             and then
+                               AB_Path (AB_Path'Last - 5 .. AB_Path'Last)
+                               = "ar.exe"
                            then
-                              Objcopy_Path := new String'
-                                (AB_Path (1 .. AB_Path_Len - 6) & "objcopy");
+                              AB_Path_Last := AB_Path'Last - 6;
                            end if;
 
-                           Objcopy_Exec := Locate_Exec_On_Path
-                             (Objcopy_Path.all);
-
-                           if Objcopy_Exec = null then
-                              --  If objcopy is not found this way, try with
-                              --  the one from the system.
-
-                              Objcopy_Exec := Locate_Exec_On_Path ("objcopy");
-
-                              if Objcopy_Exec = null then
-                                 --  Warning if we didn't find any objcopy.
-                                 Warning_Msg := new String'
-                                   ("Warning: unable to locate objcopy.");
-                                 goto Linker_Options_Incomplete;
-                              end if;
+                           if not Check_Objtool
+                             (Objcopy_Exec, "objcopy")
+                             or else not Check_Objtool
+                               (Objdump_Exec, "objdump")
+                           then
+                              goto Linker_Options_Incomplete;
                            end if;
 
                            --  List the archive content.
 
-                           Arg_List := Argument_String_To_List
-                             ("-t " & Lib_Path);
+                           Arg_List := new GNAT.Strings.String_List'
+                             (1 => new String'("-t"),
+                              2 => new String'(Lib_Path));
 
                            Fill_Options_Data_From_Arg_List_Access
                              (Arg_List, Arg_Disp);
@@ -2187,10 +2321,16 @@ package body Gprbuild.Link is
                            Free (Arg_List);
 
                            if Status /= 0 then
-                              --  Warning if the archive builder failed.
-                              Warning_Msg := new String'
-                                ("Warning: invocation of "
-                                 & Archive_Builder_Path.all & " failed.");
+                              --  Warning if the archive builder failed
+
+                              Error_Msg_Strlen := Output'Length;
+                              Error_Msg_String (1 .. Output'Length) :=
+                                Output.all;
+                              Error_Msg
+                                ("?list of archive content failed: ~",
+                                 Proj.Location);
+                              Free (Output);
+
                               goto Linker_Options_Incomplete;
                            end if;
 
@@ -2200,57 +2340,72 @@ package body Gprbuild.Link is
                            declare
                               Lines : constant Name_Array_Type := Split
                                 (Output.all, EOL);
-
+                              Lib_Fn : String := Lib_Name;
                            begin
+                              Canonical_Case_File_Name (Lib_Fn);
+                              Free (Output);
+
                               for L of Lines loop
                                  Get_Name_String (L);
-                                 if On_Windows then
-                                    --  Skip the final CR.
+
+                                 if On_Windows
+                                   and then Name_Buffer (Name_Len) = ASCII.CR
+                                 then
+                                    --  Skip the final CR
+
                                     Name_Len := Name_Len - 1;
                                  end if;
-                                 Obj_Path_Name := Name_Find;
-                                 Obj := new String'
+
+                                 Canonical_Case_File_Name
                                    (Name_Buffer (1 .. Name_Len));
-                                 if Obj.all = "b__" & Lib_Name & ".o"
-                                   or else Obj.all = "p__" & Lib_Name & "_0.o"
+
+                                 if Name_Buffer (1 .. Name_Len) in
+                                   "b__" & Lib_Fn & ".o"
+                                   | "p__" & Lib_Fn & "_0.o"
                                  then
-                                    Obj_Found := True;
-                                    exit;
+                                    Obj := new String'
+                                      (Name_Buffer (1 .. Name_Len));
+                                    Obj_Path_Name := Name_Find;
                                  end if;
                               end loop;
                            end;
 
-                           if not Obj_Found then
+                           if Obj = null then
                               --  Warning if no such object file is found.
-                              Warning_Msg := new String'
-                                ("Warning: linker options section "
-                                 & "not found in " & Lib_Name
-                                 & ".a, using defaults.");
+
+                              Error_Msg
+                                ("?linker options section not found in "
+                                 & Lib_Name & ".a, using defaults.",
+                                 Proj.Location);
+
                               goto Linker_Options_Incomplete;
                            end if;
 
                            --  Extract the object file.
 
-                           Arg_List := Argument_String_To_List
-                             ("-x " & Lib_Path & " " & Obj.all);
+                           Arg_List := new GNAT.Strings.String_List'
+                             (1 => new String'("-x"),
+                              2 => new String'(Lib_Path),
+                              3 => new String'(Obj.all));
 
                            Fill_Options_Data_From_Arg_List_Access
                              (Arg_List, Arg_Disp);
                            Display_Command (Arg_Disp, Archive_Builder_Path);
 
-                           Spawn (Archive_Builder_Path.all,
-                                  Arg_List.all,
-                                  FD,
-                                  Status);
+                           Spawn
+                             (Archive_Builder_Path.all, Arg_List.all, FD,
+                              Status);
 
                            Free (Arg_List);
 
                            if Status /= 0 then
-                              --  Warning if the archive builder failed.
-                              Warning_Msg := new String'
-                                ("Warning: invocation of "
-                                 & Archive_Builder_Path.all
-                                 & " failed.");
+                              --  Warning if the archive builder failed
+
+                              Set_Tmp_File_Line;
+                              Error_Msg
+                                ("?extract of object file failed: ~",
+                                 Proj.Location);
+
                               goto Linker_Options_Incomplete;
                            end if;
 
@@ -2261,60 +2416,40 @@ package body Gprbuild.Link is
 
                            --  Extract the linker options section.
 
-                           Arg_List := Argument_String_To_List
-                             ("--dump-section .GPR.linker_options="
-                              & Lib_Name & ".linker_options"
-                              & " " & Obj.all);
-
-                           --  Delete any existing linker option file.
-                           Delete_File (Options_File, Success);
+                           Arg_List := new GNAT.Strings.String_List'
+                             (new String'("-s"),
+                              new String'("--section=.GPR.linker_options"),
+                              Obj);
+                           --  Obj going to be Free together with Arg_List
 
                            Fill_Options_Data_From_Arg_List_Access
                              (Arg_List, Arg_Disp);
-                           Display_Command (Arg_Disp, Objcopy_Exec);
+                           Display_Command (Arg_Disp, Objdump_Exec);
 
-                           Spawn (Objcopy_Exec.all,
-                                  Arg_List.all,
-                                  FD,
-                                  Status);
+                           Spawn (Objdump_Exec.all, Arg_List.all, FD, Status);
 
                            Free (Arg_List);
-                           Free (Obj);
+                           Obj := null;
 
                            if Status /= 0 then
-                              --  Warning if objcopy failed.
-                              Warning_Msg := new String'
-                                ("Warning: invocation of objcopy "
-                                 & Objcopy_Exec.all & " failed.");
+                              --  Warning if objcopy failed
+
+                              Set_Tmp_File_Line;
+                              Error_Msg
+                                ("?extract of linker options failed: ~",
+                                 Proj.Location);
+
                               goto Linker_Options_Incomplete;
                            end if;
 
-                           --  Read the .linker_options file.
+                           --  Read the objdump output file
 
-                           Open (File, Options_File);
+                           Open (File, Get_Name_String (Tmp_File));
 
-                           --  Record the linker options file as temporary.
-                           Set_Name_Buffer (Get_Current_Dir & Options_File);
-                           Options_File_Path_Name := Name_Find;
-                           Record_Temp_File
-                             (Shared => Main_File.Tree.Shared,
-                              Path => Options_File_Path_Name);
+                           --  Read the linker options
 
-                           if not Is_Valid (File) then
-                              --  Objcopy may return 0 even if there was a
-                              --  problem reading the section!
-                              --  So, the definitive check is that the
-                              --  linker_options file was generated.
-                              Warning_Msg := new String'
-                                ("Warning: invocation of "
-                                 & Objcopy_Exec.all & " failed.");
-                              goto Linker_Options_Incomplete;
-                           end if;
-
-                           --  Read the linker options.
-
-                           while not End_Of_File (File) loop
-                              Get_Line (File, Name_Buffer, Name_Len);
+                           while not End_Of_File (File) or else First < 42 loop
+                              Decode_Line;
 
                               if Name_Len > 0
                                 and then Name_Buffer (1) = ASCII.NUL
@@ -2343,6 +2478,8 @@ package body Gprbuild.Link is
                               end if;
                            end loop;
 
+                           Close (File);
+
                            Success := True;
 
                            <<Linker_Options_Incomplete>>
@@ -2350,14 +2487,7 @@ package body Gprbuild.Link is
                            --  We get there if anything went wrong.
 
                            if not Success and then Opt.Verbose_Mode then
-                              Put_Line
-                                (Warning_Msg.all
-                                 & " Linker options may be incomplete.");
-                              Free (Warning_Msg);
-                           end if;
-
-                           if Is_Valid (File) then
-                              Close (File);
+                              Put_Line ("Linker options may be incomplete.");
                            end if;
 
                            if FD /= Invalid_FD then
@@ -2374,7 +2504,7 @@ package body Gprbuild.Link is
                   --  directory.
 
                   if not Library_Dirs.Get
-                    (Library_Projs (J).Proj.Library_Dir.Name)
+                           (Library_Projs (J).Proj.Library_Dir.Name)
                   then
                      Library_Dirs.Set
                        (Library_Projs (J).Proj.Library_Dir.Name, True);
@@ -2382,20 +2512,20 @@ package body Gprbuild.Link is
                      if Main_Proj.Config.Linker_Lib_Dir_Option = No_Name then
                         Add_Argument
                           (Other_Arguments,
-                           "-L" &
-                             Get_Name_String
-                             (Library_Projs (J).
-                                Proj.Library_Dir.Display_Name),
+                           "-L"
+                           & Get_Name_String
+                               (Library_Projs
+                                  (J).Proj.Library_Dir.Display_Name),
                            Opt.Verbose_Mode);
 
                      else
                         Add_Argument
                           (Other_Arguments,
                            Get_Name_String
-                             (Main_Proj.Config.Linker_Lib_Dir_Option) &
-                             Get_Name_String
-                             (Library_Projs (J).
-                                Proj.Library_Dir.Display_Name),
+                             (Main_Proj.Config.Linker_Lib_Dir_Option)
+                           & Get_Name_String
+                               (Library_Projs
+                                  (J).Proj.Library_Dir.Display_Name),
                            Opt.Verbose_Mode);
                      end if;
 
@@ -2414,18 +2544,17 @@ package body Gprbuild.Link is
                   if Main_Proj.Config.Linker_Lib_Name_Option = No_Name then
                      Add_Argument
                        (Other_Arguments,
-                        "-l" &
-                          Get_Name_String
-                          (Library_Projs (J).Proj.Library_Name),
+                        "-l" & Get_Name_String
+                                 (Library_Projs (J).Proj.Library_Name),
                         Opt.Verbose_Mode);
 
                   else
                      Add_Argument
                        (Other_Arguments,
                         Get_Name_String
-                          (Main_Proj.Config.Linker_Lib_Name_Option) &
-                          Get_Name_String
-                          (Library_Projs (J).Proj.Library_Name),
+                          (Main_Proj.Config.Linker_Lib_Name_Option)
+                        & Get_Name_String
+                            (Library_Projs (J).Proj.Library_Name),
                         Opt.Verbose_Mode);
                   end if;
                end if;
@@ -2542,9 +2671,11 @@ package body Gprbuild.Link is
          end;
 
          --  Get the Linker_Options, if any
+
          Add_Linker_Options (Other_Arguments, For_Project => Main_Proj);
 
          --  Add the linker switches specified on the command line
+
          Add_Arguments
            (Other_Arguments,
             Command_Line_Linker_Options,
@@ -2611,8 +2742,8 @@ package body Gprbuild.Link is
                        (Ada_Lang_Data_Ptr.Config.Toolchain_Version);
                   begin
                      if GNAT_Version'Length >= 7 then
-                        Set_Name_Buffer (GNAT_Version (6 .. 7));
-                        GNAT_Version_Part := Name_Find;
+                        GNAT_Version_Part :=
+                          Get_Name_Id (GNAT_Version (6 .. 7));
                      end if;
                   end;
                end if;
@@ -3034,12 +3165,12 @@ package body Gprbuild.Link is
                      Stack_Op := True;
                   end if;
 
-               elsif Opt.Maximum_Processes > 1 then
+               elsif Opt.Maximum_Linkers > 1 then
                   if Other_Arguments (J).Name = "--lto" or else
                      Other_Arguments (J).Name = "-flto"
                   then
                      declare
-                        Img : String := Opt.Maximum_Processes'Img;
+                        Img : String := Opt.Maximum_Linkers'Img;
                         Arg : Option_Type renames Other_Arguments.Element (J);
                      begin
                         Img (1) := '=';
@@ -3109,8 +3240,7 @@ package body Gprbuild.Link is
                Add_Str_To_Name_Buffer (Map_File.all);
 
             else
-               Add_Str_To_Name_Buffer
-                 (Get_Name_String (Main_Base_Name_Index));
+               Get_Name_String_And_Append (Main_Base_Name_Index);
                Add_Str_To_Name_Buffer (".map");
             end if;
 
@@ -3135,7 +3265,7 @@ package body Gprbuild.Link is
 
             procedure Add_Executable_Name is
             begin
-               Add_Str_To_Name_Buffer (Get_Name_String (Exec_Path_Name));
+               Get_Name_String_And_Append (Exec_Path_Name);
                Add_Argument
                  (Other_Arguments,
                   Name_Buffer (1 .. Name_Len),
@@ -3297,7 +3427,7 @@ package body Gprbuild.Link is
                            --  argument(s). Update Arguments_Displayed
                            --  too.
 
-                           Arguments.Append (Other_Arguments);
+                           Arguments.Append_Vector (Other_Arguments);
                            Other_Arguments.Clear;
                         end if;
                      end;
@@ -3307,6 +3437,7 @@ package body Gprbuild.Link is
          end if;
 
          --  Complete the command line if needed
+
          for Obj of Objects loop
             Add_Argument
               (Arguments,
@@ -3315,7 +3446,7 @@ package body Gprbuild.Link is
                not Opt.Verbose_Mode);
          end loop;
 
-         Arguments.Append (Other_Arguments);
+         Arguments.Append_Vector (Other_Arguments);
 
          Objects.Clear;
          Other_Arguments.Clear;
@@ -3367,9 +3498,7 @@ package body Gprbuild.Link is
                Record_Failure (Main_File);
 
             else
-               Add_Process
-                 (Pid,
-                  (Linking, Pid, Main_File));
+               Add_Process (Pid, (Linking, Main_File));
                Display_Processes ("link");
             end if;
          end;
@@ -3430,6 +3559,8 @@ package body Gprbuild.Link is
 
                if Main_File.Tree = Tree
                  and then not Project_Compilation_Failed (Main_File.Project)
+                 and then Main_File.Source.Language.Config.Compiler_Driver
+                          /= Empty_File
                then
                   Wait_For_Available_Slot;
                   exit when Stop_Spawning;
@@ -3448,7 +3579,7 @@ package body Gprbuild.Link is
 
       procedure Wait_For_Available_Slot is
       begin
-         while Outstanding_Processes >= Opt.Maximum_Processes loop
+         while Outstanding_Processes >= Opt.Maximum_Linkers loop
             Await_Link;
          end loop;
       end Wait_For_Available_Slot;

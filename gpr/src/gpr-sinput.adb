@@ -418,8 +418,7 @@ package body GPR.Sinput is
          return No_Source_File;
       end if;
 
-      Set_Name_Buffer (Path);
-      Path_Id := Name_Find;
+      Path_Id := Get_File_Name_Id (Path);
 
       Sources_Map.Insert
         (Path_Id, Source_File.Last + 1, Position, Inserted);

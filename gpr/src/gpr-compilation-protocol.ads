@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -154,6 +154,8 @@ package GPR.Compilation.Protocol is
       Project  : String;
       Dir      : String;
       Language : String;
+      Target   : String;
+      Runtime  : String;
       Options  : String_Vectors.Vector;
       Obj_Name : String;
       Dep_Name : String;
@@ -185,7 +187,7 @@ package GPR.Compilation.Protocol is
       Root_Dir : String;
       Files    : File_Data_Set.Vector);
    --  Send a set of filenames and associated timestamps. Will receive a OK or
-   --  KO with the list of files to be transfered to the slave.
+   --  KO with the list of files to be transferred to the slave.
 
    procedure Send_End_Of_Compilation (Channel : Communication_Channel);
    --  Send an end of compilation signal, the slave will at this point be able

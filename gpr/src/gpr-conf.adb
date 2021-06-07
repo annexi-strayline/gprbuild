@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---            Copyright (C) 2006-2020, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2021, Free Software Foundation, Inc.       --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -30,6 +30,7 @@ with GNAT.Table;
 
 with GPR.Env;
 with GPR.Names;  use GPR.Names;
+with GPR.Nmsc;   use GPR.Nmsc;
 with GPR.Opt;    use GPR.Opt;
 with GPR.Output; use GPR.Output;
 with GPR.Part;
@@ -532,7 +533,7 @@ package body GPR.Conf is
           or else Target = "native"
           or else
             (Tgt_Name /= No_Name
-              and then (Length_Of_Name (Tgt_Name) = 0
+              and then (Tgt_Name = Empty_String
                          or else Target = Get_Name_String (Tgt_Name)));
 
       if not OK then
@@ -950,11 +951,11 @@ package body GPR.Conf is
                        (Get_Name_String (Conf_Project.Directory.Display_Name),
                         Root_Dir.all));
                else
-                  Add_Str_To_Name_Buffer
-                    (Get_Name_String (Conf_Project.Directory.Display_Name));
+                  Get_Name_String_And_Append
+                    (Conf_Project.Directory.Display_Name);
                end if;
 
-               Add_Str_To_Name_Buffer (Get_Name_String (Obj_Dir.Value));
+               Get_Name_String_And_Append (Obj_Dir.Value);
             end if;
          end if;
 
@@ -1042,8 +1043,7 @@ package body GPR.Conf is
             if Selected_Target /= null
               and then Selected_Target.all /= ""
             then
-               Args (4) :=
-                  new String'("--target=" & Selected_Target.all);
+               Args (4) := new String'("--target=" & Selected_Target.all);
                Arg_Last := 4;
 
             elsif Normalized_Hostname /= "" then
@@ -1336,7 +1336,9 @@ package body GPR.Conf is
          for CL in Language_Htable.Iterate loop
             Name := Language_Maps.Key (CL);
 
-            if not CodePeer_Mode or else Name = Name_Ada then
+            if (not CodePeer_Mode or else Name = Name_Ada)
+              and then Is_Allowed_Language (Name)
+            then
                Count := Count + 1;
 
                --  Check if IDE'Compiler_Command is declared for the language.
@@ -1369,7 +1371,7 @@ package body GPR.Conf is
 
                   if CodePeer_Mode
                     or else Variable = Nil_Variable_Value
-                    or else Length_Of_Name (Variable.Value) = 0
+                    or else Variable.Value = Empty_String
                   then
                      Result (Count) := new String'
                        (Config_Common & ',' & Toolchain_Name_For (Name));
@@ -1396,7 +1398,11 @@ package body GPR.Conf is
             end if;
          end loop;
 
-         if Count /= Result'Last then
+         if Count = 0 then
+            Free (Result);
+            raise Invalid_Config with "project has no languages";
+
+         elsif Count /= Result'Last then
             Result := new String_List'(Result (1 .. Count));
          end if;
 
@@ -1700,8 +1706,8 @@ package body GPR.Conf is
 
       Fallback_Try_Again : Boolean := True;
 
-      Store_Setup_Projects  : Boolean;
       Store_Flags : Processing_Flags;
+      Store_Create_Dirs : Dir_Creation_Mode;
 
       N_Hostname : String_Access := new String'(Normalized_Hostname);
 
@@ -1741,8 +1747,9 @@ package body GPR.Conf is
          Set_Require_Obj_Dirs (Env.Flags, Silent);
          Set_Check_Configuration_Only (Env.Flags, True);
          Set_Missing_Source_Files (Env.Flags, Silent);
-         Store_Setup_Projects := Setup_Projects;
-         Setup_Projects := False;
+         Env.Flags.Missing_Project_Files := Decide_Later;
+         Store_Create_Dirs := Create_Dirs;
+         Create_Dirs := Never_Create_Dirs;
       else
          Opt.Target_Value  := new String'(Target_Name);
          Opt.Target_Origin := Specified;
@@ -1837,7 +1844,7 @@ package body GPR.Conf is
          return;
       end if;
 
-      if not Fallback_Try_Again and then not Setup_Projects then
+      if not Fallback_Try_Again and then Create_Dirs /= Create_All_Dirs then
          --  Check if attribute Create_Missing_Dirs is specified with value
          --  "true".
 
@@ -1853,9 +1860,14 @@ package body GPR.Conf is
             then
                Get_Name_String (Variable.Value);
 
+               declare
+                  Do_Create : Boolean;
                begin
-                  Setup_Projects :=
-                    Boolean'Value (Name_Buffer (1 .. Name_Len));
+                  Do_Create := Boolean'Value (Name_Buffer (1 .. Name_Len));
+                  if Do_Create then
+                     Create_Dirs := Create_All_Dirs;
+                  end if;
+
                exception
                   when Constraint_Error =>
                      raise Invalid_Config with
@@ -1896,7 +1908,7 @@ package body GPR.Conf is
                   --  undo fallback preparations.
                   Fallback_Try_Again := False;
                   Env.Flags := Store_Flags;
-                  Setup_Projects := Store_Setup_Projects;
+                  Create_Dirs := Store_Create_Dirs;
                   goto Parse_Again;
 
                else
@@ -1966,7 +1978,7 @@ package body GPR.Conf is
                      Target_Try_Again := True;
                      Fallback_Try_Again := False;
                      Env.Flags := Store_Flags;
-                     Setup_Projects := Store_Setup_Projects;
+                     Create_Dirs := Store_Create_Dirs;
                      Warn_For_RTS := False;
 
                      goto Parse_Again;
@@ -1977,7 +1989,7 @@ package body GPR.Conf is
             --  Restore the flags and cancel Fallback_Try_Again
 
             Env.Flags := Store_Flags;
-            Setup_Projects := Store_Setup_Projects;
+            Create_Dirs := Store_Create_Dirs;
             Fallback_Try_Again := False;
          end if;
       end if;
@@ -2321,13 +2333,9 @@ package body GPR.Conf is
 
       procedure Check_Project (Project : Project_Id) is
       begin
-         if Project.Qualifier = Aggregate
-              or else
-            Project.Qualifier = Aggregate_Library
-         then
+         if Project.Qualifier in Aggregate_Project then
             declare
                List : Aggregated_Project_List := Project.Aggregated_Projects;
-
             begin
                --  Look for a non aggregate project until one is found
 
@@ -2386,7 +2394,7 @@ package body GPR.Conf is
                   else
                      Set_Name_Buffer
                        (Get_Name_String (Main_Project.Directory.Display_Name));
-                     Add_Str_To_Name_Buffer (Get_Name_String (Obj_Dir.Value));
+                     Get_Name_String_And_Append (Obj_Dir.Value);
                   end if;
                end if;
 
@@ -2411,7 +2419,10 @@ package body GPR.Conf is
       --  projects in the project tree.
 
       if Conf_Project = No_Project then
+         Messages_Decision (Error);
          raise Invalid_Config with "there are no non-aggregate projects";
+      else
+         Messages_Decision (Silent);
       end if;
 
       --  Find configuration file

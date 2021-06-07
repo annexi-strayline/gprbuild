@@ -598,12 +598,14 @@ package Builder of the main project (attribute Switches):
 * :samp:`-p` or :samp:`--create-missing-dirs` (Create missing object, library and exec directories)
 
   By default, GPRbuild checks that the object, library and exec directories
-  specified in project files exist. Switch :samp:`-p` instructs GPRbuild to
-  attempt to create missing directories. Note that these switches may be
-  specified in package Builder of the main project, but they are useless there
-  as either the directories already exist or the processing of the project
-  files has failed before the evaluation of the Builder switches, because there
-  is at least one missing directory.
+  specified in project files exist. GPRbuild automatically creates any of these
+  directories which is specified relatively to the project dir, for instance
+  :samp:`for Object_Dir use "obj/"`. The :samp:`-p` switch instructs GPRbuild
+  to attempt to create missing directories that are specified as absolute paths
+  as well. Note that these switches may be specified in package Builder of the
+  main project, but they are not useful there as either the directories already
+  exist or the processing of the project files has failed before the evaluation
+  of the Builder switches, because there is at least one missing directory.
 
 * :samp:`-q` (Quiet output)
 

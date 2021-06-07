@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2005-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2005-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -23,7 +23,7 @@
 ------------------------------------------------------------------------------
 
 --  This package contains insecure procedures that are intended to be used
---  only inside the GPR hierarcy. It should not be imported by other tools,
+--  only inside the GPR hierarchy. It should not be imported by other tools,
 --  such as GPS.
 
 package GPR.Attr.PM is

@@ -17,10 +17,9 @@
 ------------------------------------------------------------------------------
 
 with Ada.Directories;           use Ada.Directories;
-with Ada.Text_IO;
+with Ada.Text_IO;               use Ada.Text_IO;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with GNAT.IO;                   use GNAT.IO;
 with GNAT.Regexp;               use GNAT.Regexp;
 
 with Gprexch;        use Gprexch;
@@ -1120,17 +1119,16 @@ package body Gprclean is
          Success := False;
       end if;
 
-      if Verbose_Mode or else not Quiet_Output then
-         if not Success then
+      if not Success then
+         if not Quiet_Output then
             Put ("Warning: """);
             Put (Full_Name (1 .. Last));
             Put_Line (""" could not be deleted");
-
-         else
-            Put ("""");
-            Put (Full_Name (1 .. Last));
-            Put_Line (""" has been deleted");
          end if;
+      elsif Verbose_Mode then
+         Put ("""");
+         Put (Full_Name (1 .. Last));
+         Put_Line (""" has been deleted");
       end if;
    end Delete;
 

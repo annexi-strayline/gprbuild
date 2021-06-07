@@ -2652,10 +2652,12 @@ once.
 
 .. index:: -j
 
-Since there is no ambiguity as to which switches should be used, files
-can be compiled in parallel (through the usual :option:`-j` switch) and
-this can be done while maximizing the use of CPUs (compared to launching
-multiple *GPRbuild* commands in parallel).
+Since there is no ambiguity as to which switches should be used, individual
+compilations, binds and links can be performed in parallel (through the usual
+:option:`-j` switch) and this can be done while maximizing the use of CPUs
+(compared to launching multiple *GPRbuild* commands in parallel). The -j
+option can control parallelization of compilation, binding, and linking
+separately with -jc, -jb, and -jl variants accordingly.
 
 
 .. _Syntax_of_aggregate_projects:
@@ -4840,12 +4842,6 @@ Package Compiler Attributes
     compiling a source of the language when the project is a shared library
     project.
 
-  * **Path_Syntax**: single, indexed, case-insensitive index
-
-    Index is a language name. Value is the kind of path syntax to be used when
-    invoking the compiler for the language. Only authorized case-insensitive
-    values are "canonical" and "host" (the default).
-
   * **Source_File_Switches**: single, indexed, case-insensitive index
     configuration concatenable
 
@@ -5244,6 +5240,12 @@ Package Linker Attributes
 
     Value is the switch to specify the map file name that the linker needs to
     create.
+
+  * **Unconditionally_Linked**: single, indexed, case-insensitive index
+
+    Index is a language name. Indicates that all object files of this language
+    going to be linked unconditionally. Only case-insensitive values allowed
+    are "true" and "false", the default.
 
 * **Configuration - Linking**
 

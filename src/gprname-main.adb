@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---                     Copyright (C) 2001-2020, AdaCore                     --
+--                     Copyright (C) 2001-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -35,15 +35,12 @@ with GPR.Osint;          use GPR.Osint;
 with GPR.Snames;         use GPR.Snames;
 with GPR.Tree;           use GPR.Tree;
 with GPR.Util;           use GPR.Util;
-with GPR.Version;        use GPR.Version;
 
 with Gpr_Build_Util; use Gpr_Build_Util;
 
 with System.Regexp; use System.Regexp;
 
 procedure GPRName.Main is
-
-   Subdirs_Switch : constant String := "--subdirs=";
 
    Usage_Output : Boolean := False;
    --  Set to True when usage is output, to avoid multiple output
@@ -215,21 +212,13 @@ procedure GPRName.Main is
       --  Initialize tables
 
       Arguments.Clear;
-      declare
-         New_Arguments : Argument_Data;
-         pragma Warnings (Off, New_Arguments);
-         --  Declaring this defaulted initialized object ensures that the new
-         --  allocated component of table Arguments is correctly initialized.
-      begin
-         Arguments.Append (New_Arguments);
-      end;
+      Arguments.Append (Argument_Data'(others => <>));
 
       Preprocessor_Switches.Clear;
 
       --  First check for --version or --help
 
-      Check_Version_And_Help
-        ("GPRNAME", "2001", Version_String => Gpr_Version_String);
+      Check_Version_And_Help ("GPRNAME", "2001");
 
       --  Now scan the other switches
 
@@ -240,13 +229,7 @@ procedure GPRName.Main is
       Excluded_Pattern_Expected  := False;
 
       for Next_Arg in 1 .. Argument_Count loop
-         declare
-            Next_Argv : constant String := Argument (Next_Arg);
-            Arg       : constant String (1 .. Next_Argv'Length) := Next_Argv;
-
-         begin
-            Scan_Arg (Arg);
-         end;
+         Scan_Arg (Argument (Next_Arg));
       end loop;
 
       if Project_File_Name_Expected or else not File_Set then
@@ -291,31 +274,14 @@ procedure GPRName.Main is
       --  Check if the project file already exists
 
       declare
-         Path_Name : String
-                       (1 .. File_Path'Length + Project_File_Extension'Length);
-         Path_Last : Positive := File_Path'Length;
-
+         Path_Name : constant String :=
+                       Normalize_Pathname
+                         (Ensure_Extension
+                            (File_Path.all, Project_File_Extension),
+                          Case_Sensitive => False);
       begin
-         if File_Names_Case_Sensitive then
-            Path_Name (1 .. Path_Last) := File_Path.all;
-         else
-            Path_Name (1 .. Path_Last) := To_Lower (File_Path.all);
-         end if;
-
-         Path_Name (Path_Last + 1 .. Path_Name'Last) :=
-           Project_File_Extension;
-
-         if Path_Last < Project_File_Extension'Length + 1
-           or else Path_Name
-           (Path_Last - Project_File_Extension'Length + 1 .. Path_Last)
-           /= Project_File_Extension
-         then
-            Path_Last := Path_Name'Last;
-         end if;
-
          Free (File_Path);
-         File_Path := new String'
-           (Normalize_Pathname (Path_Name (1 .. Path_Last)));
+         File_Path := new String'(Path_Name);
       end;
 
       if Is_Regular_File (File_Path.all) then
@@ -410,8 +376,7 @@ procedure GPRName.Main is
       if not Version_Output then
          Version_Output := True;
          New_Line;
-         Display_Version
-           ("GPRNAME", "2001", Version_String => Gpr_Version_String);
+         Display_Version ("GPRNAME", "2001");
       end if;
    end Output_Version;
 
@@ -469,8 +434,7 @@ procedure GPRName.Main is
 
          elsif Foreign_Pattern_Expected then
             Arguments.Update_Element
-              (Arguments.Last_Index,
-               Add_Foreign_Source'Access);
+              (Arguments.Last_Index, Add_Foreign_Source'Access);
             Check_Regular_Expression (Arg);
             Foreign_Pattern_Expected := False;
 
@@ -516,14 +480,6 @@ procedure GPRName.Main is
             begin
                Arguments.Append (New_Arguments);
             end;
-
-         --  --subdirs=
-
-         elsif Arg'Length > Subdirs_Switch'Length
-           and then Arg (1 .. Subdirs_Switch'Length) = Subdirs_Switch
-         then
-            Subdirs :=
-              new String'(Arg (Subdirs_Switch'Length + 1 .. Arg'Last));
 
          --  --ignore-predefined-units
 
@@ -633,8 +589,8 @@ procedure GPRName.Main is
 
          --  -gnatep or -gnateD
 
-         elsif Arg'Length > 7 and then
-           (Arg  (1 .. 7) = "-gnatep" or else Arg (1 .. 7) = "-gnateD")
+         elsif Arg'Length > 7
+           and then Arg  (1 .. 7) in "-gnatep" | "-gnateD"
          then
             Preprocessor_Switches.Append (Arg);
 
@@ -752,8 +708,6 @@ procedure GPRName.Main is
            ("  --target=<targ> indicates the target of the GNAT compiler");
          New_Line;
          Put_Line ("  --RTS=dir     specify the Ada runtime");
-         Put_Line ("  --subdirs=dir use dir as suffix to obj/lib/exec " &
-                   "directories");
          Put_Line ("  --no-backup   do not create backup of project file");
          New_Line;
          Put_Line ("  --ignore-duplicate-files  ignore duplicate basenames");

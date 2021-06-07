@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2000-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -116,7 +116,7 @@ package body GPR.Ext is
             then
                if not Silent then
                   Debug_Output
-                    ("Not overridding existing external reference '"
+                    ("Not overriding existing external reference '"
                      & External_Name & "', value was defined in "
                      & N.Source'Img);
                end if;
@@ -198,11 +198,9 @@ package body GPR.Ext is
       Canonical_Case_Env_Var_Name (Name);
 
       if Self.Refs /= null then
-         Name_Len := Name'Length;
-         Name_Buffer (1 .. Name_Len) := Name;
-         Value := Name_To_Name_HTable.Get (Self.Refs.all, Name_Find);
+         Value := Name_To_Name_HTable.Get (Self.Refs.all, Get_Name_Id (Name));
 
-         if Value /= null then
+         if Value /= null and then Value.Source <= From_Environment then
             Debug_Output ("Value_Of (" & Name & ") is in cache", Value.Value);
             return Value.Value;
          end if;
@@ -215,21 +213,15 @@ package body GPR.Ext is
 
       begin
          if Env_Value /= null and then Env_Value'Length > 0 then
-            Name_Len := Env_Value'Length;
-            Name_Buffer (1 .. Name_Len) := Env_Value.all;
-            Val := Name_Find;
+            Val := Get_Name_Id (Env_Value.all);
 
             if Current_Verbosity = High then
                Debug_Output ("Value_Of (" & Name & ") is", Val);
             end if;
 
             if Self.Refs /= null then
-               Value := new Name_To_Name'
-                 (Key    => External_Name,
-                  Value  => Val,
-                  Source => From_Environment,
-                  Next   => null);
-               Name_To_Name_HTable.Set (Self.Refs.all, Value);
+               Add
+                 (Self, Name, Env_Value.all, From_Environment, Silent => True);
             end if;
 
             Free (Env_Value);

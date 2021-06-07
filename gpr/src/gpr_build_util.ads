@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2004-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -213,7 +213,8 @@ package Gpr_Build_Util is
    --  Return True if the library project correspond to a static library.
 
    function Unescape (Path : String) return String;
-   --  On platforms other than Windows, remove the characters '\'.
+   --  Remove the character '\' if it is before ' ', '#', ':', or '\'.
+   --  Remove the character '$' if it is before '$'.
 
    function Escape_Path (Path : String) return String;
    --  Escapes the characters '\', ' ' and '"' with character '\' before them
@@ -241,7 +242,7 @@ package Gpr_Build_Util is
 
    procedure Compute_Builder_Switches
      (Project_Tree     : Project_Tree_Ref;
-      Env              : in out GPR.Tree.Environment;
+      Env              : GPR.Tree.Environment;
       Main_Project     : Project_Id;
       Only_For_Lang    : Name_Id := No_Name);
    --  Compute the builder switches and global compilation switches. Every time
@@ -437,7 +438,7 @@ package Gpr_Build_Util is
       --  Returns True if queue is empty or if all object directories are busy
 
       procedure Insert
-        (Source  : Source_Info;
+        (Source     : Source_Info;
          With_Roots : Boolean := False;
          Repeat     : Boolean := False);
       function Insert
@@ -445,13 +446,12 @@ package Gpr_Build_Util is
          With_Roots : Boolean := False;
          Repeat     : Boolean := False) return Boolean;
       --  Insert source in the queue. The second version returns False if the
-      --  Source was already marked in the queue. If With_Roots is True and the
-      --  source is in Format_Gprbuild mode (ie with a project), this procedure
-      --  also includes the "Roots" for this main, ie all the other files that
-      --  must be included in the library or binary (in particular to combine
-      --  Ada and C files connected through pragma Export/Import). When the
-      --  roots are computed, they are also stored in the corresponding
-      --  Source_Id for later reuse by the binder.
+      --  Source was already marked in the queue. If With_Roots is True, this
+      --  procedure also includes the "Roots" for this Source, ie all the other
+      --  files that must be included in the library or binary (in particular
+      --  to combine Ada and C files connected through pragma Export/Import).
+      --  When the roots are computed, they are also stored in the
+      --  corresponding Source_Id for later reuse by the binder.
       --  If Repeat is True source inserted into the queue even if it was
       --  alredy processed.
 
@@ -489,7 +489,7 @@ package Gpr_Build_Util is
       --  extracted.
 
       function Processed return Natural;
-      --  Return the number of source in the queue that have aready been
+      --  Return the number of sources in the queue that have already been
       --  processed.
 
       procedure Set_Obj_Dir_Busy (Obj_Dir : Path_Name_Type);

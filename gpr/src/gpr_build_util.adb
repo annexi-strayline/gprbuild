@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---          Copyright (C) 2004-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -898,7 +898,7 @@ package body Gpr_Build_Util is
          Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
 
          Names.Append ((Name_Find, Index, Location, No_Source,
-                       Project, Tree, String_Vectors.Empty_Vector));
+                        Project, Tree, String_Vectors.Empty_Vector), 1);
 
          if Tree /= null then
             Builder_Data (Tree).Number_Of_Mains :=
@@ -967,12 +967,12 @@ package body Gpr_Build_Util is
 
                   Names.Append
                     ((File     => Src.File,
-                     Index    => Src.Index,
-                     Location => No_Location,
-                     Source   => Src,
-                     Project  => Src.Project,
-                     Tree     => Tree,
-                     Command  => String_Vectors.Empty_Vector));
+                      Index    => Src.Index,
+                      Location => No_Location,
+                      Source   => Src,
+                      Project  => Src.Project,
+                      Tree     => Tree,
+                      Command  => String_Vectors.Empty_Vector), 1);
 
                   Builder_Data (Tree).Number_Of_Mains :=
                     Builder_Data (Tree).Number_Of_Mains + 1;
@@ -1790,12 +1790,9 @@ package body Gpr_Build_Util is
             --  Then try "*"
 
             if Roots = Nil_Variable_Value then
-               Name_Len := 1;
-               Name_Buffer (1) := '*';
-
                Roots :=
                  GPR.Util.Value_Of
-                   (Index                  => Name_Find,
+                   (Index                  => The_Star_String,
                     Src_Index              => 0,
                     In_Array               => Root_Arr,
                     Shared                 => Source.Tree.Shared,
@@ -2040,7 +2037,7 @@ package body Gpr_Build_Util is
            (Project : Project_Id;
             Tree    : Project_Tree_Ref;
             Context : Project_Context);
-         --  Local procedures must be commented ???
+         --  Insert appropriate project sources into compilation queue
 
          ---------------
          -- Do_Insert --
@@ -2066,6 +2063,34 @@ package body Gpr_Build_Util is
             Proj : Project_Id;
 
             Location : Source_Ptr;
+
+            function String_List_Contains
+              (List : String_List_Id; Item : File_Name_Type) return Boolean;
+            --  Returns True if Item is in the List
+
+            --------------------------
+            -- String_List_Contains --
+            --------------------------
+
+            function String_List_Contains
+              (List : String_List_Id; Item : File_Name_Type) return Boolean
+            is
+               Iterate : String_List_Id := List;
+               Element : String_Element;
+            begin
+               while Iterate /= Nil_String loop
+                  Element :=
+                    Project_Tree.Shared.String_Elements.Table (Iterate);
+
+                  if Element.Value = Name_Id (Item) then
+                     return True;
+                  end if;
+
+                  Iterate := Element.Next;
+               end loop;
+
+               return False;
+            end String_List_Contains;
 
          begin
             --  Nothing to do when "-u" was specified and some files were
@@ -2122,7 +2147,7 @@ package body Gpr_Build_Util is
                      then
                         if (Unit_Based
                             or else Source.Unit = No_Unit_Index
-                            or else Source.Project.Library
+                            or else Proj.Library
                             or else Context.In_Aggregate_Lib
                             or else Project.Qualifier = Aggregate_Library)
                           and then not Is_Subunit (Source)
@@ -2130,46 +2155,32 @@ package body Gpr_Build_Util is
                            OK := True;
                            Closure := False;
 
-                           if Source.Unit /= No_Unit_Index
-                             and then
-                               (Source.Project.Library
-                                or else Project.Qualifier = Aggregate_Library
-                                or else Context.In_Aggregate_Lib)
+                           if (Proj.Library
+                               or else Project.Qualifier = Aggregate_Library
+                               or else Context.In_Aggregate_Lib)
                              and then Source.Project.Standalone_Library /= No
                            then
-                              --  Check if the unit is in the interface
+                              --  Check if the source is in the interface
 
-                              OK := False;
-
-                              declare
-                                 List    : String_List_Id;
-                                 Element : String_Element;
-
-                              begin
-                                 List := Source.Project.Lib_Interface_ALIs;
-                                 while List /= Nil_String loop
-                                    Element :=
-                                      Project_Tree.Shared.String_Elements.Table
-                                        (List);
-
-                                    if Element.Value =
-                                       Name_Id (Source.Dep_Name)
-                                    then
-                                       OK := True;
-                                       Closure := True;
-                                       exit;
-                                    end if;
-
-                                    List := Element.Next;
-                                 end loop;
-                              end;
+                              if Source.Unit = No_Unit_Index then
+                                 OK := True;
+                                 Closure := String_List_Contains
+                                   (Source.Project.Other_Interfaces,
+                                    Source.File);
+                              else
+                                 OK := String_List_Contains
+                                   (Source.Project.Lib_Interface_ALIs,
+                                    Source.Dep_Name);
+                                 Closure := OK;
+                              end if;
                            end if;
 
                            if OK then
                               Queue.Insert
                                 (Source => (Tree    => Tree,
                                             Id      => Source,
-                                            Closure => Closure));
+                                            Closure => Closure),
+                                 With_Roots => Closure);
                            end if;
                         end if;
                      end if;
@@ -2258,8 +2269,8 @@ package body Gpr_Build_Util is
 
                   if Src_Id /= No_Source
                     and then (not Excluding_Shared_SALs
-                               or else Src_Id.Project.Standalone_Library = No
-                               or else Src_Id.Project.Library_Kind = Static)
+                              or else Src_Id.Project.Standalone_Library = No
+                              or else Src_Id.Project.Library_Kind = Static)
                   then
                      Queue.Insert
                        (Source => (Tree    => Project_Tree,
@@ -2382,7 +2393,7 @@ package body Gpr_Build_Util is
 
    procedure Compute_Builder_Switches
      (Project_Tree        : Project_Tree_Ref;
-      Env                 : in out GPR.Tree.Environment;
+      Env                 : GPR.Tree.Environment;
       Main_Project        : Project_Id;
       Only_For_Lang       : Name_Id := No_Name)
    is
@@ -2454,9 +2465,8 @@ package body Gpr_Build_Util is
 
                   begin
                      while Language /= No_Language_Index loop
-                        if Language.Config.Compiler_Driver /= No_File
-                           and then
-                           Language.Config.Compiler_Driver /= Empty_File
+                        if Language.Config.Compiler_Driver
+                           not in No_File | Empty_File
                         then
                            if Lang /= No_Name then
                               Lang := No_Name;
@@ -2712,32 +2722,24 @@ package body Gpr_Build_Util is
    --------------
 
    function Unescape (Path : String) return String is
-      Result : String (1 .. Path'Length);
-      Last   : Natural := 0;
-      Index  : Integer;
+      Result : String (Path'Range);
+      Source : Natural := Path'First;
+      Target : Integer := Path'First - 1;
    begin
-      if On_Windows then
-         return Path;
-      end if;
-
-      Index := Path'First;
-      while Index <= Path'Last loop
-         if Path (Index) = '\' then
-            if Index < Path'Last and Path (Index + 1) = '\' then
-               Last := Last + 1;
-               Result (Last) := '\';
-               Index := Index + 1;
-            end if;
-
-         else
-            Last := Last + 1;
-            Result (Last) := Path (Index);
+      while Source <= Path'Last loop
+         if Source < Path'Last
+           and then Path (Source .. Source + 1) in "\\" | "\#" | "\ " | "\:"
+                                                 | "$$"
+         then
+            Source := Source + 1;
          end if;
 
-         Index := Index + 1;
+         Target := Target + 1;
+         Result (Target) := Path (Source);
+         Source := Source + 1;
       end loop;
 
-      return Result (1 .. Last);
+      return Result (Path'First .. Target);
    end Unescape;
 
    ---------------------
@@ -2752,7 +2754,7 @@ package body Gpr_Build_Util is
       Name_Len := 0;
 
       for Index in Directories.First .. Directories.Last loop
-         Add_Str_To_Name_Buffer (Get_Name_String (Directories.Table (Index)));
+         Get_Name_String_And_Append (Directories.Table (Index));
          Add_Char_To_Name_Buffer (ASCII.LF);
       end loop;
 

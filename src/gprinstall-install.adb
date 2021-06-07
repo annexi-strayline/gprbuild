@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2012-2020, AdaCore                     --
+--                     Copyright (C) 2012-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -126,9 +126,11 @@ package body Gprinstall.Install is
                          Get_Name_String
                            (Project.Config.Shared_Lib_Suffix) = ".dll";
 
-      Pcks : Package_Table.Table_Ptr renames Tree.Shared.Packages.Table;
-      Strs : String_Element_Table.Table_Ptr renames
+      Pcks : constant Package_Table.Table_Ptr := Tree.Shared.Packages.Table;
+      Strs : constant String_Element_Table.Table_Ptr :=
                Tree.Shared.String_Elements.Table;
+      Vels : constant Variable_Element_Table.Table_Ptr :=
+               Tree.Shared.Variable_Elements.Table;
 
       --  Local values for the given project, these are initially set with the
       --  default values. It is updated using the Install package found in the
@@ -255,9 +257,7 @@ package body Gprinstall.Install is
       --  binary as built by gprbuild. This routine looks into the Builder
       --  switches for a the Executable attribute.
 
-      function Is_Install_Active
-        (Tree    : Project_Tree_Ref;
-         Project : Project_Id) return Boolean;
+      function Is_Install_Active (Project : Project_Id) return Boolean;
       --  Returns True if the Project is active, that is there is no attribute
       --  Active set to False in the Install package.
 
@@ -411,8 +411,7 @@ package body Gprinstall.Install is
                begin
                   while Id /= No_Variable loop
                      declare
-                        V : constant Variable :=
-                              Tree.Shared.Variable_Elements.Table (Id);
+                        V : constant Variable := Vels (Id);
                      begin
                         if V.Name = Name_Prefix then
                            --  If Install.Prefix is a relative path, it is made
@@ -431,10 +430,8 @@ package body Gprinstall.Install is
                                  end if;
 
                               else
-                                 Set_Name_Buffer
-                                   (Global_Prefix_Dir.V.all);
-                                 Add_Str_To_Name_Buffer
-                                   (Value);
+                                 Set_Name_Buffer (Global_Prefix_Dir.V.all);
+                                 Add_Str_To_Name_Buffer (Value);
                                  Res := Name_Find;
                                  Changed := True;
                               end if;
@@ -526,7 +523,7 @@ package body Gprinstall.Install is
 
                         end if;
                      end;
-                     Id := Tree.Shared.Variable_Elements.Table (Id).Next;
+                     Id := Vels (Id).Next;
                   end loop;
                end;
 
@@ -629,29 +626,26 @@ package body Gprinstall.Install is
          if not Is_Static (Project)
            and then Project.Config.Shared_Lib_Prefix /= No_File
          then
-            Set_Name_Buffer
-              (Get_Name_String (Project.Config.Shared_Lib_Prefix));
+            Get_Name_String (Project.Config.Shared_Lib_Prefix);
          else
             Set_Name_Buffer ("lib");
          end if;
 
          --  Library name
 
-         Add_Str_To_Name_Buffer (Get_Name_String (Project.Library_Name));
+         Get_Name_String_And_Append (Project.Library_Name);
 
          --  Library suffix
 
          if Is_Static (Project)
            and then Project.Config.Archive_Suffix /= No_File
          then
-            Add_Str_To_Name_Buffer
-              (Get_Name_String (Project.Config.Archive_Suffix));
+            Get_Name_String_And_Append (Project.Config.Archive_Suffix);
 
          elsif not Is_Static (Project)
            and then Project.Config.Shared_Lib_Suffix /= No_File
          then
-            Add_Str_To_Name_Buffer
-              (Get_Name_String (Project.Config.Shared_Lib_Suffix));
+            Get_Name_String_And_Append (Project.Config.Shared_Lib_Suffix);
 
          else
             Add_Str_To_Name_Buffer (".so");
@@ -664,11 +658,7 @@ package body Gprinstall.Install is
       -- Is_Install_Active --
       -----------------------
 
-      function Is_Install_Active
-        (Tree    : Project_Tree_Ref;
-         Project : Project_Id) return Boolean
-      is
-         Pcks : Package_Table.Table_Ptr renames Tree.Shared.Packages.Table;
+      function Is_Install_Active (Project : Project_Id) return Boolean is
          Pck  : Package_Id := Project.Decl.Packages;
       begin
          Look_Install_Package : while Pck /= No_Package loop
@@ -682,8 +672,7 @@ package body Gprinstall.Install is
                begin
                   while Id /= No_Variable loop
                      declare
-                        V : constant Variable :=
-                              Tree.Shared.Variable_Elements.Table (Id);
+                        V : constant Variable := Vels (Id);
                      begin
                         if V.Name = Name_Active then
                            declare
@@ -699,7 +688,7 @@ package body Gprinstall.Install is
                            end;
                         end if;
                      end;
-                     Id := Tree.Shared.Variable_Elements.Table (Id).Next;
+                     Id := Vels (Id).Next;
                   end loop;
                end;
 
@@ -1148,8 +1137,7 @@ package body Gprinstall.Install is
 
       procedure Copy_Files is
 
-         procedure Copy_Project_Sources
-           (Project : Project_Id; Tree : Project_Tree_Ref);
+         procedure Copy_Project_Sources (Project : Project_Id);
          --  Copy sources from the given project
 
          procedure Copy_Source (Sid : Source_Id);
@@ -1165,9 +1153,7 @@ package body Gprinstall.Install is
          -- Copy_Project_Sources --
          --------------------------
 
-         procedure Copy_Project_Sources
-           (Project : Project_Id; Tree : Project_Tree_Ref)
-         is
+         procedure Copy_Project_Sources (Project : Project_Id) is
             function Is_Ada (Sid : Source_Id) return Boolean with Inline;
             --  Returns True if Sid is an Ada source
 
@@ -1230,7 +1216,7 @@ package body Gprinstall.Install is
 
                if (Project.Qualifier /= Aggregate_Library
                    or else (Is_Part_Of_Aggregate_Lib (Project, Sid)
-                            and then Is_Install_Active (Tree, Sid.Project)))
+                            and then Is_Install_Active (Sid.Project)))
                  and then (Project.Standalone_Library = No
                            or else Sid.Declared_In_Interfaces)
                then
@@ -1316,9 +1302,7 @@ package body Gprinstall.Install is
 
          procedure Copy_Source (Sid : Source_Id) is
          begin
-            if Copy (Source)
-              and then Is_Install_Active (Tree, Sid.Project)
-            then
+            if Copy (Source) and then Is_Install_Active (Sid.Project) then
                declare
                   Prep_Filename : constant String :=
                                     Cat
@@ -1481,7 +1465,7 @@ package body Gprinstall.Install is
                      Copy_Interfaces (Tree, P);
                   end if;
 
-                  Copy_Project_Sources (P, Tree);
+                  Copy_Project_Sources (P);
 
                   P := P.Extends;
                end loop;
@@ -1810,7 +1794,7 @@ package body Gprinstall.Install is
                   begin
                      while V /= No_Variable loop
                         Content.Append ("      " & Image (V));
-                        V := Tree.Shared.Variable_Elements.Table (V).Next;
+                        V := Vels (V).Next;
                      end loop;
                   end;
                end if;
@@ -1818,7 +1802,7 @@ package body Gprinstall.Install is
                Content.Append ("      case BUILD is");
 
                if P /= No_Package then
-                  Content.Append (Naming_Case_Alternative (Proj));
+                  Content.Append_Vector (Naming_Case_Alternative (Proj));
                end if;
 
                Content.Append ("      end case;");
@@ -1839,7 +1823,7 @@ package body Gprinstall.Install is
                --  Attribute Linker_Options only if set
 
                if P /= No_Package then
-                  Content.Append (Linker_Case_Alternative (Proj));
+                  Content.Append_Vector (Linker_Case_Alternative (Proj));
                end if;
 
                Content.Append ("      end case;");
@@ -1867,8 +1851,7 @@ package body Gprinstall.Install is
 
             Var_Loop : while Vars /= No_Variable loop
                declare
-                  V : constant Variable :=
-                        Tree.Shared.Variable_Elements.Table (Vars);
+                  V : constant Variable := Vels (Vars);
                begin
                   --  Compute variable's name maximum length
 
@@ -1926,8 +1909,7 @@ package body Gprinstall.Install is
             Vars := Project.Decl.Variables;
             while Vars /= No_Variable loop
                declare
-                  V : constant Variable :=
-                        Tree.Shared.Variable_Elements.Table (Vars);
+                  V : constant Variable := Vels (Vars);
                begin
                   if V.Value.Kind in Single | List then
                      Write_Str ("   " & Get_Name_String (V.Name));
@@ -2050,10 +2032,13 @@ package body Gprinstall.Install is
 
                   --  And then generates the interfaces
 
-                  Line := +"         for Library_Interface use (";
-
                   declare
                      First : Boolean := True;
+
+                     V     : constant Variable_Value :=
+                               Value_Of (Name_Interfaces,
+                                         Project.Decl.Attributes,
+                                         Tree.Shared);
 
                      procedure Source_Interface (Source : Source_Id);
 
@@ -2080,10 +2065,25 @@ package body Gprinstall.Install is
                        new For_Interface_Sources (Source_Interface);
 
                   begin
-                     List_Interfaces (Tree, Project);
+                     if V /= Nil_Variable_Value
+                       and then not V.Default
+                       and then V.Values /= Nil_String
+                     then
+                        Line := +"         for Interfaces use ";
+
+                        pragma Assert (V.Kind = List);
+
+                        Append (Line, Image (V));
+
+                     else
+                        Line := +"         for Library_Interface use (";
+
+                        List_Interfaces (Tree, Project);
+
+                        Append (Line, ");");
+                     end if;
                   end;
 
-                  Append (Line, ");");
                   V.Append (-Line);
                end if;
             end if;
@@ -2192,25 +2192,18 @@ package body Gprinstall.Install is
             E : constant Array_Element :=
                   Tree.Shared.Array_Elements.Table (Id);
          begin
-            return "for "
-              & Get_Name_String (Name)
-              & " ("""
-              & Get_Name_String (E.Index)
-              & """) use "
-              & Image (E.Value);
+            return "for " & Get_Name_String (Name)
+              & " ("""  & Get_Name_String (E.Index)
+              & """) use " & Image (E.Value);
          end Image;
 
          function Image (Id : Variable_Id) return String is
-            V : constant Variable_Value :=
-                  Tree.Shared.Variable_Elements.Table (Id).Value;
+            V : constant Variable_Value := Vels (Id).Value;
          begin
             if V.Default then
                return "";
             else
-               return "for "
-                 & Get_Name_String
-                     (Tree.Shared.Variable_Elements.Table (Id).Name)
-                 & " use "
+               return "for " & Get_Name_String (Vels (Id).Name) & " use "
                  & Image (V);
             end if;
          end Image;
@@ -2324,17 +2317,11 @@ package body Gprinstall.Install is
                V : Variable_Id := Pcks (Pck).Decl.Attributes;
             begin
                while V /= No_Variable loop
-                  if Tree.Shared.Variable_Elements.Table (V).Name =
-                    Name_Linker_Options
-                  then
-                     declare
-                        Val : constant Variable_Value :=
-                                Tree.Shared.Variable_Elements.Table (V).Value;
-                     begin
-                        Append (Val.Values);
-                     end;
+                  if Vels (V).Name = Name_Linker_Options then
+                     Append (Vels (V).Value.Values);
                   end if;
-                  V := Tree.Shared.Variable_Elements.Table (V).Next;
+
+                  V := Vels (V).Next;
                end loop;
             end Linker_For;
 
@@ -2703,18 +2690,18 @@ package body Gprinstall.Install is
                      case Current_Section is
                         when Naming =>
                            String_Vector.Next (Pos);
-                           Content.Insert
+                           Content.Insert_Vector
                              (Pos, Naming_Case_Alternative (Project));
 
                         when Linker =>
                            String_Vector.Next (Pos);
-                           Content.Insert
+                           Content.Insert_Vector
                              (Pos, Linker_Case_Alternative (Project));
 
                         when Top =>
                            --  For the Sources/Lib attributes
                            String_Vector.Next (Pos);
-                           Content.Insert (Pos, Data_Attributes);
+                           Content.Insert_Vector (Pos, Data_Attributes);
                      end case;
 
                   elsif Fixed.Index (Line, "when """ & BN & """ =>") /= 0 then
@@ -2793,7 +2780,7 @@ package body Gprinstall.Install is
                begin
                   while L /= null loop
                      if Has_Sources (L.Project)
-                       and then Is_Install_Active (Tree, L.Project)
+                       and then Is_Install_Active (L.Project)
                      then
                         Content.Append
                           ("with """
@@ -2874,7 +2861,7 @@ package body Gprinstall.Install is
                Add_Empty_Line;
 
                Content.Append ("   case BUILD is");
-               Content.Append (Data_Attributes);
+               Content.Append_Vector (Data_Attributes);
                Content.Append ("   end case;");
 
                Add_Empty_Line;

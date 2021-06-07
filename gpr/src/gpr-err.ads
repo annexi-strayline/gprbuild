@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2016, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -55,15 +55,21 @@ package GPR.Err is
       Msg      : String;
       Location : Source_Ptr := No_Location;
       Project  : Project_Id := null;
-      Always   : Boolean    := False);
+      Always   : Boolean    := False;
+      One_Line : Boolean    := False);
    --  Output an error message, either through Flags.Error_Report or through
    --  Errutil. The location defaults to the project's location ("project"
    --  in the source code). If Msg starts with "?", this is a warning, and
    --  Warning: is added at the beginning. If Msg starts with "<", see comment
    --  for Err_Vars.Error_Msg_Warn.
+   --  One_Line flag mean only one error message per line, need to hide some
+   --  wrong error message in project parser.
 
-   procedure Error_Msg (Msg : String; Flag_Location : Source_Ptr);
-   --  Output a message at specified location
+   procedure Error_Msg
+     (Msg : String; Flag_Location : Source_Ptr; One_Line : Boolean := False);
+   --  Output a message at specified location.
+   --  One_Line flag mean only one error message per line, need to hide some
+   --  wrong error message in project parser.
 
    -------------
    -- Scanner --

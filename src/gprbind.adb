@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2020, AdaCore                     --
+--                     Copyright (C) 2006-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -395,9 +395,7 @@ begin
 
                   --  Check if a gnatbind prefix is specified
 
-                  elsif Last >= Gnatbind_Prefix_Equal'Length
-                    and then Line (1 .. Gnatbind_Prefix_Equal'Length) =
-                             Gnatbind_Prefix_Equal
+                  elsif Starts_With (Line (1 .. Last), Gnatbind_Prefix_Equal)
                   then
                      --  Ignore an empty prefix
 
@@ -459,8 +457,8 @@ begin
                   if End_Of_File (IO_File) then
                      Fail_Program
                        (null,
-                        "no toolchain version for language " &
-                        Line (1 .. Last));
+                        "no toolchain version for language "
+                        & Line (1 .. Last));
 
                   elsif Line (1 .. Last) = "ada" then
                      Get_Line (IO_File, Line, Last);
@@ -487,8 +485,8 @@ begin
                   if End_Of_File (IO_File) then
                      Fail_Program
                        (null,
-                        "no object file suffix for language " &
-                        Line (1 .. Last));
+                        "no object file suffix for language "
+                        & Line (1 .. Last));
 
                   elsif Line (1 .. Last) = "ada" then
                      Get_Line (IO_File, Line, Last);
@@ -619,7 +617,7 @@ begin
       Gnatbind_Options.Append ("-F");
    end if;
 
-   Gnatbind_Options.Append (ALI_Files_Table);
+   Gnatbind_Options.Append_Vector (ALI_Files_Table);
 
    for Option of Binding_Options_Table loop
       Gnatbind_Options.Append (Option);
@@ -627,13 +625,10 @@ begin
       if Option = Dash_OO then
          Dash_O_Specified := True;
 
-      elsif Option'Length >= 4 and then
-            Option (1 .. 3) = Dash_OO & '='
-      then
+      elsif Starts_With (Option, Dash_OO & '=') then
          Dash_O_Specified := True;
          Dash_O_File_Specified := True;
-         Set_Name_Buffer (Option (4 .. Option'Last));
-         Objects_Path := Name_Find;
+         Objects_Path := Get_Path_Name_Id (Option (4 .. Option'Last));
       end if;
    end loop;
 
@@ -752,10 +747,8 @@ begin
             Display
               (Section  => GPR.Bind,
                Command  => "Ada",
-               Argument =>
-                 Base_Name (ALI_Files_Table.First_Element) &
-                 " " &
-                 No_Main_Option);
+               Argument => Base_Name (ALI_Files_Table.First_Element)
+                           & " " &  No_Main_Option);
          end if;
       end if;
    end if;
@@ -931,15 +924,11 @@ begin
    if Main_ALI /= null or else not ALI_Files_Table.Is_Empty then
       Initialize_ALI;
 
-      if Main_ALI /= null then
-         Set_Name_Buffer (Main_ALI.all);
-
-      else
-         Set_Name_Buffer (ALI_Files_Table.First_Element);
-      end if;
-
       declare
-         F : constant File_Name_Type := Name_Find;
+         F : constant File_Name_Type :=
+           Get_File_Name_Id
+             (if Main_ALI = null then ALI_Files_Table.First_Element
+              else Main_ALI.all);
          T : Text_Buffer_Ptr;
          A : ALI_Id;
 
@@ -995,7 +984,7 @@ begin
       Compiler_Options.Append (Object);
 
       --  Add the trailing options, if any
-      Compiler_Options.Append (Compiler_Trailing_Options);
+      Compiler_Options.Append_Vector (Compiler_Trailing_Options);
 
       if Verbose_Low_Mode then
          Set_Name_Buffer (Ada_Compiler_Path.all);

@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                    Copyright (C) 2015-2020, AdaCore                      --
+--                    Copyright (C) 2015-2021, AdaCore                      --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -24,7 +24,7 @@ with GPR.Util;
 
 package body Gprls is
 
-   No_Obj : aliased String := "<no_obj>";
+   No_Obj : constant String := "<no_obj>";
 
    use GPR.Stamps;
 
@@ -85,8 +85,9 @@ package body Gprls is
    --------------
 
    procedure Add_File
-     (File_Name : String; Source : GPR.Source_Id := No_Source)
-   is
+     (File_Name : String;
+      Tree      : Project_Tree_Ref;
+      Source    : GPR.Source_Id := No_Source) is
    begin
       if Current_Verbosity = High then
          Put_Line ("adding file """ & File_Name & '"');
@@ -96,6 +97,7 @@ package body Gprls is
         (File_Name_Source'
            (Name_Len  => File_Name'Length,
             File_Name => File_Name,
+            Tree      => Tree,
             Source    => Source,
             The_ALI   => No_ALI_Id));
    end Add_File;
@@ -263,19 +265,13 @@ package body Gprls is
    -------------------
 
    procedure Output_Object (O : File_Name_Type) is
-      Object_Name : String_Access;
-
    begin
       if Print_Object then
          if O /= No_File then
-            Get_Name_String (O);
-            Object_Name := new String'(Name_Buffer (1 .. Name_Len));
+            Put_Line (Get_Name_String (O));
          else
-            Object_Name := No_Obj'Unchecked_Access;
+            Put_Line (No_Obj);
          end if;
-
-         Put_Line (Object_Name.all);
-
       end if;
    end Output_Object;
 
@@ -340,15 +336,58 @@ package body Gprls is
       end if;
    end Output_Source;
 
-   procedure Output_Source (Sdep_I : Sdep_Id) is
-      FS : File_Name_Type;
+   procedure Output_Source (Tree : Project_Tree_Ref; Sdep_I : Sdep_Id) is
+
+      function Get_Source
+        (Tree    : Project_Tree_Ref;
+         Project : Project_Id;
+         FS      : File_Name_Type) return GPR.Source_Id;
+
+      ----------------
+      -- Get_Source --
+      ----------------
+
+      function Get_Source
+        (Tree    : Project_Tree_Ref;
+         Project : Project_Id;
+         FS      : File_Name_Type) return GPR.Source_Id
+      is
+         Aggr : Aggregated_Project_List;
+         Got  : GPR.Source_Id;
+      begin
+         if Project.Qualifier = Aggregate then
+            Aggr := Project.Aggregated_Projects;
+
+            while Aggr /= null loop
+               Got := Get_Source (Aggr.Tree, Aggr.Project, FS);
+
+               if Got /= No_Source then
+                  return Got;
+               end if;
+
+               Aggr := Aggr.Next;
+            end loop;
+
+            return No_Source;
+
+         else
+            return Source_Files_Htable.Get (Tree.Source_Files_HT, FS);
+         end if;
+      end Get_Source;
+
    begin
       if Sdep_I /= No_Sdep_Id then
-         FS := Sdep.Table (Sdep_I).Sfile;
-         Output_Source
-           (Source_Files_Htable.Get
-              (Project_Tree.Source_Files_HT, FS),
-            Sdep_I);
+         if Tree /= No_Project_Tree then
+            Output_Source
+              (Source_Files_Htable.Get
+                 (Tree.Source_Files_HT, Sdep.Table (Sdep_I).Sfile),
+               Sdep_I);
+         else
+            Output_Source
+              (Get_Source
+                 (Project_Tree, Util.Main_Project, Sdep.Table (Sdep_I).Sfile),
+               Sdep_I);
+         end if;
       end if;
    end Output_Source;
 
@@ -403,6 +442,8 @@ package body Gprls is
       Kind := Name_Buffer (Name_Len);
       Name_Len := Name_Len - 2;
 
+      Set_Casing (Mixed_Case);
+
       if not Verbose_Mode then
          Put_Line ("   " & Name_Buffer (1 .. Name_Len));
 
@@ -437,7 +478,6 @@ package body Gprls is
            U.Shared_Passive      or else
            U.RCI                 or else
            U.Predefined          or else
-           U.Internal            or else
            U.Is_Generic          or else
            U.Init_Scalars        or else
            U.SAL_Interface       or else
@@ -480,10 +520,6 @@ package body Gprls is
 
             if U.Predefined then
                Put (" Predefined");
-            end if;
-
-            if U.Internal then
-               Put (" Internal");
             end if;
 
             if U.Is_Generic then
@@ -881,10 +917,6 @@ package body Gprls is
 
          if Units.Table (U).Predefined then
             Output_Token (T_Predefined);
-         end if;
-
-         if Units.Table (U).Internal then
-            Output_Token (T_Internal);
          end if;
 
          if Units.Table (U).Is_Generic then

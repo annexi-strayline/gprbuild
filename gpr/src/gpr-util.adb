@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -65,11 +65,6 @@ with Gpr_Build_Util;  use Gpr_Build_Util;
 
 package body GPR.Util is
    use Ada.Containers;
-
-   Gprls_Mode : Boolean := False;
-   --  When True, an ALI file may be found in an extending project, even if
-   --  the corresponding object file is not found in the same project.
-   --  This is only for gprls.
 
    Program_Name : String_Access := null;
 
@@ -448,28 +443,6 @@ package body GPR.Util is
          File.End_Of_File_Reached := True;
       end if;
    end Create;
-
-   -----------------
-   -- Create_Name --
-   -----------------
-
-   function Create_Name (Name : String) return File_Name_Type is
-   begin
-      Set_Name_Buffer (Name);
-      return Name_Find;
-   end Create_Name;
-
-   function Create_Name (Name : String) return Name_Id is
-   begin
-      Set_Name_Buffer (Name);
-      return Name_Find;
-   end Create_Name;
-
-   function Create_Name (Name : String) return Path_Name_Type is
-   begin
-      Set_Name_Buffer (Name);
-      return Name_Find;
-   end Create_Name;
 
    -------------------------------
    -- Common_Path_Prefix_Length --
@@ -854,7 +827,9 @@ package body GPR.Util is
 
          --  ??? Should pass user flags here instead
 
-         Err.Error_Msg (Gprbuild_Flags, Token_Image & " expected", Token_Ptr);
+         Err.Error_Msg
+           (Gprbuild_Flags, Token_Image & " expected", Token_Ptr,
+            One_Line => True);
       end if;
    end Expect;
 
@@ -954,8 +929,7 @@ package body GPR.Util is
 
       begin
          if Ada.Directories.Exists (Filename) then
-            Set_Name_Buffer (Filename);
-            Lib_File := Name_Find;
+            Lib_File := Get_File_Name_Id (Filename);
             Text := Osint.Read_Library_Info (Lib_File);
             Result :=
               ALI.Scan_ALI
@@ -1846,10 +1820,8 @@ package body GPR.Util is
                end if;
 
                if Truncated then
-                  Set_Name_Buffer (Name (1 .. Last));
-
                   Value := GPR.Util.Value_Of
-                    (Name                    => Name_Find,
+                    (Name                    => Get_Name_Id (Name (1 .. Last)),
                      Attribute_Or_Array_Name => Name_Switches,
                      In_Package              => Pkg,
                      Shared                  => Project_Tree.Shared,
@@ -1862,10 +1834,8 @@ package body GPR.Util is
                      Last := Last - 1;
                   end loop;
 
-                  Set_Name_Buffer (Name (1 .. Last) & "ali");
-
                   Value := GPR.Util.Value_Of
-                    (Name                    => Name_Find,
+                    (Get_Name_Id (Name (1 .. Last) & "ali"),
                      Attribute_Or_Array_Name => Name_Switches,
                      In_Package              => Pkg,
                      Shared                  => Project_Tree.Shared,
@@ -1959,12 +1929,11 @@ package body GPR.Util is
             declare
                Dep_Path : constant String :=
                             Normalize_Pathname
-                              (Name          =>
-                                 Get_Name_String (Source.Dep_Name),
+                              (Get_Name_String (Source.Dep_Name),
                                Resolve_Links => Opt.Follow_Links_For_Files,
                                Directory     => Obj_Dir);
             begin
-               if (not Gprls_Mode)
+               if not Gprls_Mode
                  or else Obj_Proj.Extends = No_Project
                  or else Is_Regular_File (Dep_Path)
                then
@@ -1981,8 +1950,7 @@ package body GPR.Util is
          declare
             Switches_Path : constant String :=
                               Normalize_Pathname
-                                (Name          =>
-                                   Get_Name_String (Source.Switches),
+                                (Get_Name_String (Source.Switches),
                                  Resolve_Links => Opt.Follow_Links_For_Files,
                                  Directory     => Obj_Dir);
          begin
@@ -2113,8 +2081,8 @@ package body GPR.Util is
                if Obj_Proj.Object_Directory /= No_Path_Information then
                   declare
                      Dir : constant String :=
-                       Get_Name_String
-                         (Obj_Proj.Object_Directory.Display_Name);
+                             Get_Name_String
+                               (Obj_Proj.Object_Directory.Display_Name);
 
                      Dep_Path_Name : constant String :=
                        Normalize_Pathname
@@ -2123,7 +2091,7 @@ package body GPR.Util is
                           Directory     => Dir);
 
                      Dep_Path : constant Path_Name_Type :=
-                       Create_Name (Dep_Path_Name);
+                                  Create_Name (Dep_Path_Name);
 
                      Stamp : Time_Stamp_Type := Empty_Time_Stamp;
 
@@ -2178,18 +2146,18 @@ package body GPR.Util is
       subtype Str8 is String (1 .. 8);
 
       Predef_Names : constant array (1 .. 12) of Str8 :=
-        ("ada     ",       -- Ada
-         "interfac",       -- Interfaces
-         "system  ",       -- System
-         "gnat    ",       -- GNAT
-         "calendar",       -- Calendar
-         "machcode",       -- Machine_Code
-         "unchconv",       -- Unchecked_Conversion
-         "unchdeal",       -- Unchecked_Deallocation
-         "directio",       -- Direct_IO
-         "ioexcept",       -- IO_Exceptions
-         "sequenio",       -- Sequential_IO
-         "text_io ");      -- Text_IO
+        ("ada     ",  -- Ada
+         "interfac",  -- Interfaces
+         "system  ",  -- System
+         "gnat    ",  -- GNAT
+         "calendar",  -- Calendar
+         "machcode",  -- Machine_Code
+         "unchconv",  -- Unchecked_Conversion
+         "unchdeal",  -- Unchecked_Deallocation
+         "directio",  -- Direct_IO
+         "ioexcept",  -- IO_Exceptions
+         "sequenio",  -- Sequential_IO
+         "text_io "); -- Text_IO
    begin
       Get_Name_String (Fname);
 
@@ -2247,18 +2215,18 @@ package body GPR.Util is
    begin
       To_Lower (Lower_Unit);
 
-      return Lower_Unit = "ada"
-        or else Lower_Unit = "gnat"
-        or else Lower_Unit = "interfaces"
-        or else Lower_Unit = "system"
-        or else Lower_Unit = "calendar"
-        or else Lower_Unit = "machine_code"
-        or else Lower_Unit = "unchecked_conversion"
-        or else Lower_Unit = "unchecked_deallocation"
-        or else Lower_Unit = "direct_io"
-        or else Lower_Unit = "io_exceptions"
-        or else Lower_Unit = "sequential_io"
-        or else Lower_Unit = "text_io"
+      return Lower_Unit in "ada"
+                         | "gnat"
+                         | "interfaces"
+                         | "system"
+                         | "calendar"
+                         | "machine_code"
+                         | "unchecked_conversion"
+                         | "unchecked_deallocation"
+                         | "direct_io"
+                         | "io_exceptions"
+                         | "sequential_io"
+                         | "text_io"
         or else Starts_With (Lower_Unit, "ada.")
         or else Starts_With (Lower_Unit, "gnat.")
         or else Starts_With (Lower_Unit, "system.")
@@ -2289,9 +2257,12 @@ package body GPR.Util is
       --  Here, we are assuming that the language is Ada, as it is the only
       --  unit based language that we know.
 
+      pragma Assert
+        (Source.Path /= No_Path_Information,
+         Get_Name_String (Source.File) & ' ' & Source.Locally_Removed'Img);
+
       Src_Ind :=
-        Sinput.Load_File
-          (Get_Name_String (Source.Path.Display_Name));
+        Sinput.Load_File (Get_Name_String (Source.Path.Display_Name));
 
       return Sinput.Source_File_Is_Subunit (Src_Ind);
    end Is_Subunit;
@@ -2325,10 +2296,9 @@ package body GPR.Util is
 
    function Object_Project
      (Project          : Project_Id;
-      Must_Be_Writable : Boolean := False)
-      return Project_Id
+      Must_Be_Writable : Boolean := False) return Project_Id
    is
-      Result     : Project_Id := No_Project;
+      Result : Project_Id := No_Project;
 
       procedure Check_Project (P : Project_Id);
       --  Find a project with an object dir
@@ -2340,12 +2310,10 @@ package body GPR.Util is
       procedure Check_Project (P : Project_Id) is
       begin
          if P.Qualifier = Aggregate
-              or else
-            P.Qualifier = Aggregate_Library
+           or else P.Qualifier = Aggregate_Library
          then
             declare
                List : Aggregated_Project_List := P.Aggregated_Projects;
-
             begin
                --  Look for a non aggregate project until one is found
 
@@ -2356,8 +2324,8 @@ package body GPR.Util is
             end;
 
          elsif P.Object_Directory.Name /= No_Path then
-            if (not Must_Be_Writable) or else
-              Is_Writable_File
+            if not Must_Be_Writable
+              or else Is_Writable_File
                 (Get_Name_String (P.Object_Directory.Display_Name))
             then
                Result := P;
@@ -2512,8 +2480,9 @@ package body GPR.Util is
 
       procedure Report_Error is
       begin
-         Write_Line ("errors in source info file """ &
-                     Tree.Source_Info_File_Name.all & '"');
+         Write_Line
+           ("errors in source info file """
+            & Tree.Source_Info_File_Name.all & '"');
          Tree.Source_Info_File_Exists := False;
       end Report_Error;
 
@@ -2530,8 +2499,9 @@ package body GPR.Util is
 
       if not Is_Valid (File) then
          if Opt.Verbosity_Level > Opt.Low then
-            Write_Line ("source info file " & Tree.Source_Info_File_Name.all &
-                        " does not exist");
+            Write_Line
+              ("source info file " & Tree.Source_Info_File_Name.all
+               & " does not exist");
          end if;
 
          Tree.Source_Info_File_Exists := False;
@@ -2541,8 +2511,8 @@ package body GPR.Util is
       Tree.Source_Info_File_Exists := True;
 
       if Opt.Verbosity_Level > Opt.Low then
-         Write_Line ("Reading source info file " &
-                     Tree.Source_Info_File_Name.all);
+         Write_Line
+           ("Reading source info file " & Tree.Source_Info_File_Name.all);
       end if;
 
       Source_Loop :
@@ -2591,6 +2561,7 @@ package body GPR.Util is
          end if;
 
          --  optional fields
+
          Option_Loop :
          loop
             Get_Line (File, Name_Buffer, Name_Len);
@@ -2726,10 +2697,9 @@ package body GPR.Util is
 
    function Source_Dir_Of (Source : Source_Id) return String is
       Path : constant String := Get_Name_String (Source.Path.Name);
-      Last : constant Natural :=
-               Path'Last - Natural (Length_Of_Name (Source.File));
    begin
-      return Path (Path'First .. Last);
+      return Path (Path'First
+                   .. Path'Last - Natural (Length_Of_Name (Source.File)));
    end Source_Dir_Of;
 
    --------------------
@@ -2763,15 +2733,12 @@ package body GPR.Util is
       procedure Add_String (S : String) is
       begin
          if S'Length > 0 then
-            Set_Name_Buffer (S);
-            List.Append (Name_Find);
+            List.Append (Get_Name_Id (S));
          end if;
       end Add_String;
 
    begin
-      if Separator'Length = 0
-        or else Index (Source, Separator) = 0
-      then
+      if Separator'Length = 0 or else Index (Source, Separator) = 0 then
          --  List with one string = Argument
          Add_String (Source);
 
@@ -2781,19 +2748,12 @@ package body GPR.Util is
          end if;
 
          loop
-            if Index
-              (Source
-                 (Start .. Source'Last), Separator) = 0
-            then
-               Add_String
-                 (Source (Start .. Source'Last));
+            if Index (Source (Start .. Source'Last), Separator) = 0 then
+               Add_String (Source (Start .. Source'Last));
                exit;
 
             else
-               Finish :=
-                 Index
-                   (Source
-                      (Start .. Source'Last), Separator) - 1;
+               Finish := Index (Source (Start .. Source'Last), Separator) - 1;
                Add_String (Source (Start .. Finish));
                Start := Finish + 1 + Separator'Length;
                exit when Start > Source'Last;
@@ -2801,15 +2761,11 @@ package body GPR.Util is
          end loop;
       end if;
 
-      declare
-         Result : Name_Array_Type (1 .. Integer (List.Length));
-      begin
+      return Result : Name_Array_Type (1 .. Integer (List.Length)) do
          for J in Result'Range loop
             Result (J) := List.Element (J);
          end loop;
-
-         return Result;
-      end;
+      end return;
    end Split;
 
    -------------------
@@ -2822,18 +2778,25 @@ package body GPR.Util is
       return Time_Stamp_Type (Image (Time, "%Y%m%d%H%M%S"));
    end To_Time_Stamp;
 
+   ----------------------
+   -- To_UTC_Timestamp --
+   ----------------------
+
+   function To_UTC_Time_Stamp
+     (Time : Calendar.Time) return Stamps.Time_Stamp_Type
+   is
+      use type Ada.Calendar.Time;
+   begin
+      return To_Time_Stamp (Time - Duration (UTC_Time_Offset (Time)) * 60);
+   end To_UTC_Time_Stamp;
+
    --------------
    -- UTC_Time --
    --------------
 
    function UTC_Time return Time_Stamp_Type is
-      use type Ada.Calendar.Time;
-
-      Now : constant Calendar.Time :=
-              Calendar.Clock - Duration (UTC_Time_Offset) * 60;
-      --  The UTC_Time_Offset is in minutes
    begin
-      return Time_Stamp_Type (Image (Now, "%Y%m%d%H%M%S"));
+      return To_UTC_Time_Stamp (Ada.Calendar.Clock);
    end UTC_Time;
 
    --------------
@@ -2917,38 +2880,36 @@ package body GPR.Util is
 
       Real_Index_1 := Index;
 
-      if not Element.Index_Case_Sensitive or else Force_Lower_Case_Index then
-         if Index /= All_Other_Names then
-            Get_Name_String (Index);
-            To_Lower (Name_Buffer (1 .. Name_Len));
-            Real_Index_1 := Name_Find;
-         end if;
+      if (not Element.Index_Case_Sensitive or else Force_Lower_Case_Index)
+        and then Index /= All_Other_Names
+      then
+         Get_Name_String (Index);
+         To_Lower (Name_Buffer (1 .. Name_Len));
+         Real_Index_1 := Name_Find;
       end if;
 
       while Current /= No_Array_Element loop
          Element := Shared.Array_Elements.Table (Current);
          Real_Index_2 := Element.Index;
 
-         if not Element.Index_Case_Sensitive
-           or else Force_Lower_Case_Index
+         if (not Element.Index_Case_Sensitive or else Force_Lower_Case_Index)
+           and then (Element.Index /= All_Other_Names)
          then
-            if Element.Index /= All_Other_Names then
-               Get_Name_String (Element.Index);
-               To_Lower (Name_Buffer (1 .. Name_Len));
-               Real_Index_2 := Name_Find;
-            end if;
+            Get_Name_String (Element.Index);
+            To_Lower (Name_Buffer (1 .. Name_Len));
+            Real_Index_2 := Name_Find;
          end if;
 
          if Src_Index = Element.Src_Index
            and then
              (Real_Index_1 = Real_Index_2
               or else (Real_Index_2 /= All_Other_Names
-                         and then
-                       Allow_Wildcards
-                         and then
-                       Match (Get_Name_String (Real_Index_1),
-                             Compile (Get_Name_String (Real_Index_2),
-                                      Glob => True))))
+                       and then Allow_Wildcards
+                       and then
+                       Match
+                         (Get_Name_String (Real_Index_1),
+                          Compile
+                            (Get_Name_String (Real_Index_2), Glob => True))))
          then
             return Element.Value;
          else
@@ -3297,9 +3258,7 @@ package body GPR.Util is
    Help_Switch    : constant String := "--help";
 
    procedure Check_Version_And_Help_G
-     (Tool_Name      : String;
-      Initial_Year   : String;
-      Version_String : String)
+     (Tool_Name : String; Initial_Year : String)
    is
       Version_Switch_Present : Boolean := False;
       Help_Switch_Present    : Boolean := False;
@@ -3327,7 +3286,7 @@ package body GPR.Util is
       --  If --version was used, display version and exit
 
       if Version_Switch_Present then
-         Display_Version (Tool_Name, Initial_Year, Version_String);
+         Display_Version (Tool_Name, Initial_Year);
 
          Put_Line (Free_Software);
          New_Line;
@@ -3451,11 +3410,9 @@ package body GPR.Util is
    ---------------------
 
    procedure Display_Version
-     (Tool_Name      : String;
-      Initial_Year   : String;
-      Version_String : String) is
+     (Tool_Name : String; Initial_Year : String) is
    begin
-      Put_Line (Tool_Name & " " & Version_String);
+      Put_Line (Tool_Name & " " & Gpr_Version_String);
 
       Put ("Copyright (C) ");
       Put (Initial_Year);
@@ -3583,11 +3540,9 @@ package body GPR.Util is
    --------------
 
    function As_RPath
-     (Path           : String;
-      Case_Sensitive : Boolean) return String
+     (Path : String; Case_Sensitive : Boolean) return String
    is
-      Dir_Sep_Map : constant Character_Mapping :=
-                      To_Mapping ("\", "/");
+      Dir_Sep_Map : constant Character_Mapping := To_Mapping ("\", "/");
    begin
       return Translate
         (Normalize_Pathname
@@ -4269,7 +4224,7 @@ package body GPR.Util is
       --  Source files processed for ALI_Closure mode
 
       function Process_Makefile_Deps
-        (Dep_Name, Obj_Dir : String)    return Boolean;
+        (Dep_Name, Obj_Dir : String) return Boolean;
       function Process_ALI_Deps (Closure : Boolean) return Boolean;
       --  Process the dependencies for the current source file for the various
       --  dependency modes.
@@ -4286,27 +4241,22 @@ package body GPR.Util is
       -----------------------
 
       function Check_Time_Stamps
-        (Path : String; Stamp : Time_Stamp_Type) return Boolean is
+        (Path : String; Stamp : Time_Stamp_Type) return Boolean
+      is
+         TS : constant Time_Stamp_Type := File_Stamp (Get_Path_Name_Id (Path));
       begin
-         Set_Name_Buffer (Path);
+         if TS /= Empty_Time_Stamp and then TS /= Stamp then
+            if Opt.Verbosity_Level > Opt.Low then
+               Put_Line ("   -> different time stamp for " & Path);
 
-         declare
-            TS   : constant Time_Stamp_Type :=
-              File_Stamp (Path_Name_Type'(Name_Find));
-         begin
-            if TS /= Empty_Time_Stamp and then TS /= Stamp then
-               if Opt.Verbosity_Level > Opt.Low then
-                  Put_Line ("   -> different time stamp for " & Path);
-
-                  if Debug.Debug_Flag_T then
-                     Put_Line ("   in ALI file: " & String (Stamp));
-                     Put_Line ("   actual file: " & String (TS));
-                  end if;
+               if Debug.Debug_Flag_T then
+                  Put_Line ("   in ALI file: " & String (Stamp));
+                  Put_Line ("   actual file: " & String (TS));
                end if;
-
-               return True;
             end if;
-         end;
+
+            return True;
+         end if;
 
          return False;
       end Check_Time_Stamps;
@@ -4575,30 +4525,20 @@ package body GPR.Util is
                            --  If we have a time stamp, check if it is the
                            --  same as the source time stamp.
 
-                           declare
-                              Tstring : constant
-                                String (1 .. Time_Stamp_Length) :=
-                                Line (Start .. Finish);
-                              TS : constant Time_Stamp_Type :=
-                                Time_Stamp_Type (Tstring);
-                              OK : constant Boolean := Last_TS = TS;
-
-                           begin
-                              if not OK and then Opt.Verbosity_Level > Opt.Low
-                              then
+                           if String (Last_TS) = Line (Start .. Finish) then
+                              Free (Last_Source);
+                           else
+                              if Opt.Verbosity_Level > Opt.Low then
                                  Put ("      -> source ");
-                                 Put  (Last_Source.all);
-                                 Put_Line
-                                   (" has modified time stamp");
+                                 Put (Last_Source.all);
+                                 Put_Line (" has modified time stamp");
                               end if;
 
                               Free (Last_Source);
 
-                              if not OK then
-                                 Close (Dep_File);
-                                 return True;
-                              end if;
-                           end;
+                              Close (Dep_File);
+                              return True;
+                           end if;
 
                         else
                            --  Check this source
@@ -4606,7 +4546,7 @@ package body GPR.Util is
                            declare
                               Src_Name : constant String :=
                                 Normalize_Pathname
-                                  (Name           => Line (Start .. Finish),
+                                  (Unescape (Line (Start .. Finish)),
                                    Directory      => Obj_Dir,
                                    Resolve_Links  => False);
                               C_Src_Name : String := Src_Name;
@@ -4626,9 +4566,8 @@ package body GPR.Util is
                               --  Get the time stamp of the source, which is
                               --  not necessarily a source of any project.
 
-                              Set_Name_Buffer (Src_Name);
                               Src_TS := File_Stamp
-                                           (Path_Name_Type'(Name_Find));
+                                (Get_Path_Name_Id (Src_Name));
 
                               --  If the source does not exist, we need to
                               --  recompile.
@@ -4744,8 +4683,15 @@ package body GPR.Util is
                       Source.Dep_TS'Access);
          Proj  : Project_Id;
          Found : Boolean := False;
+         Preps : String_Sets.Set;
+         --  Preprocessor data files to detect config pragma files by exclusion
+         --  method. If file in D line is absolute filename then it is either
+         --  config pragma file or preprocessor data file. We can detect that
+         --  the file is preprocessor data files by the existence of the A line
+         --  with --  -gnatep= prefix. Config pragma files in D line does not
+         --  have any additional references.
 
-         Conf_Paths_Found :  Config_Paths_Found := (Conf_Paths'Range => False);
+         Conf_Paths_Found : Config_Paths_Found := (Conf_Paths'Range => False);
 
       begin
          if Text = null then
@@ -4765,7 +4711,7 @@ package body GPR.Util is
               Text,
               Ignore_ED     => False,
               Err           => True,
-              Read_Lines    => "PDW");
+              Read_Lines    => "APDW");
          Free (Text);
 
          if The_ALI = ALI.No_ALI_Id then
@@ -4777,6 +4723,24 @@ package body GPR.Util is
 
             return True;
          end if;
+
+         declare
+            U : Unit_Record renames Units.Table
+              (ALIs.Table (The_ALI).First_Unit);
+            A : String_Access;
+
+            Gnatep : constant String := "-gnatep=";
+         begin
+            for J in U.First_Arg .. U.Last_Arg loop
+               A := Args.Table (J);
+               if Starts_With (A.all, Gnatep) then
+                  Preps.Include
+                    (Normalize_Pathname
+                       (A (A'First + Gnatep'Length .. A'Last),
+                        Case_Sensitive => False));
+               end if;
+            end loop;
+         end;
 
          --  Check if the ALI's GNAT version matches
          --  Tree.Shared.Ada_Runtime_Library_Version
@@ -4881,10 +4845,12 @@ package body GPR.Util is
                      --  directories of the project.
 
                      declare
-                        Path  : Path_Name_Type  := No_Path;
-                        File  : constant String := Get_Name_String (Sfile);
-                        Stamp : Time_Stamp_Type := Empty_Time_Stamp;
-                        List  : String_List_Id  := In_Project.Source_Dirs;
+                        Path  : Path_Name_Type   := No_Path;
+                        File  : constant String  := Get_Name_String (Sfile);
+                        Stamp : Time_Stamp_Type  := Empty_Time_Stamp;
+                        List  : String_List_Id   := In_Project.Source_Dirs;
+                        Absp  : constant Boolean := Is_Absolute_Path (File);
+                        --  Config pragma file or preprocessor data file
                         Elem  : String_Element;
 
                         procedure Get_Path (Dir : String);
@@ -4911,32 +4877,42 @@ package body GPR.Util is
                         end Get_Path;
 
                      begin
-                        if Conf_Paths'Length > 0
-                          or else Is_Absolute_Path (File)
-                        then
+                        if Conf_Paths'Length > 0 or else Absp then
                            Path := Path_Name_Type (Sfile);
                            Stamp := File_Stamp (Path);
 
-                           if Conf_Paths'Length > 0 then
-                              --  This may be a config file. Check if it is one
-                              --  of the config files expected.
+                           declare
+                              Found : Boolean := False;
+                              Norm_Path : constant String :=
+                                Normalize_Pathname
+                                  (File, Case_Sensitive => False);
+                           begin
+                              for J in Conf_Paths'Range loop
+                                 if Normalize_Pathname
+                                   (Get_Name_String (Conf_Paths (J)),
+                                    Case_Sensitive => False) = Norm_Path
+                                 then
+                                    Found                := True;
+                                    Conf_Paths_Found (J) := True;
+                                 end if;
+                              end loop;
 
-                              declare
-                                 Norm_Path : constant String :=
-                                   Normalize_Pathname
-                                     (Name           => File,
-                                      Case_Sensitive => False);
-                              begin
-                                 for J in Conf_Paths'Range loop
-                                    if Normalize_Pathname
-                                      (Get_Name_String (Conf_Paths (J)),
-                                       Case_Sensitive => False) = Norm_Path
-                                    then
-                                       Conf_Paths_Found (J) := True;
-                                    end if;
-                                 end loop;
-                              end;
-                           end if;
+                              if Absp
+                                and then not Found
+                                and then not Preps.Contains (Norm_Path)
+                              then
+                                 --  Config pragma file is in D line but was
+                                 --  not referenced from project.
+
+                                 if Opt.Verbosity_Level > Opt.Low then
+                                    Put ("  -> """);
+                                    Put (File);
+                                    Put_Line (""" not defined in project");
+                                 end if;
+
+                                 return True;
+                              end if;
+                           end;
                         end if;
 
                         --  Look in the directory of the source
@@ -4990,12 +4966,12 @@ package body GPR.Util is
                      end if;
 
                      while Dep_Src /= No_Source loop
-                        Initialize_Source_Record (Dep_Src);
-
                         if not Dep_Src.Locally_Removed
                           and then Dep_Src.Unit /= No_Unit_Index
                         then
                            Found := True;
+
+                           Initialize_Source_Record (Dep_Src);
 
                            if Dep_Src.Checksum /= ALI.Sdep.Table (D).Checksum
                            then
@@ -5038,6 +5014,7 @@ package body GPR.Util is
                                        Prev_Chs : constant Word :=
                                                     Dep_Src.Checksum;
                                        Prev_Sid : Source_Id;
+                                       Success  : Boolean;
                                     begin
                                        if Calculate_Checksum (Dep_Src) then
                                           if Dep_Src.Checksum /= Prev_Chs then
@@ -5051,11 +5028,13 @@ package body GPR.Util is
                                                  (Tree.Source_Files_HT,
                                                   Prev_Src);
 
-                                             --  Delete obsolete ALI file.
+                                             --  Delete obsolete ALI file if
+                                             --  exists.
 
                                              Delete_File
                                                (Get_Name_String
-                                                  (Prev_Sid.Dep_Path));
+                                                  (Prev_Sid.Dep_Path),
+                                                Success);
 
                                              --  Insert the source into the
                                              --  queue again.
@@ -5223,17 +5202,19 @@ package body GPR.Util is
 
             --  Check that all the config files have been found in the ALI file
 
-            for J in Conf_Paths_Found'Range loop
-               if not Conf_Paths_Found (J) then
-                  if Opt.Verbosity_Level > Opt.Low then
-                     Put_Line
-                       ("   -> new config file " &
-                        Get_Name_String (Conf_Paths (J)));
-                  end if;
+            if Source.Language.Config.Config_File_Dependency_Support then
+               for J in Conf_Paths_Found'Range loop
+                  if not Conf_Paths_Found (J) then
+                     if Opt.Verbosity_Level > Opt.Low then
+                        Put_Line
+                          ("   -> new config file " &
+                             Get_Name_String (Conf_Paths (J)));
+                     end if;
 
-                  return True;
-               end if;
-            end loop;
+                     return True;
+                  end if;
+               end loop;
+            end if;
          end;
 
          return False;
@@ -5277,7 +5258,7 @@ package body GPR.Util is
 
       --  No need to compile if there is no "compiler"
 
-      if Length_Of_Name (Source.Language.Config.Compiler_Driver) = 0 then
+      if Source.Language.Config.Compiler_Driver = Empty_File then
          Must_Compile := False;
          return;
       end if;
@@ -5384,14 +5365,46 @@ package body GPR.Util is
 
          if Stamp = Empty_Time_Stamp then
             if Opt.Verbosity_Level > Opt.Low then
-               Put  ("      -> dependency file ");
-               Put  (Get_Name_String (Source.Dep_Path));
+               Put ("      -> dependency file ");
+               Put (Get_Name_String (Source.Dep_Path));
                Put_Line (" does not exist");
             end if;
 
             Must_Compile := True;
             Cleanup;
             return;
+         end if;
+
+         if In_Project.Library and then Source.Unit /= No_Unit_Index then
+            declare
+               Dep_Path : constant String :=
+                            Normalize_Pathname
+                              (Get_Name_String (Source.Dep_Name),
+                               Get_Name_String
+                                 (In_Project.Library_ALI_Dir.Name),
+                               Resolve_Links => Opt.Follow_Links_For_Files);
+               Lib_Stamp : constant Time_Stamp_Type := File_Stamp (Dep_Path);
+            begin
+               if Lib_Stamp = Empty_Time_Stamp then
+                  if Opt.Verbosity_Level > Opt.Low then
+                     Put ("      -> file ");
+                     Put (Dep_Path);
+                     Put_Line (" does not exist");
+                  end if;
+
+                  In_Project.Need_Build := True;
+
+               elsif Lib_Stamp < Stamp then
+                  if Opt.Verbosity_Level > Opt.Low then
+                     Put ("      -> file ");
+                     Put (Dep_Path);
+                     Put (" has timestamp earlier than ");
+                     Put_Line (Get_Name_String (Source.Dep_Path));
+                  end if;
+
+                  In_Project.Need_Build := True;
+               end if;
+            end;
          end if;
 
          --  If the ALI file has been created after the object file, we need
@@ -5402,8 +5415,8 @@ package body GPR.Util is
            and then Source.Object_TS < Stamp
          then
             if Opt.Verbosity_Level > Opt.Low then
-               Put  ("      -> ALI file ");
-               Put  (Get_Name_String (Source.Dep_Path));
+               Put ("      -> ALI file ");
+               Put (Get_Name_String (Source.Dep_Path));
                Put_Line (" has timestamp earlier than object file");
             end if;
 
@@ -5595,11 +5608,35 @@ package body GPR.Util is
    -----------------------------
 
    procedure Check_Maximum_Processes is
+
+      Already_Reported : Boolean := False;
+
+      procedure Check_It (Value : in out Positive);
+
+      --------------
+      -- Check_It --
+      --------------
+
+      procedure Check_It (Value : in out Positive) is
+         Max_Proc : constant := 63;
+      begin
+         if Value > Max_Proc then
+            Value := Max_Proc;
+
+            if not Already_Reported then
+               Already_Reported := True;
+               Put_Line
+                 ("On Windows the maximum number of simultaneous processes is"
+                  & Max_Proc'Img);
+            end if;
+         end if;
+      end Check_It;
+
    begin
-      if On_Windows and then Opt.Maximum_Processes > 63 then
-         Put_Line
-           ("On Windows the maximum number of simultaneous processes is 63");
-         Opt.Maximum_Processes := 63;
+      if On_Windows then
+         Check_It (Opt.Maximum_Compilers);
+         Check_It (Opt.Maximum_Binders);
+         Check_It (Opt.Maximum_Linkers);
       end if;
    end Check_Maximum_Processes;
 

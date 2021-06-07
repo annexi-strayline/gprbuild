@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---      Copyright (C) 2015-2020, Free Software Foundation, Inc.             --
+--      Copyright (C) 2015-2021, Free Software Foundation, Inc.             --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -36,9 +36,8 @@ package body GPR.Snames is
 
    procedure Add_Name (S : String) is
    begin
-      Set_Name_Buffer (S);
       Sequence := Sequence + 1;
-      if Name_Find /= Sequence then
+      if Get_Name_Id (S) /= Sequence then
          raise Program_Error with
            "Wrong string constant """ & S & """ initialization" & Sequence'Img;
       end if;
@@ -54,32 +53,7 @@ package body GPR.Snames is
          return;
       end if;
 
-      Add_Name ("a");
-      Add_Name ("b");
       Add_Name ("c");
-      Add_Name ("d");
-      Add_Name ("e");
-      Add_Name ("f");
-      Add_Name ("g");
-      Add_Name ("h");
-      Add_Name ("i");
-      Add_Name ("j");
-      Add_Name ("k");
-      Add_Name ("l");
-      Add_Name ("m");
-      Add_Name ("n");
-      Add_Name ("o");
-      Add_Name ("p");
-      Add_Name ("q");
-      Add_Name ("r");
-      Add_Name ("s");
-      Add_Name ("t");
-      Add_Name ("u");
-      Add_Name ("v");
-      Add_Name ("w");
-      Add_Name ("x");
-      Add_Name ("y");
-      Add_Name ("z");
       Add_Name ("abort");
       Add_Name ("abs");
       Add_Name ("accept");
@@ -175,6 +149,7 @@ package body GPR.Snames is
       Add_Name ("config_body_file_name");
       Add_Name ("config_body_file_name_index");
       Add_Name ("config_body_file_name_pattern");
+      Add_Name ("config_file_dependency_support");
       Add_Name ("config_file_switches");
       Add_Name ("config_file_unique");
       Add_Name ("config_spec_file_name");
@@ -182,6 +157,7 @@ package body GPR.Snames is
       Add_Name ("config_spec_file_name_pattern");
       Add_Name ("configuration");
       Add_Name ("cross_reference");
+      Add_Name ("def");
       Add_Name ("default_language");
       Add_Name ("default_switches");
       Add_Name ("dependency_driver");
@@ -198,6 +174,11 @@ package body GPR.Snames is
       Add_Name ("executable_suffix");
       Add_Name ("externally_built");
       Add_Name ("finder");
+      Add_Name ("flat");
+      Add_Name ("gcc");
+      Add_Name ("gcc_gnu");
+      Add_Name ("gcc_option_list");
+      Add_Name ("gcc_object_list");
       Add_Name ("global_compilation_switches");
       Add_Name ("global_configuration_pragmas");
       Add_Name ("global_config_file");
@@ -277,7 +258,6 @@ package body GPR.Snames is
       Add_Name ("objects_path_file");
       Add_Name ("object_dir");
       Add_Name ("option_list");
-      Add_Name ("path_syntax");
       Add_Name ("pic_option");
       Add_Name ("pretty_printer");
       Add_Name ("prefix");
@@ -348,6 +328,28 @@ package body GPR.Snames is
       Add_Name ("include_switches_via_spec");
       Add_Name ("required_toolchain_version");
       Add_Name ("toolchain_name");
+      Add_Name ("check");
+      Add_Name ("eliminate");
+      Add_Name ("remote_host");
+      Add_Name ("program_host");
+      Add_Name ("communication_protocol");
+      Add_Name ("debugger_command");
+      Add_Name ("gnatlist");
+      Add_Name ("vcs_kind");
+      Add_Name ("vcs_file_check");
+      Add_Name ("vcs_log_check");
+      Add_Name ("documentation_dir");
+      Add_Name ("codepeer");
+      Add_Name ("output_directory");
+      Add_Name ("database_directory");
+      Add_Name ("message_patterns");
+      Add_Name ("additional_patterns");
+      Add_Name ("origin_project");
+      Add_Name ("library_reference_symbol_file");
+      Add_Name ("unconditional_linking");
+      Add_Name ("");
+      Add_Name (".");
+      Add_Name ("*");
    end Initialize;
 
 end GPR.Snames;

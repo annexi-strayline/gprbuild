@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2000-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -52,5 +52,8 @@ private package GPR.Nmsc is
    --  full list of languages required for root_project and its aggregated
    --  projects. As a result, it cannot be done as part of
    --  Process_Naming_Scheme.
+
+   procedure Messages_Decision (Kind : Decided_Message);
+   --  Decide what to do with messages issued with Decide_Later kind
 
 end GPR.Nmsc;

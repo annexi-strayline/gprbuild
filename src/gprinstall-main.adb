@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2012-2020, AdaCore                     --
+--                     Copyright (C) 2012-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -37,7 +37,6 @@ with GPR.Proc;       use GPR.Proc;
 with GPR.Snames;     use GPR.Snames;
 with GPR.Tree;       use GPR.Tree;
 with GPR.Util;       use GPR.Util;
-with GPR.Version;    use GPR.Version;
 
 with Gprinstall.DB;
 with Gprinstall.Install;
@@ -105,8 +104,7 @@ procedure Gprinstall.Main is
 
       if not Copyright_Output then
          Copyright_Output := True;
-         Display_Version
-           ("GPRINSTALL", "2012", Version_String => Gpr_Version_String);
+         Display_Version ("GPRINSTALL", "2012");
       end if;
    end Copyright;
 
@@ -463,7 +461,7 @@ procedure Gprinstall.Main is
 
                --  Out-of-tree compilation also imply -p (create missing dirs)
 
-               Opt.Setup_Projects := True;
+               Opt.Create_Dirs := Create_All_Dirs;
 
             elsif Arg'Length >= Root_Dir_Option'Length
               and then Arg (1 .. Root_Dir_Option'Length) = Root_Dir_Option
@@ -567,8 +565,7 @@ procedure Gprinstall.Main is
 
       --  Get the command line arguments, starting with --version and --help
 
-      Check_Version_And_Help
-        ("GPRINSTALL", "2012", Version_String => Gpr_Version_String);
+      Check_Version_And_Help ("GPRINSTALL", "2012");
 
       --  Now process the other options
 
@@ -958,9 +955,7 @@ begin
             Normalized_Hostname        => Knowledge.Normalized_Hostname,
             Implicit_Project           => No_Project_File_Found);
       exception
-         when E : GPR.Conf.Invalid_Config =>
-            Fail_Program (Project_Tree, Exception_Message (E));
-         when E : Name_Error =>
+         when E : GPR.Conf.Invalid_Config | Name_Error =>
             Fail_Program (Project_Tree, Exception_Message (E));
       end;
 

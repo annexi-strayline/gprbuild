@@ -38,7 +38,8 @@ clean:
 		$(BUILDDIR)/pdf \
 		$(BUILDDIR)/txt \
 		$(BUILDDIR)/info \
-		$(BUILDDIR)/doctrees
+		$(BUILDDIR)/doctrees \
+		share/__pycache__
 
 html: force
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

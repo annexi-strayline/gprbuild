@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2019, AdaCore                     --
+--                     Copyright (C) 2006-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -26,7 +26,7 @@ with Gpr_Build_Util; use Gpr_Build_Util;
 
 package Gprclean is
 
-   --  Everyting private so only accessible to child packages
+   --  Everything is private so only accessible to child packages
 
 private
 

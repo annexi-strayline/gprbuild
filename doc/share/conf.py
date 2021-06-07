@@ -6,7 +6,6 @@ import sys
 import os
 import time
 import re
-import datetime
 
 sys.path.append('.')
 
@@ -43,15 +42,16 @@ def get_gpr_version():
                   gpr_version_content)
     if m:
         return m.group(1).strip()
-    print 'cannot find GPR version in ' + gpr_version_spec
+    print('cannot find GPR version in ' + gpr_version_spec)
     return 'unknown'
+
 
 # Exclude sources that are not part of the current documentation
 exclude_patterns = []
 for d in os.listdir(root_source_dir):
     if d not in ('share', doc_name, doc_name + '.rst'):
         exclude_patterns.append(d)
-        print 'ignoring %s' % d
+        print('ignoring %s' % d)
 
 extensions = []
 templates_path = ['_templates']
@@ -69,7 +69,7 @@ version = get_gpr_version()
 # release = get_gpr_version() + ' (' + date + ')'
 release = get_gpr_version()
 
-pygments_style = 'sphinx'
+pygments_style = None
 html_theme = 'sphinxdoc'
 if os.path.isfile('adacore_transparent.png'):
     html_logo = 'adacore_transparent.png'
@@ -96,5 +96,5 @@ texinfo_documents = [
 
 
 def setup(app):
-    app.add_lexer('ada', ada_pygments.AdaLexer())
-    app.add_lexer('gpr', ada_pygments.GNATProjectLexer())
+    app.add_lexer('ada', ada_pygments.AdaLexer)
+    app.add_lexer('gpr', ada_pygments.GNATProjectLexer)

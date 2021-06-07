@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -24,7 +24,6 @@
 
 with GNAT;                  use GNAT;
 with GNAT.Case_Util;        use GNAT.Case_Util;
-with GNAT.Spelling_Checker; use GNAT.Spelling_Checker;
 with GNAT.Strings;
 
 with GPR.Opt;     use GPR.Opt;
@@ -1295,44 +1294,42 @@ package body GPR.Dect is
             if not Quiet_Output then
                declare
                   List  : constant Strings.String_List := Package_Name_List;
-                  Index : Natural;
                   Name  : constant String := Get_Name_String (Token_Name);
+                  Pack  : String_Access;
+                  Test  : Natural;
+                  Dist  : Natural := Natural'Last;
+
+                  function Close_Enough return Boolean is (Dist < 3);
 
                begin
                   --  Check for possible misspelling of a known package name
 
-                  Index := 0;
-                  loop
-                     if Index >= List'Last then
-                        Index := 0;
-                        exit;
-                     end if;
+                  for P of List loop
+                     Test := Distance (Name, P.all);
 
-                     Index := Index + 1;
-                     exit when
-                       GNAT.Spelling_Checker.Is_Bad_Spelling_Of
-                         (Name, List (Index).all);
+                     if Dist > Test then
+                        Dist := Test;
+                        Pack := P;
+                     end if;
                   end loop;
 
                   --  Issue warning(s) in verbose mode or when a possible
                   --  misspelling has been found.
 
                   if (Verbose_Mode and then Opt.Verbosity_Level > Opt.Low)
-                    or else Index /= 0
+                    or else Close_Enough
                   then
-                     Error_Msg (Flags,
-                                "?""" &
-                                Get_Name_String
-                                 (Name_Of (Package_Declaration, In_Tree)) &
-                                """ is not a known package name",
-                                Token_Ptr);
+                     Error_Msg
+                       (Flags,
+                        "?""" & Name & """ is not a known package name",
+                        Token_Ptr);
                   end if;
 
-                  if Index /= 0 then
+                  if Close_Enough then
                      Error_Msg -- CODEFIX
                        (Flags,
-                        "\?possible misspelling of """ &
-                        List (Index).all & """", Token_Ptr);
+                        "\?possible misspelling of """ & Pack.all & '"',
+                        Token_Ptr);
                   end if;
                end;
             end if;
@@ -1493,8 +1490,7 @@ package body GPR.Dect is
                --  The project name is the idenfier or group of identifiers
                --  that prefixes the package name (last dot excluded).
 
-               Set_Name_Buffer (Buffer (1 .. Last_Dot_Index - 1));
-               Project_Name := Name_Find;
+               Project_Name := Get_Name_Id (Buffer (1 .. Last_Dot_Index - 1));
 
                --  Now check the project and package
 

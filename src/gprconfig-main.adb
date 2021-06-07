@@ -31,7 +31,6 @@ with GPR.Names;           use GPR.Names;
 with GPR.Opt;
 with GPR.Sdefault;
 with GPR.Util;
-with GPR.Version;
 
 procedure GprConfig.Main is
 
@@ -345,10 +344,7 @@ begin
 
    --  First, check if --version or --help is used
 
-   Check_Version_And_Help
-     ("GPRCONFIG",
-      "2006",
-      Version_String => Version.Gpr_Version_String);
+   Check_Version_And_Help ("GPRCONFIG", "2006");
 
    --  Now check whether we should parse the default knownledge base.
    --  This needs to be done first, since that influences --config and -h

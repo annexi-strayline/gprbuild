@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2020, AdaCore                     --
+--                     Copyright (C) 2006-2021, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -549,16 +549,10 @@ procedure Gprlib is
 
                      --  Create new modified ALI file
 
-                     Name_Len := Library_Dependency_Directory'Length;
-                     Name_Buffer (1 .. Name_Len) :=
-                       Library_Dependency_Directory.all;
-                     Name_Len := Name_Len + 1;
-                     Name_Buffer (Name_Len) := Directory_Separator;
-                     Name_Buffer
-                       (Name_Len + 1 .. Name_Len + File_Name'Length) :=
-                       File_Name;
-                     Name_Len := Name_Len + File_Name'Length + 1;
-                     Name_Buffer (Name_Len) := ASCII.NUL;
+                     Set_Name_Buffer (Library_Dependency_Directory.all);
+                     Add_Char_To_Name_Buffer (Directory_Separator);
+                     Add_Str_To_Name_Buffer (File_Name);
+                     Add_Char_To_Name_Buffer (ASCII.NUL);
 
                      FD := Create_File (Name_Buffer'Address, Binary);
 
@@ -1051,7 +1045,7 @@ procedure Gprlib is
             end if;
          end if;
 
-         Bind_Options.Append (Binding_Options_Table);
+         Bind_Options.Append_Vector (Binding_Options_Table);
 
          --  Get an eventual --RTS from the ALI file
 
@@ -1091,7 +1085,7 @@ procedure Gprlib is
             end loop;
          end if;
 
-         Bind_Options.Append (ALIs);
+         Bind_Options.Append_Vector (ALIs);
 
          if Mapping_File_Name /= null then
             Bind_Options.Append ("-F=" & Mapping_File_Name.all);
@@ -1151,7 +1145,7 @@ procedure Gprlib is
          end if;
 
          declare
-            Size         : Natural := 0;
+            Size : Natural := 0;
          begin
             for Arg of Bind_Options loop
                Size := Size + Arg'Length + 1;
@@ -1183,8 +1177,7 @@ procedure Gprlib is
                --  Otherwise create a temporary response file
 
                declare
-                  EOL           : constant String (1 .. 1) :=
-                    (1 => ASCII.LF);
+                  EOL           : aliased constant Character := ASCII.LF;
                   FD            : File_Descriptor;
                   Path          : Path_Name_Type;
                   Args          : String_Vectors.Vector;
@@ -1254,7 +1247,7 @@ procedure Gprlib is
                         end if;
                      end if;
 
-                     Status := Write (FD, EOL (1)'Address, 1);
+                     Status := Write (FD, EOL'Address, 1);
 
                      if Status /= 1 then
                         Fail_Program (null, "disk full");
@@ -1288,7 +1281,7 @@ procedure Gprlib is
 
          Bind_Options := String_Vectors.Empty_Vector;
 
-         Bind_Options.Append (Ada_Leading_Switches);
+         Bind_Options.Append_Vector (Ada_Leading_Switches);
          Bind_Options.Append (No_Warning);
          Bind_Options.Append (Binder_Generated_File);
          Bind_Options.Append (Output_Switch);
@@ -1337,7 +1330,7 @@ procedure Gprlib is
             end loop;
          end if;
 
-         Bind_Options.Append (Ada_Trailing_Switches);
+         Bind_Options.Append_Vector (Ada_Trailing_Switches);
 
          if not Quiet_Output then
             Name_Len := 0;
@@ -1542,7 +1535,7 @@ procedure Gprlib is
                     or else Size >= Maximum_Size;
                end loop;
 
-               PL_Options.Append (Trailing_PL_Options);
+               PL_Options.Append_Vector (Trailing_PL_Options);
 
                if not Quiet_Output then
                   if Verbose_Mode then
@@ -1583,17 +1576,16 @@ procedure Gprlib is
          --  Not a standalone library, or Partial linker is not specified.
          --  Put all objects in the archive.
 
-         AB_Objects.Append (Object_Files);
-
+         AB_Objects.Append_Vector (Object_Files);
       end if;
 
       --  Add the .GPR.linker_options section to Linker_Option_Object_File.
 
       if Linker_Option_Object_File /= null then
-
          --  Retrieve the relevant options in the binder-generated file.
          --  ??? This is a duplicated code from Process_Standalone!
          --  A refactoring would be nice.
+
          declare
             BG_File          : File_Type;
             Line             : String (1 .. 1_000);
@@ -1663,25 +1655,27 @@ procedure Gprlib is
 
             if Objcopy_Exec = null then
                Objcopy_Exec := Locate_Exec_On_Path ("objcopy");
-               if Objcopy_Exec = null then
-                  if Verbose_Mode then
-                     Put ("Warning: unable to locate objcopy " &
-                            Objcopy_Name.all & ".");
-                  end if;
-                  Success := False;
+            end if;
+
+            if Objcopy_Exec = null then
+               if Verbose_Mode then
+                  Put ("Warning: unable to locate objcopy " &
+                         Objcopy_Name.all & ".");
                end if;
+               Success := False;
 
             else
                declare
                   Arg_List : String_List_Access :=
                     new String_List'(To_Argument_List (Objcopy_Args));
-                  FD             : File_Descriptor;
-                  Tmp_File       : Path_Name_Type;
-                  Status         : aliased Integer;
+                  FD       : File_Descriptor;
+                  Tmp_File : Path_Name_Type;
+                  Status   : aliased Integer;
 
                begin
                   --  Create the temporary file to receive (and
                   --  discard) the output from spawned processes.
+
                   Tempdir.Create_Temp_File (FD, Tmp_File);
 
                   if FD = Invalid_FD then
@@ -1691,7 +1685,7 @@ procedure Gprlib is
 
                   Record_Temp_File (null, Tmp_File);
 
-                  Spawn (Objcopy_Name.all, Arg_List.all, FD, Status);
+                  Spawn (Objcopy_Exec.all, Arg_List.all, FD, Status);
 
                   Success := Status = 0;
                   Free (Arg_List);
@@ -1699,8 +1693,9 @@ procedure Gprlib is
                end;
 
                if not Success and then Verbose_Mode then
-                  Put ("Warning: invocation of " &
-                         Objcopy_Name.all & " failed.");
+                  Put_Line
+                    ("Warning: invocation of " &  Objcopy_Exec.all
+                     & " failed.");
                end if;
             end if;
 
@@ -1729,7 +1724,7 @@ procedure Gprlib is
             --  archive in one chunk.
 
             AB_Options := AB_Create_Options;
-            AB_Options.Append (AB_Objects);
+            AB_Options.Append_Vector (AB_Objects);
             First_AB_Object_Pos := AB_Objects.Last_Index + 1;
 
          else
@@ -1758,7 +1753,7 @@ procedure Gprlib is
                Last_AB_Object_Pos := J;
             end loop;
 
-            AB_Options.Append
+            AB_Options.Append_Vector
               (Slice (AB_Objects, First_AB_Object_Pos, Last_AB_Object_Pos));
 
             --  Display the invocation of the archive builder for the creation
@@ -2450,11 +2445,7 @@ begin
 
    for Index in 1 .. Last_Object_File_Index loop
       Put_Line (IO_File, Object_Files (Index));
-
-      Name_Len := Object_Files.Element (Index)'Length;
-      Name_Buffer (1 .. Name_Len) := Object_Files (Index);
-      Put_Line
-        (IO_File, String (Osint.File_Stamp (Path_Name_Type'(Name_Find))));
+      Put_Line (IO_File, String (Osint.File_Stamp (Object_Files (Index))));
    end loop;
 
    if not Generated_Sources.Is_Empty then

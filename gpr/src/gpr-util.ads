@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -30,6 +30,7 @@ with Ada.Containers.Indefinite_Vectors;
 with GNAT.MD5; use GNAT.MD5;
 
 with GPR.ALI;
+with GPR.Names;
 with GPR.Osint; use GPR.Osint;
 with GPR.Scans; use GPR.Scans;
 
@@ -185,7 +186,7 @@ package GPR.Util is
 
    function Split (Source : String; Separator : String) return Name_Array_Type;
    --  Split string Source into several, using Separator. The different
-   --  occurences of Separator are not included in the result. The result
+   --  occurrences of Separator are not included in the result. The result
    --  includes no empty string.
 
    function Value_Of
@@ -410,10 +411,17 @@ package GPR.Util is
    --  Returns the relative pathname which corresponds to Pathname when
    --  starting from directory to. Both Pathname and To must be absolute paths.
 
-   function Create_Name (Name : String) return File_Name_Type;
-   function Create_Name (Name : String) return Name_Id;
-   function Create_Name (Name : String) return Path_Name_Type;
-   --  Get an id for a name
+   function Create_Name (Name : String) return File_Name_Type
+                         renames Names.Get_File_Name_Id;
+   --  Get File_Name_Type for a name
+
+   function Create_Name (Name : String) return Name_Id
+                         renames Names.Get_Name_Id;
+   --  Get Name_Id for a name
+
+   function Create_Name (Name : String) return Path_Name_Type
+                         renames Names.Get_Path_Name_Id;
+   --  Get Path_Name_Type for a name
 
    function Is_Subunit (Source : Source_Id) return Boolean;
    --  Return True if source is a subunit
@@ -470,6 +478,10 @@ package GPR.Util is
 
    function To_Time_Stamp (Time : Calendar.Time) return Stamps.Time_Stamp_Type;
    --  Returns Time as a time stamp type
+
+   function To_UTC_Time_Stamp
+     (Time : Calendar.Time) return Stamps.Time_Stamp_Type;
+   --  Return timestamp shifted to UTC on conversion
 
    function UTC_Time return Stamps.Time_Stamp_Type;
    --  Returns the UTC time
@@ -636,9 +648,7 @@ package GPR.Util is
    --  Output the two lines of usage for switches --version and --help
 
    procedure Display_Version
-     (Tool_Name      : String;
-      Initial_Year   : String;
-      Version_String : String);
+     (Tool_Name : String; Initial_Year : String);
    --  Display version of a tool when switch --version is used
 
    function Calculate_Checksum (Source : Source_Id) return Boolean;
@@ -648,9 +658,7 @@ package GPR.Util is
       with procedure Usage;
       --  Print tool-specific part of --help message
    procedure Check_Version_And_Help_G
-     (Tool_Name      : String;
-      Initial_Year   : String;
-      Version_String : String);
+     (Tool_Name : String; Initial_Year : String);
    --  Check if switches --version or --help is used. If one of this switch is
    --  used, issue the proper messages and end the process.
 
@@ -787,8 +795,7 @@ package GPR.Util is
    --  exists.
 
    function As_RPath
-     (Path           : String;
-      Case_Sensitive : Boolean) return String;
+     (Path : String; Case_Sensitive : Boolean) return String;
    --  Returns Path in a representation compatible with the use with --rpath or
    --  --rpath-link.
    --  This normalizes the path, and ensure the use of unix-style directory

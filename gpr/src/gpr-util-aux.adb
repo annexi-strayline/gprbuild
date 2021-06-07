@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2017-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2017-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -31,7 +31,6 @@ with Ada.Text_IO;
 
 with GNAT.Regpat;               use GNAT.Regpat;
 with GNAT.Sockets;
-with GNAT.IO_Aux;
 
 with GPR.Names; use GPR.Names;
 with GPR.Opt;   use GPR.Opt;
@@ -108,8 +107,7 @@ package body GPR.Util.Aux is
 
             while not End_Of_File (File) loop
                declare
-                  use GNAT;
-                  Buffer : constant String := IO_Aux.Get_Line (File);
+                  Buffer : constant String := Get_Line (File);
                begin
                   Match (Pattern, Buffer, Matches);
 
