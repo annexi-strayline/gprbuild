@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -232,7 +232,7 @@ package GPR.Osint is
 private
 
    function File_Time_Stamp (N : C_File_Name) return Ada.Calendar.Time
-     with Import, Convention => C, External_Name => "__gpr_file_time";
+     with Import, Convention => C, External_Name => "__gnat_file_time";
 
    Invalid_Time : constant Ada.Calendar.Time :=
                     File_Time_Stamp (System.Null_Address);

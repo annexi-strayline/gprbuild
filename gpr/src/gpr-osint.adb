@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -286,6 +286,9 @@ package body GPR.Osint is
    function File_Time_Stamp (Name : String) return Ada.Calendar.Time is
       FN : aliased constant String := Name & ASCII.NUL;
    begin
+      --  Do not use Ada.Directories.Modification_Time directly because it
+      --  raises exception on absent file.
+
       return File_Time_Stamp (FN'Address);
    end File_Time_Stamp;
 
@@ -294,10 +297,9 @@ package body GPR.Osint is
    ---------------
 
    procedure Find_File
-     (N         : File_Name_Type;
-      Found     : out File_Name_Type;
-      Attr      : access File_Attributes)
-   is
+     (N     : File_Name_Type;
+      Found : out File_Name_Type;
+      Attr  : access File_Attributes) is
    begin
       Attr.all := Unknown_Attributes;
       Get_Name_String (N);
