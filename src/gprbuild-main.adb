@@ -1320,6 +1320,28 @@ procedure Gprbuild.Main is
                Max_Proc : Natural   := 0;
                Phase    : Character := 'a'; -- all by default
                First    : Positive;
+
+               Opts : constant array (Maximum_Processes_Range) of
+                 access Positive :=
+                   (Maximum_Compilers_Option => Opt.Maximum_Compilers'Access,
+                    Maximum_Binders_Option   => Opt.Maximum_Binders'Access,
+                    Maximum_Linkers_Option   => Opt.Maximum_Linkers'Access);
+
+               procedure Register (Opt : Maximum_Processes_Range);
+
+               --------------
+               -- Register --
+               --------------
+
+               procedure Register (Opt : Maximum_Processes_Range) is
+               begin
+                  if Command_Line then
+                     Register_Command_Line_Option (Opt, Max_Proc);
+                  end if;
+
+                  Opts (Opt).all := Max_Proc;
+               end Register;
+
             begin
                if Arg'Length > 3 and then Arg (3) not in '0' .. '9' then
                   Phase := Arg (3);
@@ -1341,19 +1363,12 @@ procedure Gprbuild.Main is
                case Phase is
                   when 'a' =>
                      for J in Maximum_Processes_Range loop
-                        Register_Command_Line_Option (J, Max_Proc);
+                        Register (J);
                      end loop;
-                  when 'c' =>
-                     Register_Command_Line_Option
-                       (Maximum_Compilers_Option, Max_Proc);
-                  when 'b' =>
-                     Register_Command_Line_Option
-                       (Maximum_Binders_Option, Max_Proc);
-                  when 'l' =>
-                     Register_Command_Line_Option
-                       (Maximum_Linkers_Option, Max_Proc);
-                  when others =>
-                     Processed := False;
+                  when 'c' => Register (Maximum_Compilers_Option);
+                  when 'b' => Register (Maximum_Binders_Option);
+                  when 'l' => Register (Maximum_Linkers_Option);
+                  when others => Processed := False;
                end case;
 
             exception

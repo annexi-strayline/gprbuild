@@ -153,15 +153,15 @@ package GPR.Opt is
    --  Set to True to skip compile and bind steps (except when Bind_Only is
    --  set to True).
 
-   Maximum_Compilers : Positive := 1;
+   Maximum_Compilers : aliased Positive := 1;
    --  Maximum number of processes that should be spawned to carry out
    --  compilations.
 
-   Maximum_Binders : Positive := 1;
+   Maximum_Binders : aliased Positive := 1;
    --  Maximum number of processes that should be spawned to carry out
    --  bindings.
 
-   Maximum_Linkers : Positive := 1;
+   Maximum_Linkers : aliased Positive := 1;
    --  Maximum number of processes that should be spawned to carry out
    --  linkings.
 
