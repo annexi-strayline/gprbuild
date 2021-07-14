@@ -2551,7 +2551,8 @@ package body Gprbuild.Post_Compile is
                    and then
                      (Base_Name (Name_Id (GPR.Element (Iter).Object)) /=
                           Base_Name (Element.Value)
-                      or else GPR.Element (Iter).Kind = Spec))
+                      or else GPR.Element (Iter).Kind = Spec
+                      or else GPR.Element (Iter).Locally_Removed))
                --  Or and Ada unit, we need the dependency file
                   or else
                     (not Other_Int and then
