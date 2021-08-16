@@ -623,7 +623,8 @@ package body GPR.Names is
    begin
       pragma Assert
         (Is_Valid_Name (Id),
-         Id'Img & Name_Entries.First_Index'Img & Name_Entries.Last_Index'Img);
+         "invalid id" & Id'Img
+         & Name_Entries.First_Index'Img & Name_Entries.Last_Index'Img);
 
       Get_Name_String (Id);
       Write_Str (Name_Buffer (1 .. Name_Len));

@@ -2259,7 +2259,8 @@ package body GPR.Util is
 
       pragma Assert
         (Source.Path /= No_Path_Information,
-         Get_Name_String (Source.File) & ' ' & Source.Locally_Removed'Img);
+         "no path information for "
+         & Get_Name_String (Source.File) & ' ' & Source.Locally_Removed'Img);
 
       Src_Ind :=
         Sinput.Load_File (Get_Name_String (Source.Path.Display_Name));

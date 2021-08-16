@@ -2242,7 +2242,8 @@ package body Gprbuild.Link is
                                        then
                                           pragma Assert
                                             (End_Of_File (File),
-                                             Line (1 .. Last) & First'Img);
+                                             "not at end of file "
+                                             & Line (1 .. Last) & First'Img);
                                           First := 42;
                                        end if;
                                     end if;

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -82,7 +82,7 @@ package body GPR.Compilation.Slave is
    end Wait_Ack;
 
    task type Wait_Remote;
-   --  Wait for incoming data from all registred slaves
+   --  Wait for incoming data from all registered slaves
 
    type Wait_Remote_Ref is access Wait_Remote;
    WR : Wait_Remote_Ref;
@@ -435,7 +435,7 @@ package body GPR.Compilation.Slave is
       end if;
 
       --  Let's double check that Root_Dir and Projet_Name are not empty,
-      --  this is a safety check to avoid rsync detroying remote environment
+      --  this is a safety check to avoid rsync destroying remote environment
       --  as rsync is using the --delete options.
 
       if Length (S.Root_Dir) = 0 then
@@ -771,7 +771,7 @@ package body GPR.Compilation.Slave is
 
       Remote_Process.Increment;
 
-      --  Wait for the Ack from the remore host, this is set by the Wait_Remote
+      --  Wait for the Ack from the remote host, this is set by the Wait_Remote
       --  task.
 
       Wait_Ack.Get (Pid);
@@ -1059,8 +1059,8 @@ package body GPR.Compilation.Slave is
       Sock         : Socket_Type;
       S            : Slave;
    begin
-      --  In this task we are only interrested by the incoming data, so we do
-      --  not wait on socket ready for writting.
+      --  In this task we are only interested by the incoming data, so we do
+      --  not wait on socket ready for writing.
 
       Sockets.Empty (W_Set);
 

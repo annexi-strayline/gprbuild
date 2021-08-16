@@ -1081,7 +1081,8 @@ package body Gprbuild.Post_Compile is
 
             pragma Assert
               (Natural (Libs_Are_Building.Length) <= Outstanding_Processes,
-               Libs_Are_Building.Length'Img & Outstanding_Processes'Img
+               "more libs building than outstanding processes "
+               & Libs_Are_Building.Length'Img & Outstanding_Processes'Img
                & ' ' & Get_Name_String (P.Name));
 
             --  Wait for any process to be done to check is the dependency
