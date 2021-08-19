@@ -48,7 +48,7 @@ package body Gprinstall.Install is
    package String_Vector is
      new Containers.Indefinite_Vectors (Positive, String);
 
-   package Seen_Set is new Containers.Indefinite_Ordered_Sets (String);
+   package Seen_Set renames GPR.String_Sets;
 
    Content : String_Vector.Vector;
    --  The content of the project, this is used when creating the project
@@ -2268,6 +2268,9 @@ package body Gprinstall.Install is
             procedure Add_Library_Options (Proj : Project_Id);
             --  For a library project, add the Library_Options
 
+            procedure Opts_Append (Opt : String);
+            --  Add options only if it was not appended before into Opts
+
             Seen : Seen_Set.Set;
             --  Records the attribute generated to avoid duplicate when
             --  handling aggregated projects.
@@ -2295,6 +2298,21 @@ package body Gprinstall.Install is
                end if;
             end Add_Library_Options;
 
+            -----------------
+            -- Opts_Append --
+            -----------------
+
+            procedure Opts_Append (Opt : String) is
+               Position : Seen_Set.Cursor;
+               Inserted : Boolean;
+            begin
+               Seen.Insert (Opt, Position, Inserted);
+
+               if Inserted then
+                  Opts.Append (Opt);
+               end if;
+            end Opts_Append;
+
             ------------
             -- Append --
             ------------
@@ -2303,8 +2321,7 @@ package body Gprinstall.Install is
                L : String_List_Id := Values;
             begin
                while L /= Nil_String loop
-                  Opts.Append (Get_Name_String (Strs (L).Value));
-                  Seen.Include (Get_Name_String (Strs (L).Value));
+                  Opts_Append (Get_Name_String (Strs (L).Value));
                   L := Strs (L).Next;
                end loop;
             end Append;
@@ -2362,7 +2379,7 @@ package body Gprinstall.Install is
                     and then L.Project.Externally_Built
                     and then not Bring_Sources (L.Project)
                   then
-                     Opts.Append
+                     Opts_Append
                        ("-l" & Get_Name_String (L.Project.Library_Name));
                   end if;
 
