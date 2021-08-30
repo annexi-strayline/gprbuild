@@ -2380,6 +2380,8 @@ package body Gprinstall.Install is
                     and then not Bring_Sources (L.Project)
                   then
                      Opts_Append
+                       ("-L" & Get_Name_String (L.Project.Library_Dir.Name));
+                     Opts_Append
                        ("-l" & Get_Name_String (L.Project.Library_Name));
                   end if;
 
