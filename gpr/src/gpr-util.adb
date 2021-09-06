@@ -127,8 +127,9 @@ package body GPR.Util is
    --  Null_Address.
 
    function File_Stamp (Path : Path_Name_Type) return Time_Stamp_Type;
-   --  Get the tme stamp of Path. Take it from File_Stamp_HTable if it is
-   --  already there, otherwise get is and put it in File_Stamp_HTable.
+   --  Get the time stamp of Path. Take it from File_Stamp_HTable if it is
+   --  already there, otherwise get it from OS and put into File_Stamp_HTable
+   --  to be able to get it next time.
 
    ------------------------------
    -- Locate_Directory support --
