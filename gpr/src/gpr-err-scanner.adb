@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---        Copyright (C) 2015-2020, Free Software Foundation, Inc.           --
+--        Copyright (C) 2015-2021, Free Software Foundation, Inc.           --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -1751,6 +1751,10 @@ package body Scanner is
                else
                   Error_Illegal_Character;
                end if;
+
+            elsif Source (Scan_Ptr) = '@' then
+               Scan_Ptr := Scan_Ptr + 1;
+               Accumulate_Checksum ('@');
 
             else
                Error_Illegal_Character;
