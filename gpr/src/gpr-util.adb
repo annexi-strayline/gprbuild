@@ -4191,13 +4191,7 @@ package body GPR.Util is
       Runtime_Source_Dirs : constant Name_List_Index :=
                              Source.Language.Config.Runtime_Source_Dirs;
 
-      Start    : Natural;
-      Finish   : Natural;
-      Last_Obj : Natural;
       Stamp    : Time_Stamp_Type;
-
-      Looping : Boolean := False;
-      --  Set to True at the end of the first Big_Loop for Makefile fragments
 
       Source_In_Dependencies : Boolean := False;
       --  Set True if source was found in dependency file of its object file
@@ -4270,9 +4264,15 @@ package body GPR.Util is
       function Process_Makefile_Deps
         (Dep_Name, Obj_Dir : String) return Boolean
       is
-         Dep_File : GPR.Util.Text_File;
+         Dep_File    : GPR.Util.Text_File;
          Last_Source : String_Access;
          Last_TS     : Time_Stamp_Type := Empty_Time_Stamp;
+         Last_Obj    : Natural;
+         Start       : Natural;
+         Finish      : Natural;
+         Looping     : Boolean := False;
+         --  Set to True at the end of the first Big_Loop for Makefile
+         --  fragments
 
          function Is_Time_Stamp (S : String) return Boolean;
          --  Return True iff S has the format of a Time_Stamp_Type
@@ -5246,7 +5246,7 @@ package body GPR.Util is
       end if;
 
       if Force_Compilations then
-         Must_Compile := Always_Compile or else (not Externally_Built);
+         Must_Compile := Always_Compile or else not Externally_Built;
          return;
       end if;
 
