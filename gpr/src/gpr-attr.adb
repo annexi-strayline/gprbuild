@@ -528,6 +528,11 @@ package body GPR.Attr is
          Attr_Kind  => Case_Insensitive_Associative_Array,
          Conf_Conc  => False);
       Add_Attribute
+        (Name_Toolchain_Path,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
         (Name_Object_Generated,
          Var_Kind   => Single,
          Attr_Kind  => Case_Insensitive_Associative_Array,

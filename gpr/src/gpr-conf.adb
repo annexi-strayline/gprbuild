@@ -93,6 +93,9 @@ package body GPR.Conf is
    Toolchain_Languages : Language_Maps.Map;
    --  Stores the toolchain names for the various languages
 
+   Toolchain_Paths : Language_Maps.Map;
+   --  Stores the toolchain paths for the various languages
+
    package Db_Switch_Args is new GNAT.Table
      (Table_Component_Type => Name_Id,
       Table_Index_Type     => Integer,
@@ -1374,7 +1377,9 @@ package body GPR.Conf is
                     or else Variable.Value = Empty_String
                   then
                      Result (Count) := new String'
-                       (Config_Common & ',' & Toolchain_Name_For (Name));
+                       (Config_Common
+                        & Get_Element_Or_Empty (Toolchain_Paths, Name)
+                        & ',' & Toolchain_Name_For (Name));
                   else
                      At_Least_One_Compiler_Command := True;
 
@@ -1442,6 +1447,11 @@ package body GPR.Conf is
       --  project it extends, if any are specified.
 
       Get_Project_Attribute (Toolchain_Languages, Name_Toolchain_Name);
+
+      --  Get the various Toolchain_Path (<lang>) in the project file or any
+      --  project it extends, if any are specified.
+
+      Get_Project_Attribute (Toolchain_Paths, Name_Toolchain_Path);
 
       --  Get the various Runtime (<lang>) in the project file or any project
       --  it extends, if any are specified.

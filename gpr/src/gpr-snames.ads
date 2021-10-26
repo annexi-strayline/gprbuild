@@ -329,6 +329,7 @@ package GPR.Snames is
    Name_Origin_Project                   : constant Name_Id := Name_Id (L) - N;
    Name_Library_Reference_Symbol_File    : constant Name_Id := Name_Id (L) - N;
    Name_Unconditional_Linking            : constant Name_Id := Name_Id (L) - N;
+   Name_Toolchain_Path                   : constant Name_Id := Name_Id (L) - N;
    The_Empty_String                      : constant Name_Id := Name_Id (L) - N;
    The_Dot_String                        : constant Name_Id := Name_Id (L) - N;
    The_Star_String                       : constant Name_Id := Name_Id (L) - N;
