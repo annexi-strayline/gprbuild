@@ -178,10 +178,15 @@ package body GPR.Util is
          Source.Checksum     := Scans.Checksum;
          Source.Checksum_Src := True_Checksum;
 
-         --  To avoid using too much memory, free the
-         --  memory allocated.
+         --  If there were errors we can't Clear_Source_File_Table because the
+         --  error messages refer to this table content.
 
-         Sinput.Clear_Source_File_Table;
+         if Total_Errors_Detected = 0 then
+            --  To avoid using too much memory, free the
+            --  memory allocated.
+
+            Sinput.Clear_Source_File_Table;
+         end if;
 
          return True;
       end if;
@@ -5100,10 +5105,9 @@ package body GPR.Util is
                                        Put
                                          (Get_Name_String
                                             (ALI.Sdep.Table (D).Sfile));
-                                       Put (": changed, " &
-                                              "same timestamp " &
-                                              "but different checksums");
-                                       New_Line;
+                                       Put_Line
+                                         (": changed, same timestamp but"
+                                          & " different checksums");
                                     end if;
 
                                     return True;
