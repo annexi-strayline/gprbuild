@@ -408,7 +408,7 @@ package body Scanner is
    begin
       case Language_For_Scanner is
          when Ada =>
-            return N in Reserved_Ada_95 or else N in Reserved_Ada_Other;
+            return N in Reserved_Ada_95 | Reserved_Ada_Other;
 
          when Project =>
             return N in Reserved_Ada_Project;
@@ -1103,14 +1103,16 @@ package body Scanner is
          --  Left bracket
 
          when '[' =>
-            if Source (Scan_Ptr + 1) = '"' then
-               goto Scan_Wide_Character;
+            --  Here was code to support wide characters square brackets
+            --  encoding. It was checking that next char is '"' and conditional
+            --  jumping to Scan_Wide_Character. Now it is removed and we
+            --  support square brackets only for Ada 2022 syntax because it is
+            --  too tricky to detect whether the source is going to be compiled
+            --  with new syntax support.
 
-            else
-               Scan_Ptr := Scan_Ptr + 1;
-               Token := Tok_Left_Paren;
-               return;
-            end if;
+            Scan_Ptr := Scan_Ptr + 1;
+            Token := Tok_Left_Paren;
+            return;
 
          --  Left brace
 
