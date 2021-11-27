@@ -705,8 +705,6 @@ package body GPR.Sinput is
       Err.Scanner.Set_Special_Character ('#');
       Err.Scanner.Set_Special_Character ('$');
 
-      Check_For_BOM;
-
       --  We scan past junk to the first interesting compilation unit token, to
       --  see if it is SEPARATE. We ignore WITH keywords during this and also
       --  PRIVATE. The reason for ignoring PRIVATE is that it handles some

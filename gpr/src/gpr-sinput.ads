@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -188,6 +188,13 @@ package GPR.Sinput is
    Internal_Source_Ptr : constant Source_Buffer_Ptr :=
                            Internal_Source'Unrestricted_Access;
    --  Pointer to internal source buffer
+
+   Upper_Half_Encoding : Boolean := False;
+   --  Normally set False, indicating that upper half ISO 8859-1 characters are
+   --  used in the normal way to represent themselves. If the wide character
+   --  encoding method uses the upper bit for this encoding, then this flag is
+   --  set True, and upper half characters in the source indicate the start of
+   --  a wide character sequence.
 
    procedure Clear_Source_File_Table;
    --  This procedure frees memory allocated in the Source_File table (in the

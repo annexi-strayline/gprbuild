@@ -396,6 +396,9 @@ package body Scanner is
       Token_Name                := No_Name;
       Start_Column              := Set_Start_Column;
       First_Non_Blank_Location  := Scan_Ptr;
+      Upper_Half_Encoding       := False;
+
+      Check_For_BOM;
 
       Initialize_Checksum;
    end Initialize_Scanner;

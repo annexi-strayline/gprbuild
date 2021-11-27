@@ -231,13 +231,6 @@ package GPR.Opt is
    --  that are not shared library projects. Set on by use of the switch
    --  --unchecked-shared-lib-imports.
 
-   Upper_Half_Encoding : Boolean := False;
-   --  Normally set False, indicating that upper half ISO 8859-1 characters are
-   --  used in the normal way to represent themselves. If the wide character
-   --  encoding method uses the upper bit for this encoding, then this flag is
-   --  set True, and upper half characters in the source indicate the start of
-   --  a wide character sequence. Set by -gnatW or -W switches.
-
    Use_Include_Path_File : Boolean := False;
    --  When True, create a source search path file, even when a mapping file
    --  is used.
