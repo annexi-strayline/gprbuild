@@ -2430,7 +2430,8 @@ package body GPR.Conf is
 
       if Conf_Project = No_Project then
          Messages_Decision (Error);
-         raise Invalid_Config with "there are no non-aggregate projects";
+         raise Invalid_Config with "there are no non-aggregate projects for" &
+           " project " & Get_Name_String (Main_Project.Name);
       else
          Messages_Decision (Silent);
       end if;
