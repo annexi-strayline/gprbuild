@@ -210,9 +210,7 @@ package body Gprbuild is
            or else Project.Qualifier = Aggregate_Library
          then
             Fail_Program
-              (Project_Tree,
-               "no project with writable object directory for project " &
-                 Get_Name_String (Project.Name));
+              (Project_Tree, "no project with writable object directory");
 
          else
             Fail_Program
