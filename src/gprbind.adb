@@ -678,7 +678,7 @@ begin
          Finish_Program
            (null,
             Osint.E_Fatal,
-           "could not locate " & Path_Of_Gnatbind.all);
+            "could not locate " & Path_Of_Gnatbind.all);
       end;
 
    else

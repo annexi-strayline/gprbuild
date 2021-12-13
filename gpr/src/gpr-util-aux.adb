@@ -555,7 +555,8 @@ package body GPR.Util.Aux is
             else
                Fail_Program
                  (Project_Tree,
-                  "hosts distributed file " & F_Name & " not found");
+                  "hosts distributed file " & F_Name & " not found",
+                  Exit_Code => E_General);
             end if;
          end;
       end if;
