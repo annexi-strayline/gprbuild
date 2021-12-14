@@ -465,6 +465,29 @@ package body GPR.Err is
       end if;
    end Initialize;
 
+   -----------------------------
+   -- Mask_Control_Characters --
+   -----------------------------
+
+   function Mask_Control_Characters (Message : String) return String is
+      Result : String (1 .. Message'Length * 2);
+      Last   : Natural := 0;
+   begin
+      for C of Message loop
+         if C in '%' | '$' | '{' | '}' | '*' | '&' | '#' | '\' | '@' | '^'
+           | '`' | '!' | '?' | '<' | '|' | ''' | '~' | 'A' .. 'Z'
+         then
+            Last := Last + 1;
+            Result (Last) := ''';
+         end if;
+
+         Last := Last + 1;
+         Result (Last) := C;
+      end loop;
+
+      return Result (1 .. Last);
+   end Mask_Control_Characters;
+
    ------------------------
    -- Output_Source_Line --
    ------------------------
@@ -552,7 +575,7 @@ package body GPR.Err is
    begin
       --  Don't post message if incompleted with's (avoid junk cascaded errors)
 
-      if (not Always) and then Flags.Incomplete_Withs then
+      if not Always and then Flags.Incomplete_Withs then
          return;
       end if;
 

@@ -65,6 +65,9 @@ package GPR.Err is
    --  One_Line flag mean only one error message per line, need to hide some
    --  wrong error message in project parser.
 
+   function Mask_Control_Characters (Message : String) return String;
+   --  Returns the message with all control characters masked by apostrophe
+
    procedure Error_Msg
      (Msg : String; Flag_Location : Source_Ptr; One_Line : Boolean := False);
    --  Output a message at specified location.
