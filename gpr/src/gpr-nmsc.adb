@@ -8422,7 +8422,8 @@ package body GPR.Nmsc is
                                Data.Flags.Missing_Project_Files);
             Error_Or_Warning
               (Data.Flags, Msg_Mode,
-               '"' & Get_Name_String (Dir) & """ is not a valid directory",
+               '"' & Mask_Control_Characters (Get_Name_String (Dir))
+               & """ is not a valid directory",
                Location, Project);
             Has_Error := Msg_Mode = Error;
          end if;
