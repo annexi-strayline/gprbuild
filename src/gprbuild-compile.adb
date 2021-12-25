@@ -2529,12 +2529,36 @@ package body Gprbuild.Compile is
          end if;
       end Add_Object_Path_Switches;
 
+      ----------------------
+      -- Get_Config_Paths --
+      ----------------------
+
       procedure Get_Config_Paths
         (Id             : Source_Id;
          Source_Project : Project_Id)
       is
-         Config           : constant Language_Config := Id.Language.Config;
-         Config_File_Path : Path_Information;
+         Config : constant Language_Config := Id.Language.Config;
+
+         procedure Add_Config_File (Project : Project_Id; Pkg, Attr : Name_Id);
+
+         procedure Add_Config_File (Project : Project_Id; Pkg, Attr : Name_Id)
+         is
+            Config_File_Path : constant Path_Information :=
+                                 Config_File_For
+                                   (Project        => Project,
+                                    Package_Name   => Pkg,
+                                    Attribute_Name => Attr,
+                                    Language       => Id.Language.Name);
+         begin
+            if Config_File_Path /= No_Path_Information
+              and then not Cmd_Line_Adc_Files.Contains
+                             (Name_Id (Config_File_Path.Name))
+            then
+               Last_Config_Path := Last_Config_Path + 1;
+               The_Config_Paths (Last_Config_Path) := Config_File_Path;
+            end if;
+         end Add_Config_File;
+
       begin
          Last_Config_Path := 0;
 
@@ -2547,35 +2571,10 @@ package body Gprbuild.Compile is
                      or else Config.Config_Spec_Pattern /= No_Name)
            and then not Config.Config_File_Unique
          then
-            Config_File_Path :=
-              Config_File_For
-                (Project        => Main_Project,
-                 Package_Name   => Name_Builder,
-                 Attribute_Name => Name_Global_Config_File,
-                 Language       => Id.Language.Name);
-
-            if Config_File_Path /= No_Path_Information
-              and then not Cmd_Line_Adc_Files.Contains
-                             (Name_Id (Config_File_Path.Name))
-            then
-               Last_Config_Path := 1;
-               The_Config_Paths (Last_Config_Path) := Config_File_Path;
-            end if;
-
-            Config_File_Path :=
-              Config_File_For
-                (Project        => Source_Project,
-                 Package_Name   => Name_Compiler,
-                 Attribute_Name => Name_Local_Config_File,
-                 Language       => Id.Language.Name);
-
-            if Config_File_Path /= No_Path_Information
-              and then not Cmd_Line_Adc_Files.Contains
-                             (Name_Id (Config_File_Path.Name))
-            then
-               Last_Config_Path := Last_Config_Path + 1;
-               The_Config_Paths (Last_Config_Path) := Config_File_Path;
-            end if;
+            Add_Config_File
+              (Main_Project, Name_Builder, Name_Global_Config_File);
+            Add_Config_File
+              (Source_Project, Name_Compiler, Name_Local_Config_File);
          end if;
 
          for CF in Cmd_Line_Adc_Files.Iterate loop
