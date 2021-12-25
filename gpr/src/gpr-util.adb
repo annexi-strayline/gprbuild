@@ -5150,6 +5150,7 @@ package body GPR.Util is
                            end loop;
 
                            if Closure
+                             and then Dep_Src /= Source
                              and then Process_ALI_Deps (Closure => True)
                            then
                               return True;
