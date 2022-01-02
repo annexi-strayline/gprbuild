@@ -1305,9 +1305,10 @@ package GPR is
    --  Project.All_Imported_Projects for each project
 
    function Ultimate_Extending_Project_Of
-     (Proj : Project_Id) return Project_Id;
+     (Proj : Project_Id; Before : Project_Id := No_Project) return Project_Id;
    --  Returns the ultimate extending project of project Proj. If project Proj
    --  is not extended, returns Proj.
+   --  If Before is defined, returns last extending project before it.
 
    type Project_List_Element;
    type Project_List is access all Project_List_Element;

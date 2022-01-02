@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2000-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -6089,7 +6089,7 @@ package body GPR.Nmsc is
 
             if not Dir_Exists
               and then not Project.Externally_Built
-              and then not (Project.Qualifier = Abstract_Project)
+              and then Project.Qualifier /= Abstract_Project
             then
                if Opt.Directories_Must_Exist_In_Projects then
 

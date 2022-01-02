@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -785,9 +785,7 @@ package body GPR.Proc is
                      The_Name :=
                        Name_Of (Term_Project, From_Project_Node_Tree);
                      The_Project := Imported_Or_Extended_Project_From
-                                      (Project      => Project,
-                                       With_Name    => The_Name,
-                                       No_Extending => True);
+                                      (Project, With_Name => The_Name);
                   end if;
 
                   if Present (Term_Package) then
@@ -1859,8 +1857,10 @@ package body GPR.Proc is
                                                Node_Tree);
 
                      Renamed_Project : constant Project_Id :=
-                                         Imported_Or_Extended_Project_From
-                                           (Project, Project_Name);
+                                         Ultimate_Extending_Project_Of
+                                           (Imported_Or_Extended_Project_From
+                                              (Project, Project_Name),
+                                            Before => Project);
 
                      Renamed_Package : constant Package_Id :=
                                          Package_From
