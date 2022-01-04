@@ -318,7 +318,8 @@ package body Gprbuild.Compile is
                      --  update the time stamp of the object file if it is in
                      --  a library project.
 
-                  elsif Source.Id.Language.Config.Dependency_Kind /= ALI_File
+                  elsif Source.Id.Language.Config.Dependency_Kind not in
+                        ALI_Dependency
                     or else Source.Id.Project.Library
                   then
                      Source.Id.Object_TS := File_Stamp (Source.Id.Object_Path);
@@ -2012,9 +2013,9 @@ package body Gprbuild.Compile is
               ALI.Scan_ALI
                 (File_Name_Type (Src_Data.Id.Dep_Path),
                  Text,
-                 Ignore_ED     => False,
-                 Err           => True,
-                 Read_Lines    => "DW");
+                 Ignore_ED  => False,
+                 Err        => True,
+                 Read_Lines => "DW");
 
             if The_ALI /= ALI.No_ALI_Id then
                Check_Interface_And_Indirect_Imports
@@ -2105,6 +2106,7 @@ package body Gprbuild.Compile is
 
             Free (Text);
          end if;
+
          return Compilation_OK;
       end Phase_2_ALI;
 
@@ -3632,7 +3634,6 @@ package body Gprbuild.Compile is
                        (Get_Name_String (Source_Identity.Id.Switches_Path),
                         No_Check);
                   end if;
-
                end if;
             end if;
 
