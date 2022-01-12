@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2017-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2017-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -186,7 +186,7 @@ package body GPR.Util.Aux is
 
       Create_Export_File : declare
          File_Name : Path_Name_Type;
-         Success   : Boolean with Unreferenced;
+         Success   : Boolean;
       begin
          --  Create (Export_File, Out_File);
 

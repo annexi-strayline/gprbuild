@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2021, AdaCore                     --
+--                     Copyright (C) 2011-2022, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -2041,14 +2041,12 @@ package body Gprbuild.Post_Compile is
             FD : File_Descriptor;
             Pname : Path_Name_Type;
             Return_Code : Integer;
-            pragma Unreferenced (Return_Code);
 
             File : Text_File;
             Line : String (1 .. 1000);
             Last : Natural;
 
             Disregard : Boolean;
-            pragma Unreferenced (Disregard);
 
          begin
             --  Check that the compiler driver exists

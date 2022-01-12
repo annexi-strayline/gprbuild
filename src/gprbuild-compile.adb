@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2021, AdaCore                     --
+--                     Copyright (C) 2011-2022, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -961,7 +961,7 @@ package body Gprbuild.Compile is
          In_Tree : Project_Tree_Ref;
          Dummy   : in out Boolean)
       is
-         pragma Unreferenced (Dummy, In_Tree);
+         pragma Unreferenced (In_Tree);
 
          Path : constant Path_Name_Type :=
                   Get_Object_Directory

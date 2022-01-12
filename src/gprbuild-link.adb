@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2021, AdaCore                     --
+--                     Copyright (C) 2011-2022, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -3457,7 +3457,6 @@ package body Gprbuild.Link is
 
          declare
             Dummy : Boolean;
-            pragma Unreferenced (Dummy);
 
          begin
             Delete_File (Get_Name_String (Exec_Path_Name), Dummy);

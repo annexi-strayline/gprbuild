@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -1148,9 +1148,6 @@ package body GPR.Util is
       is
          Position : MPT_Sets.Cursor;
          Inserted : Boolean;
-
-         pragma Unreferenced (Position);
-         pragma Unreferenced (Inserted);
 
       begin
          Mains_Projects_Trees.Insert
@@ -3322,7 +3319,7 @@ package body GPR.Util is
                   & Ada.Directories.Simple_Name (To) & ASCII.NUL;
       Result  : Integer;
       Success : Boolean;
-      pragma Unreferenced (Success, Result);
+      pragma Unreferenced (Result);
 
    begin
       Delete_File (From, Success);
@@ -3348,7 +3345,7 @@ package body GPR.Util is
 
       Success : Boolean;
       Result  : Integer;
-      pragma Unreferenced (Success, Result);
+      pragma Unreferenced (Result);
 
    begin
       Version_Path := new String (1 .. Lib_Version'Length + 1);
