@@ -2702,9 +2702,8 @@ attribute value is just ignored by the compilation toolchain, for which every
 artifact of interest is best associated with the leaf non aggregate projects
 and stored in the corresponding ``Object_Dir``.
 
-The only package that is allowed (and optional) is
-``Builder``. Other packages (in particular ``Compiler``, ``Binder`` and ``Linker``)
-are forbidden.
+The package ``Naming`` and packages that control the compilation process
+(``Compiler``, ``Binder``, ``Linker`` and ``Install``) are forbidden.
 
 The following three attributes can be used only in an aggregate project:
 
@@ -2899,9 +2898,8 @@ The following three attributes can be used only in an aggregate project:
 package Builder in aggregate projects
 -------------------------------------
 
-As mentioned above, only the package ``Builder`` can be specified in
-an aggregate project. In this package, only the following attributes
-are valid:
+When used in an aggregate project, only the following attributes of this
+package are valid:
 
 .. index:: Switches attribute
 
@@ -4268,7 +4266,7 @@ Project Level Attributes
   * **Create_Missing_Dirs**: single
 
     Indicates if the missing object, library and executable directories should
-    be created automatically by the project-aware tool.  Taken into account
+    be created automatically by the project-aware tool. Taken into account
     only in the main project. Only authorized case-insensitive values are
     "true" and "false".
 
@@ -4748,6 +4746,7 @@ Package Clean Attributes
 
 * **Switches**: list, configuration concatenable
 
+  Taken into account only in the main project.
   Value is a list of switches to be used by the cleaning application.
 
 * **Source_Artifact_Extensions**: list, indexed, case-insensitive index
@@ -5039,25 +5038,6 @@ Please refer to GNATdoc documentation for the list of supported attributes and
 their meaning.
 
 
-.. _Package_Eliminate_Attributes:
-
-Package Eliminate Attributes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Default_Switches**: list, indexed, case-insensitive index,
-  configuration concatenable
-
-  Index is a language name. Value is a list of switches to be used when invoking
-  `gnatelim` for a source of the language, if there is no applicable
-  attribute Switches.
-
-* **Switches**: list, optional index, indexed, case-insensitive index,
-  others allowed, configuration concatenable
-
-  Index is a source file name. Value is the list of switches to be used when
-  invoking `gnatelim` for the source.
-
-
 .. _Package_Finder_Attributes:
 
 Package Finder Attributes
@@ -5084,6 +5064,7 @@ Package Gnatls Attributes
 
 * **Switches**: list
 
+  Taken into account only in the main project.
   Value is a list of switches to be used when invoking `gnatls`.
 
 
@@ -5418,6 +5399,7 @@ Package Stack Attributes
 
 * **Switches**: list, configuration concatenable
 
+  Taken into account only in the main project.
   Value is the list of switches to be used when invoking `gnatstack`.
 
 
