@@ -247,6 +247,14 @@ package body GPR.Util.Aux is
            (Get_Name_String (File_Name),
             Get_Name_String (Export_File_Name),
             Success);
+
+         if not Success then
+            Fail_Program
+              (null,
+               "couldn't create an export file " &
+               Get_Name_String (Export_File_Name));
+         end if;
+
       end Create_Export_File;
    end Create_Export_Symbols_File;
 
