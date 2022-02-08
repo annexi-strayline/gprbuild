@@ -784,8 +784,11 @@ package body GPR.Proc is
 
                      The_Name :=
                        Name_Of (Term_Project, From_Project_Node_Tree);
+
                      The_Project := Imported_Or_Extended_Project_From
-                                      (Project, With_Name => The_Name);
+                                      (Project,
+                                       With_Name    => The_Name,
+                                       No_Extending => True);
                   end if;
 
                   if Present (Term_Package) then
