@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---          Copyright (C) 2004-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -1090,6 +1090,7 @@ package body Gpr_Build_Util is
                      Source   : GPR.Source_Id   := No_Source;
                      Absolute : array (Boolean) of File_Name_Type :=
                                   (others => No_File);
+                     Cmd_Line : constant Boolean := File.Project = null;
                   begin
                      if Base /= Main then
                         --  Keep 2 absolute path values with and without
@@ -1182,7 +1183,7 @@ package body Gpr_Build_Util is
                            end if;
                         end;
 
-                        if Source = No_Source then
+                        if Cmd_Line and then Source = No_Source then
                            Source := Find_File_Add_Extension
                                        (File.Tree, Get_Name_String (Main_Id));
                         end if;
