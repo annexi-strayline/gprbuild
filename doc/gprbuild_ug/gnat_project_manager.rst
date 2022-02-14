@@ -280,7 +280,7 @@ file names or patterns for the roots of these undesirable directory subtrees.
       for Ignore_Source_Sub_Dirs use (".svn", "@*");
 
 With the declaration of attribute Ignore_Source_Sub_Dirs above, .svn subtrees
-as weel as subtrees rooted at subdirectories with a name starting with '@'
+as well as subtrees rooted at subdirectories with a name starting with '@'
 are not part of the source directories of the project.
 
 When applied to the simple example, and because we generally prefer to have
@@ -499,8 +499,10 @@ semantics of the languages to build and link only the necessary elements.
 .. index:: Main attribute
 
 The list of main files is specified via the **Main** attribute. It contains
-a list of file names (no directories). If a project defines this
-attribute, it is not necessary to identify  main files on the
+a list of file names (no directories). If a file name is specified without
+extension, it is completed using the naming convention defined in the package
+Naming. If a project defines this
+attribute, it is not necessary to identify main files on the
 command line when invoking a builder, and editors like
 *GPS* will be able to create extra menus to spawn or debug the
 corresponding executables.
@@ -1491,7 +1493,7 @@ order of priority):
 
 **Tool mode**:
   In the special case of the ``GPR_TOOL`` variable, if its value has not been
-  specified via the commandline or as an environment variable, the various
+  specified via the command line or as an environment variable, the various
   tools set this variable to a value proper to each tool. gprbuild sets this
   value to ``gprbuild``. See the documentation of other tools to find out which
   value they set this variable to.
