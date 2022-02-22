@@ -2187,7 +2187,7 @@ package body Gprbuild.Compile is
                Display => True);
          end if;
 
-         --  2) the compilation switches specified in package Builder
+         --  2) The compilation switches specified in package Builder
          --  for all compilers, following "-cargs", if any.
 
          for Option of All_Language_Builder_Compiling_Options loop
@@ -2197,7 +2197,7 @@ package body Gprbuild.Compile is
                Display => True);
          end loop;
 
-         --  3) the compilation switches specified in package Builder
+         --  3) The compilation switches specified in package Builder
          --  for the compiler of the language, following
          --  -cargs:<language>.
 
@@ -2210,7 +2210,36 @@ package body Gprbuild.Compile is
             end loop;
          end if;
 
-         --  4) The PIC option if it exists, for shared and "static-pic"
+         --  4) Compiler'Switches(<source file name>), if it is
+         --  defined, otherwise Compiler'Switches (<language name>),
+         --  if defined.
+
+         Add_Compilation_Switches (Id);
+
+         --  5) The switches specified on the gprbuild command line
+         --  for all compilers, following "-cargs", if any.
+
+         for Option of All_Language_Compiling_Options loop
+            Add_Option_Internal_Codepeer
+              (Value   => Option,
+               To      => Compilation_Options,
+               Display => True);
+         end loop;
+
+         --  6) The switches specified on the gprbuild command line
+         --  for the compiler of the language, following
+         --  -cargs:<language>.
+
+         if Comp_Opt /= null then
+            for Opt of Comp_Opt.all loop
+               Add_Option_Internal_Codepeer
+                 (Value   => Opt,
+                  To      => Compilation_Options,
+                  Display => True);
+            end loop;
+         end if;
+
+         --  7) The PIC option if it exists, for shared and "static-pic"
          --     libraries.
 
          if Id.Project.Library
@@ -2224,35 +2253,6 @@ package body Gprbuild.Compile is
                   To      => Compilation_Options,
                   Display => True);
                List := Nam_Nod.Next;
-            end loop;
-         end if;
-
-         --  5) Compiler'Switches(<source file name>), if it is
-         --  defined, otherwise Compiler'Switches (<language name>),
-         --  if defined.
-
-         Add_Compilation_Switches (Id);
-
-         --  6) the switches specified on the gprbuild command line
-         --  for all compilers, following "-cargs", if any.
-
-         for Option of All_Language_Compiling_Options loop
-            Add_Option_Internal_Codepeer
-              (Value   => Option,
-               To      => Compilation_Options,
-               Display => True);
-         end loop;
-
-         --  7) the switches specified on the gprbuild command line
-         --  for the compiler of the language, following
-         --  -cargs:<language>.
-
-         if Comp_Opt /= null then
-            for Opt of Comp_Opt.all loop
-               Add_Option_Internal_Codepeer
-                 (Value   => Opt,
-                  To      => Compilation_Options,
-                  Display => True);
             end loop;
          end if;
       end Set_Options_For_File;

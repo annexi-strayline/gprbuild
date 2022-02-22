@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2021, AdaCore                     --
+--                     Copyright (C) 2006-2022, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -109,11 +109,11 @@ procedure Build_Shared_Lib is
       Arguments := String_Vectors.Empty_Vector;
       --  Argument_Length := Driver'Length;
 
-      --  The minimum arguments
-      Arguments.Append_Vector (Shared_Lib_Minimum_Options);
-
       --  The leading library options, if any
       Arguments.Append_Vector (Leading_Library_Options_Table);
+
+      --  The minimum arguments
+      Arguments.Append_Vector (Shared_Lib_Minimum_Options);
 
       --  -o <library file name>
 
