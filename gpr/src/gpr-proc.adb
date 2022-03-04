@@ -661,6 +661,13 @@ package body GPR.Proc is
                end case;
 
             when N_Literal_String_List =>
+               if Kind = Single then
+                  --  Expected value does not correspond to actual. Error check
+                  --  will be later, in Parse_Attribute_Declaration.
+
+                  return Result;
+               end if;
+
                declare
                   String_Node : Project_Node_Id :=
                                   First_Expression_In_List
