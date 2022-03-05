@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -24,7 +24,6 @@
 
 with Ada.Characters.Handling; use Ada.Characters.Handling;
 with Ada.Exceptions;          use Ada.Exceptions;
-with Ada.Strings.Fixed;       use Ada.Strings;
 
 with GNAT.HTable;               use GNAT.HTable;
 with GNAT.Table;
@@ -1916,15 +1915,15 @@ package body GPR.Part is
          Name_Len := 0;
       end if;
 
-      while Name_Len > 0 loop
-         --  Look for the last dot
+      --  Look for the last dot
 
-         Name_Len := Fixed.Index (Name_Buffer (1 .. Name_Len), ".", Backward);
-         exit when Name_Len = 0;
+      while Name_Len > 0 and then Name_Buffer (Name_Len) /= '.' loop
+         Name_Len := Name_Len - 1;
+      end loop;
 
-         --  If a dot was found, check if parent project is imported or
-         --  extended.
+      --  If a dot was found, check if parent project is imported or extended
 
+      if Name_Len > 0 then
          Name_Len := Name_Len - 1;
 
          declare
@@ -1978,7 +1977,7 @@ package body GPR.Part is
                           Location_Of (Project, In_Tree));
             end if;
          end;
-      end loop;
+      end if;
 
       Expect (Tok_Is, "IS");
       Set_End_Of_Line (Project);
