@@ -1546,7 +1546,6 @@ package body GPR.Proc is
       List        : Project_List;
       Result      : Project_Id;
       Temp_Result : Project_Id;
-
    begin
       --  First check if it is the name of an extended project
 
@@ -1577,10 +1576,8 @@ package body GPR.Proc is
          --  if the project is not imported directly.
 
          declare
-            Proj : Project_Id;
-
+            Proj : Project_Id := Result.Extends;
          begin
-            Proj := Result.Extends;
             while Proj /= No_Project loop
                if Proj.Name = With_Name then
                   if No_Extending then
@@ -1599,7 +1596,65 @@ package body GPR.Proc is
          List := List.Next;
       end loop;
 
-      pragma Assert (Temp_Result /= No_Project, "project not found");
+      if Temp_Result = No_Project then
+         --  Check is it grand parent case
+
+         declare
+            Grand : constant String := Get_Name_String (With_Name);
+            Child : constant String := Get_Name_String (Project.Name);
+
+            function Error_Message return String is
+              ("Name " & Grand & " not found for project " & Child);
+
+            function Recursive_Parent_Search
+              (Proj : Project_Id) return Project_Id;
+
+            -----------------------------
+            -- Recursive_Parent_Search --
+            -----------------------------
+
+            function Recursive_Parent_Search
+              (Proj : Project_Id) return Project_Id
+            is
+               List   : Project_List := Proj.Imported_Projects;
+               Result : Project_Id;
+            begin
+               while List /= null loop
+                  Result := List.Project;
+
+                  if Result.Name = With_Name then
+                     return Result;
+
+                  elsif Util.Starts_With
+                          (Get_Name_String (Result.Name), Grand & '.')
+                  then
+                     Result := Recursive_Parent_Search (Result);
+
+                     if Result /= No_Project then
+                        return Result;
+                     end if;
+                  end if;
+
+                  List := List.Next;
+               end loop;
+
+               return No_Project;
+            end Recursive_Parent_Search;
+
+         begin
+            if not Util.Starts_With (Child, Grand & '.') then
+               pragma Assert (False, Error_Message);
+            end if;
+
+            --  If search of grand parent then look at import of parents
+            --  recursively.
+
+            Temp_Result := Recursive_Parent_Search (Project);
+
+            pragma Assert (Temp_Result /= No_Project, Error_Message);
+         end;
+      end if;
+
       return Temp_Result;
    end Imported_Or_Extended_Project_From;
 
