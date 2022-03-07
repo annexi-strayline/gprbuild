@@ -1638,6 +1638,10 @@ package body GPR.Proc is
                   List := List.Next;
                end loop;
 
+               if Proj.Extends /= No_Project then
+                  return Recursive_Parent_Search (Proj.Extends);
+               end if;
+
                return No_Project;
             end Recursive_Parent_Search;
 
@@ -1646,8 +1650,8 @@ package body GPR.Proc is
                pragma Assert (False, Error_Message);
             end if;
 
-            --  If search of grand parent then look at import of parents
-            --  recursively.
+            --  If search of grand parent then look at import or extended of
+            --  parents recursively.
 
             Temp_Result := Recursive_Parent_Search (Project);
 
