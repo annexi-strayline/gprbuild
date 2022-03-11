@@ -773,24 +773,14 @@ package body GPR.Nmsc is
                      if not Source.Duplicate_Unit then
                         Error_Msg_Name_1 := Unit;
                         Error_Msg
-                          (Data.Flags,
-                           "\duplicate unit %%",
-                           Location,
+                          (Data.Flags, "\duplicate unit %%", Location,
                            Project);
 
                         if Verbose_Mode then
                            Error_Msg_Name_1 := Name_Id (Source.Path.Name);
-                           Error_Msg
-                             (Data.Flags,
-                              "\   %%",
-                              Location,
-                              Project);
+                           Error_Msg (Data.Flags, "\   %%", Location, Project);
                            Error_Msg_Name_1 := Name_Id (Path.Name);
-                           Error_Msg
-                             (Data.Flags,
-                              "\   %%",
-                              Location,
-                              Project);
+                           Error_Msg (Data.Flags, "\   %%", Location, Project);
                         end if;
 
                         Source.Duplicate_Unit := True;
@@ -1683,15 +1673,15 @@ package body GPR.Nmsc is
                            if Name_Len /= 1 then
                               Error_Msg
                                 (Data.Flags,
-                                 "multi-unit object separator must have " &
-                                   "a single character",
+                                 "multi-unit object separator must have a"
+                                 & " single character",
                                  Element.Value.Location, Project);
 
                            elsif Name_Buffer (1) = ' ' then
                               Error_Msg
                                 (Data.Flags,
-                                 "multi-unit object separator cannot be " &
-                                   "a space",
+                                 "multi-unit object separator cannot be a"
+                                 & " space",
                                  Element.Value.Location, Project);
 
                            else
@@ -2477,8 +2467,8 @@ package body GPR.Nmsc is
                     File_Name_Type (Attribute.Value.Value);
                   Error_Msg
                     (Data.Flags,
-                     "?Library_'G'C'C is an obsolescent attribute, " &
-                     "use Linker''Driver instead",
+                     "?Library_'G'C'C is an obsolescent attribute, use"
+                     & " Linker''Driver instead",
                      Attribute.Value.Location, Project);
 
                elsif Attribute.Name = Name_Archive_Suffix then
@@ -2578,9 +2568,9 @@ package body GPR.Nmsc is
                      when Constraint_Error =>
                         Error_Msg
                           (Data.Flags,
-                           "invalid value """ &
-                           Get_Name_String (Attribute.Value.Value) &
-                           """ for Separate_Run_Path_Options",
+                           "invalid value """
+                           & Get_Name_String (Attribute.Value.Value)
+                           & """ for Separate_Run_Path_Options",
                            Attribute.Value.Location, Project);
                   end;
 
@@ -2595,9 +2585,9 @@ package body GPR.Nmsc is
                      when Constraint_Error =>
                         Error_Msg
                           (Data.Flags,
-                           "invalid value """ &
-                           Get_Name_String (Attribute.Value.Value) &
-                           """ for Library_Support",
+                           "invalid value """
+                           & Get_Name_String (Attribute.Value.Value)
+                           & """ for Library_Support",
                            Attribute.Value.Location, Project);
                   end;
 
@@ -2614,8 +2604,8 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                             & Get_Name_String (Attribute.Value.Value)
-                             & """ for Library_Encapsulated_Supported",
+                           & Get_Name_String (Attribute.Value.Value)
+                           & """ for Library_Encapsulated_Supported",
                            Attribute.Value.Location, Project);
                   end;
 
@@ -2639,8 +2629,8 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                             & Get_Name_String (Attribute.Value.Value)
-                             & """ for Symbolic_Link_Supported",
+                           & Get_Name_String (Attribute.Value.Value)
+                           & """ for Symbolic_Link_Supported",
                            Attribute.Value.Location, Project);
                   end;
 
@@ -2657,9 +2647,9 @@ package body GPR.Nmsc is
                      when Constraint_Error =>
                         Error_Msg
                           (Data.Flags,
-                           "invalid value """ &
-                           Get_Name_String (Attribute.Value.Value) &
-                           """ for Library_Major_Minor_Id_Supported",
+                           "invalid value """
+                           & Get_Name_String (Attribute.Value.Value)
+                           & """ for Library_Major_Minor_Id_Supported",
                            Attribute.Value.Location, Project);
                   end;
 
@@ -2674,8 +2664,8 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                             & Get_Name_String (Attribute.Value.Value)
-                             & """ for Library_Auto_Init_Supported",
+                           & Get_Name_String (Attribute.Value.Value)
+                           & """ for Library_Auto_Init_Supported",
                            Attribute.Value.Location, Project);
                   end;
 
@@ -3282,24 +3272,24 @@ package body GPR.Nmsc is
                   then
                      Error_Msg
                        (Data.Flags,
-                        "Dot_Replacement not specified for " &
-                          Get_Name_String (Lang_Index.Name),
+                        "Dot_Replacement not specified for "
+                        & Get_Name_String (Lang_Index.Name),
                         No_Location, Project);
                   end if;
 
                   if Lang_Index.Config.Naming_Data.Spec_Suffix = No_File then
                      Error_Msg
                        (Data.Flags,
-                        "\Spec_Suffix not specified for " &
-                          Get_Name_String (Lang_Index.Name),
+                        "\Spec_Suffix not specified for "
+                        & Get_Name_String (Lang_Index.Name),
                         No_Location, Project);
                   end if;
 
                   if Lang_Index.Config.Naming_Data.Body_Suffix = No_File then
                      Error_Msg
                        (Data.Flags,
-                        "\Body_Suffix not specified for " &
-                          Get_Name_String (Lang_Index.Name),
+                        "\Body_Suffix not specified for "
+                        & Get_Name_String (Lang_Index.Name),
                         No_Location, Project);
                   end if;
 
@@ -3352,9 +3342,10 @@ package body GPR.Nmsc is
                Project.Externally_Built := True;
 
             elsif Lower_Value /= "false" then
-               Error_Msg (Data.Flags,
-                          "Externally_Built may only be true or false",
-                          Externally_Built.Location, Project);
+               Error_Msg
+                 (Data.Flags,
+                  "Externally_Built may only be true or false",
+                  Externally_Built.Location, Project);
             end if;
          end;
       end if;
@@ -3824,9 +3815,9 @@ package body GPR.Nmsc is
                      if Project.Library_Kind /= Static then
                         Error_Msg
                           (Data.Flags,
-                           Continuation.all &
-                           "shared library project %% cannot extend " &
-                           "project %% that is not a library project",
+                           Continuation.all
+                           & "shared library project %% cannot extend project"
+                           & " %% that is not a library project",
                            Project.Location, Project);
                         Continuation := Continuation_String'Access;
                      end if;
@@ -3836,9 +3827,9 @@ package body GPR.Nmsc is
                   then
                      Error_Msg
                        (Data.Flags,
-                        Continuation.all &
-                        "shared library project %% cannot import project %% " &
-                        "that is not a shared library project",
+                        Continuation.all
+                        & "shared library project %% cannot import project %%"
+                        & " that is not a shared library project",
                         Project.Location, Project);
                      Continuation := Continuation_String'Access;
                   end if;
@@ -3859,9 +3850,9 @@ package body GPR.Nmsc is
 
                Error_Msg
                  (Data.Flags,
-                  Continuation.all &
-                    "encapsulated library project %% cannot import shared " &
-                    "library project %%",
+                  Continuation.all
+                  & "encapsulated library project %% cannot import shared "
+                  & "library project %%",
                   Project.Location, Project);
                Continuation := Continuation_String'Access;
 
@@ -3879,18 +3870,18 @@ package body GPR.Nmsc is
                if Extends then
                   Error_Msg
                     (Data.Flags,
-                     Continuation.all &
-                     "shared library project %% cannot extend static " &
-                     "library project %%",
+                     Continuation.all
+                     & "shared library project %% cannot extend static"
+                     & " library project %%",
                      Project.Location, Project);
                   Continuation := Continuation_String'Access;
 
                elsif not Unchecked_Shared_Lib_Imports then
                   Error_Msg
                     (Data.Flags,
-                     Continuation.all &
-                     "shared library project %% cannot import static " &
-                     "library project %%",
+                     Continuation.all
+                     & "shared library project %% cannot import static"
+                     & " library project %%",
                      Project.Location, Project);
                   Continuation := Continuation_String'Access;
                end if;
@@ -3930,8 +3921,8 @@ package body GPR.Nmsc is
                   if not Project.Virtual then
                      Error_Msg
                        (Data.Flags,
-                        "a project extending a library project must " &
-                        "specify an attribute Library_Dir",
+                        "a project extending a library project must specify an"
+                        & " attribute Library_Dir",
                         Project.Location, Project);
 
                   else
@@ -4028,8 +4019,8 @@ package body GPR.Nmsc is
                if Project.Library_Dir.Name = Project.Object_Directory.Name then
                   Error_Msg
                     (Data.Flags,
-                     "library directory cannot be the same " &
-                     "as object directory",
+                     "library directory cannot be the same as object"
+                     & " directory",
                      Lib_Dir.Location, Project);
                   Project.Library_Dir := No_Path_Information;
 
@@ -4056,8 +4047,8 @@ package body GPR.Nmsc is
                              File_Name_Type (Dir_Elem.Value);
                            Error_Msg
                              (Data.Flags,
-                              "library directory cannot be the same "
-                              & "as source directory {",
+                              "library directory cannot be the same as source"
+                              & " directory {",
                               Lib_Dir.Location, Project);
                            OK := False;
                            exit;
@@ -4091,8 +4082,9 @@ package body GPR.Nmsc is
 
                                     Error_Msg
                                       (Data.Flags,
-                                       "library directory cannot be the same "
-                                       & "as source directory { of project %%",
+                                       "library directory cannot be the same"
+                                       & " as source directory { of project"
+                                       & " %%",
                                        Lib_Dir.Location, Project);
                                     OK := False;
                                     exit Project_Loop;
@@ -4228,8 +4220,8 @@ package body GPR.Nmsc is
                   if Project.Library_ALI_Dir = Project.Object_Directory then
                      Error_Msg
                        (Data.Flags,
-                        "library 'A'L'I directory cannot be the same " &
-                        "as object directory",
+                        "library 'A'L'I directory cannot be the same as object"
+                        & " directory",
                         Lib_ALI_Dir.Location, Project);
                      Project.Library_ALI_Dir := No_Path_Information;
 
@@ -4256,8 +4248,8 @@ package body GPR.Nmsc is
                                 File_Name_Type (Dir_Elem.Value);
                               Error_Msg
                                 (Data.Flags,
-                                 "library 'A'L'I directory cannot be " &
-                                 "the same as source directory {",
+                                 "library 'A'L'I directory cannot be the same"
+                                 & " as source directory {",
                                  Lib_ALI_Dir.Location, Project);
                               OK := False;
                               exit;
@@ -4292,9 +4284,9 @@ package body GPR.Nmsc is
 
                                        Error_Msg
                                          (Data.Flags,
-                                          "library 'A'L'I directory cannot " &
-                                          "be the same as source directory " &
-                                          "{ of project %%",
+                                          "library 'A'L'I directory cannot be"
+                                          & " the same as source directory {"
+                                          & " of project %%",
                                           Lib_ALI_Dir.Location, Project);
                                        OK := False;
                                        exit ALI_Project_Loop;
@@ -4385,8 +4377,8 @@ package body GPR.Nmsc is
                      then
                         Error_Msg
                           (Data.Flags,
-                           "only static libraries are supported " &
-                           "on this platform",
+                           "only static libraries are supported on this"
+                           & " platform",
                            The_Lib_Kind.Location, Project);
                         Project.Library := False;
 
@@ -4397,8 +4389,8 @@ package body GPR.Nmsc is
                         if Lib_GCC.Value /= Empty_String then
                            Error_Msg
                              (Data.Flags,
-                              "?Library_'G'C'C is an obsolescent attribute, " &
-                              "use Linker''Driver instead",
+                              "?Library_'G'C'C is an obsolescent attribute, "
+                              & "use Linker''Driver instead",
                               Lib_GCC.Location, Project);
                            Project.Config.Shared_Lib_Driver :=
                              File_Name_Type (Lib_GCC.Value);
@@ -4485,8 +4477,8 @@ package body GPR.Nmsc is
                if Switches /= No_Array_Element then
                   Error_Msg
                     (Data.Flags,
-                     "?\Linker switches not taken into account in library " &
-                     "projects",
+                     "?\Linker switches not taken into account in library "
+                     & "projects",
                      No_Location, Project);
                end if;
             end if;
@@ -4537,9 +4529,9 @@ package body GPR.Nmsc is
 
          Error_Msg
            (Data.Flags,
-            Continuation.all &
-              "encapsulated library project %%" &
-              " must be a shared library project",
+            Continuation.all
+            & "encapsulated library project %% must be a shared library"
+            & " project",
             Project.Location, Project);
          Continuation := Continuation_String'Access;
       end if;
@@ -4683,8 +4675,7 @@ package body GPR.Nmsc is
                if Not_OK then
                   Error_Msg
                     (Data.Flags,
-                     '"' & Repl &
-                     """ is illegal for Dot_Replacement",
+                     '"' & Repl & """ is illegal for Dot_Replacement",
                      Dot_Repl_Loc, Project);
                end if;
             end;
@@ -5063,17 +5054,15 @@ package body GPR.Nmsc is
                   if Associated_Lang /= Suffix_Lang_Maps.No_Element then
                      Error_Msg
                        (Data.Flags,
-                        "Spec_Suffix ("""
-                        & Get_Name_String (Suffix.Value)
-                        & """) for language "
-                        & Get_Name_String (Lang_Id.Name)
+                        "Spec_Suffix (""" & Get_Name_String (Suffix.Value)
+                        & """) for language " & Get_Name_String (Lang_Id.Name)
                         & " is also defined for language "
                         & Get_Name_String (Suffix_Lang_Map (Suffix.Value))
-                        & ".",
+                        & '.',
                         Suffix.Location, Project);
                   else
-                     Suffix_Lang_Map.Include (Key      => Suffix.Value,
-                                              New_Item => Lang_Id.Name);
+                     Suffix_Lang_Map.Include
+                       (Key => Suffix.Value, New_Item => Lang_Id.Name);
                   end if;
                end;
 
@@ -5124,13 +5113,11 @@ package body GPR.Nmsc is
                   if Associated_Lang /= Suffix_Lang_Maps.No_Element then
                      Error_Msg
                        (Data.Flags,
-                        "Body_Suffix ("""
-                        & Get_Name_String (Suffix.Value)
-                        & """) for language "
-                        & Get_Name_String (Lang_Id.Name)
+                        "Body_Suffix (""" & Get_Name_String (Suffix.Value)
+                        & """) for language " & Get_Name_String (Lang_Id.Name)
                         & " is also defined for language "
                         & Get_Name_String (Suffix_Lang_Map (Suffix.Value))
-                        & ".",
+                        & '.',
                         Suffix.Location, Project);
                   else
                      Suffix_Lang_Map.Include (Key      => Suffix.Value,
@@ -5197,7 +5184,7 @@ package body GPR.Nmsc is
                  (Data.Flags,
                   "Separate_Suffix ("""
                   & Get_Name_String
-                    (Lang_Id.Config.Naming_Data.Separate_Suffix)
+                      (Lang_Id.Config.Naming_Data.Separate_Suffix)
                   & """) cannot be the same as Spec_Suffix.",
                   Sep_Suffix_Loc, Project);
             end if;
@@ -5582,8 +5569,8 @@ package body GPR.Nmsc is
                Project.Standalone_Library := No;
                Error_Msg
                  (Data.Flags,
-                  "wrong value for Library_Standalone "
-                  & "when Library_Interface defined",
+                  "wrong value for Library_Standalone when Library_Interface"
+                  & " defined",
                   Lib_Standalone.Location, Project);
 
             else
@@ -5621,8 +5608,7 @@ package body GPR.Nmsc is
 
                   Error_Msg
                     (Data.Flags,
-                     "library auto init not supported " &
-                     "on this platform",
+                     "library auto init not supported on this platform",
                      Lib_Auto_Init.Location, Project);
                end if;
 
@@ -5678,8 +5664,8 @@ package body GPR.Nmsc is
                elsif Project.Library_Src_Dir = Project.Object_Directory then
                   Error_Msg
                     (Data.Flags,
-                     "directory to copy interfaces cannot be " &
-                     "the object directory",
+                     "directory to copy interfaces cannot be the object"
+                     & " directory",
                      Lib_Src_Dir.Location, Project);
                   Project.Library_Src_Dir := No_Path_Information;
 
@@ -5704,8 +5690,8 @@ package body GPR.Nmsc is
                         then
                            Error_Msg
                              (Data.Flags,
-                              "directory to copy interfaces cannot " &
-                              "be one of the source directories",
+                              "directory to copy interfaces cannot be one of"
+                              & " the source directories",
                               Lib_Src_Dir.Location, Project);
                            Project.Library_Src_Dir := No_Path_Information;
                            exit;
@@ -5739,9 +5725,9 @@ package body GPR.Nmsc is
                                  Error_Msg_Name_1 := Pid.Project.Name;
                                  Error_Msg
                                    (Data.Flags,
-                                    "directory to copy interfaces cannot " &
-                                    "be the same as source directory { of " &
-                                    "project %%",
+                                    "directory to copy interfaces cannot be"
+                                    & " the same as source directory { of"
+                                    & " project %%",
                                     Lib_Src_Dir.Location, Project);
                                  Project.Library_Src_Dir :=
                                    No_Path_Information;
@@ -5780,9 +5766,7 @@ package body GPR.Nmsc is
          else
             declare
                Value : constant String :=
-                         To_Lower
-                           (Get_Name_String (Lib_Symbol_Policy.Value));
-
+                         To_Lower (Get_Name_String (Lib_Symbol_Policy.Value));
             begin
                --  Symbol policy must have one of a limited number of values
 
@@ -5902,7 +5886,6 @@ package body GPR.Nmsc is
 
       for Index in The_Name'Range loop
          if Need_Letter then
-
             --  We need a letter (at the beginning, and following a dot),
             --  but we don't have one.
 
@@ -5942,7 +5925,6 @@ package body GPR.Nmsc is
             exit;
 
          elsif The_Name (Index) = '.' then
-
             --  First, check if the name before the dot is not a reserved word
 
             if Is_Reserved (The_Name (First .. Index - 1)) then
@@ -7264,14 +7246,14 @@ package body GPR.Nmsc is
                   if Locally_Removed then
                      Error_Msg
                        (Data.Flags,
-                        "?both attributes Locally_Removed_Files and " &
-                          "Excluded_Source_List_File are present",
+                        "?both attributes Locally_Removed_Files and "
+                        & "Excluded_Source_List_File are present",
                         Excluded_Source_List_File.Location, Proj);
                   else
                      Error_Msg
                        (Data.Flags,
-                        "?both attributes Excluded_Source_Files and " &
-                          "Excluded_Source_List_File are present",
+                        "?both attributes Excluded_Source_Files and "
+                        & "Excluded_Source_List_File are present",
                         Excluded_Source_List_File.Location, Proj);
                   end if;
                end if;
@@ -7326,8 +7308,7 @@ package body GPR.Nmsc is
 
                      if not GPR.Util.Is_Valid (File) then
                         Error_Msg
-                          (Data.Flags, "file does not exist",
-                           Location, Proj);
+                          (Data.Flags, "file does not exist", Location, Proj);
                      else
                         --  Read the lines one by one
 
@@ -7354,8 +7335,8 @@ package body GPR.Nmsc is
                                     Error_Msg_File_1 := Name;
                                     Error_Msg
                                       (Data.Flags,
-                                       "file name cannot include "
-                                       & "directory information ({)",
+                                       "file name cannot include directory"
+                                       & " information ({)",
                                        Location, Proj);
                                     exit;
                                  end if;
@@ -7419,8 +7400,8 @@ package body GPR.Nmsc is
          if not Source_List_File.Default then
             Error_Msg
               (Data.Flags,
-               "?both attributes source_files and " &
-               "source_list_file are present",
+               "?both attributes Source_Files and Source_List_File are"
+               & " present",
                Source_List_File.Location, Project.Project);
          end if;
 
@@ -7468,8 +7449,7 @@ package body GPR.Nmsc is
                      Error_Msg_File_1 := Name;
                      Error_Msg
                        (Data.Flags,
-                        "file name cannot include directory " &
-                        "information ({)",
+                        "file name cannot include directory information ({)",
                         Location, Project.Project);
                      exit;
                   end if;
@@ -7581,10 +7561,8 @@ package body GPR.Nmsc is
                         if Source.Naming_Exception = Yes then
                            Error_Msg_Name_1 := Name_Id (Source.File);
                            Error_Msg
-                             (Data.Flags,
-                              "? unknown source file %%",
-                              NL.Location,
-                              Project.Project);
+                             (Data.Flags, "? unknown source file %%",
+                              NL.Location, Project.Project);
                         end if;
 
                         Again := True;
@@ -9266,20 +9244,14 @@ package body GPR.Nmsc is
             null;
 
          when Warning | Error =>
-            declare
-               Msg : constant String :=
-                      "<there are no sources of language """
-                      & Language_Name & """ in this project";
+            Error_Msg_Warn := Data.Flags.When_No_Sources = Warning;
 
-            begin
-               Error_Msg_Warn := Data.Flags.When_No_Sources = Warning;
-
-               if Continuation then
-                  Error_Msg (Data.Flags, "\" & Msg, Location, Project);
-               else
-                  Error_Msg (Data.Flags, Msg, Location, Project);
-               end if;
-            end;
+            Error_Msg
+              (Data.Flags,
+               (if Continuation then "\" else "")
+               & "<there are no sources of language """ & Language_Name
+               & """ in this project",
+               Location, Project);
       end case;
    end Report_No_Sources;
 
@@ -9445,8 +9417,7 @@ package body GPR.Nmsc is
                if No_Sources and then Project.Qualifier = Library then
                   Error_Msg
                     (Data.Flags,
-                     "a project with no sources " &
-                       "cannot be a library project",
+                     "a project with no sources cannot be a library project",
                      Project.Location, Project);
 
                else

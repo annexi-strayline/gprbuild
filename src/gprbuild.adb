@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2004-2021, AdaCore                     --
+--                     Copyright (C) 2004-2022, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -371,8 +371,7 @@ package body Gprbuild is
    begin
       if Main_Project.Symbol_Data.Symbol_File /= No_Path then
          Library_Symbol_File :=
-           new String'
-             (Get_Name_String (Main_Project.Symbol_Data.Symbol_File));
+           new String'(Get_Name_String (Main_Project.Symbol_Data.Symbol_File));
       end if;
    end Check_Library_Symbol_File;
 
