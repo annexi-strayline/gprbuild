@@ -5819,6 +5819,21 @@ package body GPR.Nmsc is
                      "<library symbol file { does not exist",
                      Lib_Symbol_File.Location, Project);
 
+               elsif Project.Symbol_Data.Symbol_Policy = Unrestricted then
+                  --  Is_Regular_File
+                  --    (Get_Name_String (Project.Symbol_Data.Symbol_File))
+                  --  implicit, see "if" condition.
+
+                  Error_Msg
+                    (Data.Flags,
+                     "?Library_Symbol_File attribute is ignored",
+                     Lib_Symbol_File.Location, Project);
+
+                  Error_Msg
+                    (Data.Flags,
+                     "?\because Library_Symbol_Policy attribute has "
+                     & """unrestricted"" value",
+                     Lib_Symbol_Policy.Location, Project);
                end if;
             end if;
          end if;
