@@ -4225,7 +4225,7 @@ Project Level Attributes
 
     The path name of the project directory.
 
-  * **Main**: list, optional index
+  * **Main**: list
 
     The list of main sources for the executables.
 
