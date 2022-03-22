@@ -8439,7 +8439,9 @@ package body GPR.Nmsc is
                   when Search_Project_Files =>
                      Error_Or_Warning
                        (Data.Flags, Data.Flags.Missing_Project_Files,
-                        "file """ & Get_Name_String (Pattern_Id)
+                        "file """
+                        & Mask_Control_Characters
+                            (Get_Name_String (Pattern_Id))
                         & """ not found",
                         Location, Project);
                end case;
