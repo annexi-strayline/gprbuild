@@ -3611,7 +3611,7 @@ package body GPR.Util is
      (List      : String_Vectors.Vector;
       Separator : String) return String
    is
-      Length : Natural := Natural (List.Length) * Separator'Length;
+      Length : Natural := Natural (List.Length - 1) * Separator'Length;
    begin
       for Path of List loop
          Length := Length + Path'Length;
@@ -3625,7 +3625,7 @@ package body GPR.Util is
             Ret (Idx .. Idx + Path'Length - 1) := Path;
             Idx := Idx + Path'Length;
 
-            if Idx in Ret'Range then
+            if Idx < Ret'Last then
                Ret (Idx .. Idx + Separator'Length - 1) := Separator;
                Idx := Idx + Separator'Length;
             end if;
