@@ -51,6 +51,9 @@ package GPR is
    --  life easier dealing with files that originated from DOS, including
    --  concatenated files with interspersed EOF characters.
 
+   Shared_Libgcc : constant String := "-shared-libgcc";
+   Static_Libgcc : constant String := "-static-libgcc";
+
    -----------
    -- Types --
    -----------

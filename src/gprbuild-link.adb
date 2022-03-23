@@ -2701,9 +2701,6 @@ package body Gprbuild.Link is
                Prefix_Path : String_Access;
                Lib_Path    : String_Access;
 
-               Shared_Libgcc : constant String := "-shared-libgcc";
-               Static_Libgcc : constant String := "-static-libgcc";
-
                Libgcc_Specified : Boolean := False;
                --  True if -shared-libgcc or -static-libgcc is used
 
@@ -2876,11 +2873,7 @@ package body Gprbuild.Link is
                            end if;
                            Add_To_Other_Arguments (Line);
 
-                        elsif Line = Static_Libgcc then
-                           Add_To_Other_Arguments (Line);
-                           Libgcc_Specified := True;
-
-                        elsif Line = Shared_Libgcc then
+                        elsif Line in Static_Libgcc | Shared_Libgcc then
                            Add_To_Other_Arguments (Line);
                            Libgcc_Specified := True;
 
@@ -2889,8 +2882,8 @@ package body Gprbuild.Link is
                            Add_To_Other_Arguments (Line);
 
                            if Shared_Libgcc_Default = 'T'
-                             and then Get_Name_String
-                               (GNAT_Version_Part) /= "3."
+                             and then Get_Name_String (GNAT_Version_Part)
+                                      /= "3."
                              and then not Libgcc_Specified
                            then
                               Add_To_Other_Arguments (Static_Libgcc);
@@ -3203,7 +3196,7 @@ package body Gprbuild.Link is
             for Arg in reverse
               Other_Arguments.First_Index .. Other_Arguments.Last_Index
             loop
-               if Other_Arguments (Arg).Name = "-shared-libgcc" then
+               if Other_Arguments (Arg).Name = Shared_Libgcc then
                   if Dash_Shared_Libgcc or Dash_Static_Libgcc then
                      Other_Arguments.Delete (Arg);
 
@@ -3211,7 +3204,7 @@ package body Gprbuild.Link is
                      Dash_Shared_Libgcc := True;
                   end if;
 
-               elsif Other_Arguments (Arg).Name = "-static-libgcc" then
+               elsif Other_Arguments (Arg).Name = Static_Libgcc then
                   if Dash_Shared_Libgcc or Dash_Static_Libgcc then
                      Other_Arguments.Delete (Arg);
                   else

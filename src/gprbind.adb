@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2021, AdaCore                     --
+--                     Copyright (C) 2006-2022, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -30,8 +30,7 @@ with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
 with Gprexch;        use Gprexch;
-with GPR.Script;     use GPR.Script;
-with GPR;            use GPR;
+with GPR.Script;     use GPR, GPR.Script;
 with GPR.ALI;        use GPR.ALI;
 with GPR.Names;      use GPR.Names;
 with GPR.Osint;      use GPR.Osint;
@@ -89,9 +88,6 @@ procedure Gprbind is
 
    GCC_Version : Natural := 0;
    Gcc_Version_String : constant String := "gcc version ";
-
-   Shared_Libgcc : constant String := "-shared-libgcc";
-   Static_Libgcc : constant String := "-static-libgcc";
 
    Libgcc_Specified : Boolean := False;
    --  True if -shared-libgcc or -static-libgcc is used
@@ -1287,11 +1283,7 @@ begin
                   end if;
                   Put_Line (IO_File, Line (1 .. Last));
 
-               elsif Line (1 .. Last) = Static_Libgcc then
-                  Put_Line (IO_File, Line (1 .. Last));
-                  Libgcc_Specified := True;
-
-               elsif Line (1 .. Last) = Shared_Libgcc then
+               elsif Line (1 .. Last) in Static_Libgcc | Shared_Libgcc then
                   Put_Line (IO_File, Line (1 .. Last));
                   Libgcc_Specified := True;
 
