@@ -68,7 +68,6 @@ procedure Gprbind is
 
    No_Main_Option : constant String := "-n";
    Dash_o         : constant String := "-o";
-   Dash_shared    : constant String := "-shared";
    Dash_x         : constant String := "-x";
    Dash_Fequal    : constant String := "-F=";
    Dash_OO        : constant String := "-O";
@@ -577,7 +576,7 @@ begin
    end if;
 
    if not Static_Libs then
-      Gnatbind_Options.Append (Dash_shared);
+      Gnatbind_Options.Append (Dash_Shared);
    end if;
 
    --  Specify the name of the generated file to gnatbind
@@ -1282,7 +1281,7 @@ begin
                   Put_Line (IO_File, Line (1 .. Last));
                   Libgcc_Specified := True;
 
-               elsif Line (1 .. Last) = "-static" then
+               elsif Line (1 .. Last) = Dash_Static then
                   Static_Libs := True;
                   Put_Line (IO_File, Line (1 .. Last));
 
@@ -1293,7 +1292,7 @@ begin
                      Put_Line (IO_File, Static_Libgcc);
                   end if;
 
-               elsif Line (1 .. Last) = "-shared" then
+               elsif Line (1 .. Last) = Dash_Shared then
                   Static_Libs := False;
                   Put_Line (IO_File, Line (1 .. Last));
 

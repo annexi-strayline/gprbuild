@@ -1824,8 +1824,8 @@ package body Gprbuild.Link is
                                  end if;
 
                               when Resulting_Options =>
-                                 if Line (1 .. Last) /= "-static"
-                                   and then Line (1 .. Last) /= "-shared"
+                                 if Line (1 .. Last) not in Dash_Static
+                                                          | Dash_Shared
                                  then
                                     Binding_Options.Append (Line (1 .. Last));
                                  end if;
@@ -2871,7 +2871,7 @@ package body Gprbuild.Link is
                            Add_To_Other_Arguments (Line);
                            Libgcc_Specified := True;
 
-                        elsif Line = "-static" then
+                        elsif Line = Dash_Static then
                            Static_Libs := True;
                            Add_To_Other_Arguments (Line);
 
@@ -2883,7 +2883,7 @@ package body Gprbuild.Link is
                               Add_To_Other_Arguments (Static_Libgcc);
                            end if;
 
-                        elsif Line = "-shared" then
+                        elsif Line = Dash_Shared then
                            Static_Libs := False;
                            Add_To_Other_Arguments (Line);
 

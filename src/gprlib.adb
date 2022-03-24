@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2021, AdaCore                     --
+--                     Copyright (C) 2006-2022, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -1621,9 +1621,7 @@ procedure Gprlib is
                if Start_Retrieving then
                   --  Don't store -static and -shared flags, they may cause
                   --  issues when linking with the library.
-                  if Line (9 .. Last) /= "-static" and then
-                    Line (9 .. Last) /= "-shared"
-                  then
+                  if Line (9 .. Last) not in Dash_Static | Dash_Shared then
                      Put_Line (IO_File, Line (9 .. Last));
                   end if;
                end if;

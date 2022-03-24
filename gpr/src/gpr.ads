@@ -53,6 +53,8 @@ package GPR is
 
    Shared_Libgcc : constant String := "-shared-libgcc";
    Static_Libgcc : constant String := "-static-libgcc";
+   Dash_Shared   : constant String := "-shared";
+   Dash_Static   : constant String := "-static";
 
    -----------
    -- Types --
