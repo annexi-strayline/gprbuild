@@ -39,11 +39,6 @@ with GPR.Util;       use GPR.Util;
 
 procedure Gprbind is
 
-   Shared_Libgcc_Default : Character;
-   for Shared_Libgcc_Default'Size use Character'Size;
-   pragma Import
-     (C, Shared_Libgcc_Default, "__gnat_shared_libgcc_default");
-
    Executable_Suffix : constant String_Access := Get_Executable_Suffix;
    --  The suffix of executables on this platforms
 

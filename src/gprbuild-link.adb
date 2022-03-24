@@ -2706,11 +2706,6 @@ package body Gprbuild.Link is
 
                Static_Libs : Boolean := True;
 
-               Shared_Libgcc_Default : Character;
-               for Shared_Libgcc_Default'Size use Character'Size;
-               pragma Import
-                 (C, Shared_Libgcc_Default, "__gnat_shared_libgcc_default");
-
                Ada_Lang_Data_Ptr : Language_Ptr := No_Language_Index;
                GNAT_Version_Part : Name_Id := No_Name;
 
@@ -2726,7 +2721,6 @@ package body Gprbuild.Link is
                end Add_To_Other_Arguments;
 
             begin
-
                while Project /= null loop
                   Ada_Lang_Data_Ptr :=
                     Get_Language_From_Name (Project.Project, "Ada");

@@ -2829,6 +2829,10 @@ package GPR is
       Hash       => Hash,
       Equal      => "=");
 
+   Shared_Libgcc_Default : Character
+     with Import, Convention => C, Size => Character'Size,
+          External_Name => "__gnat_shared_libgcc_default";
+
 private
 
    function To_Hash (Item : Name_Id) return Ada.Containers.Hash_Type
