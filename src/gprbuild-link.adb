@@ -2707,7 +2707,7 @@ package body Gprbuild.Link is
                Static_Libs : Boolean := True;
 
                Ada_Lang_Data_Ptr : Language_Ptr := No_Language_Index;
-               GNAT_Version_Part : Name_Id := No_Name;
+               GNAT_Version_Part : String := (1 .. 2 => ' ');
 
                Tree : constant Project_Tree_Ref := Main_File.Tree;
                Project : Project_List := Tree.Projects;
@@ -2734,8 +2734,7 @@ package body Gprbuild.Link is
                        (Ada_Lang_Data_Ptr.Config.Toolchain_Version);
                   begin
                      if GNAT_Version'Length >= 7 then
-                        GNAT_Version_Part :=
-                          Get_Name_Id (GNAT_Version (6 .. 7));
+                        GNAT_Version_Part := GNAT_Version (6 .. 7);
                      end if;
                   end;
                end if;
@@ -2876,8 +2875,7 @@ package body Gprbuild.Link is
                            Add_To_Other_Arguments (Line);
 
                            if Shared_Libgcc_Default = 'T'
-                             and then Get_Name_String (GNAT_Version_Part)
-                                      /= "3."
+                             and then GNAT_Version_Part /= "3."
                              and then not Libgcc_Specified
                            then
                               Add_To_Other_Arguments (Static_Libgcc);
@@ -2887,7 +2885,7 @@ package body Gprbuild.Link is
                            Static_Libs := False;
                            Add_To_Other_Arguments (Line);
 
-                           if Get_Name_String (GNAT_Version_Part) /= "3."
+                           if GNAT_Version_Part /= "3."
                              and then not Libgcc_Specified
                            then
                               Add_To_Other_Arguments (Shared_Libgcc);

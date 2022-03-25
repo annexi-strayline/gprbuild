@@ -129,6 +129,8 @@ procedure Gprbind is
    GNAT_Version : String_Access := new String'("000");
    --  The version of GNAT, coming from the Toolchain_Version for Ada
 
+   GNAT_Version_First_2 : String (1 .. 2);
+
    GNAT_Version_Set : Boolean := False;
    --  True when the toolchain version is in the input exchange file
 
@@ -454,8 +456,10 @@ begin
                      Get_Line (IO_File, Line, Last);
 
                      if Last > 5 and then Line (1 .. 5) = GNAT_And_Space then
-                        GNAT_Version := new String'(Line (6 .. Last));
-                        GNAT_Version_Set := True;
+                        GNAT_Version         := new String'(Line (6 .. Last));
+                        GNAT_Version_Set     := True;
+                        GNAT_Version_First_2 :=
+                          (if Last = 6 then Line (6) & ' ' else Line (6 .. 7));
                      end if;
 
                   else
@@ -525,8 +529,7 @@ begin
             then
                declare
                   Value : constant String := Binding_Options_Table.Element (J);
-                  File  : constant String :=
-                            Value (4 .. Value'Last);
+                  File  : constant String := Value (4 .. Value'Last);
                begin
                   if not Is_Absolute_Path (File) then
                      declare
@@ -547,22 +550,13 @@ begin
 
    --  Check if GNAT version is 6.4 or higher
 
-   if  GNAT_Version_Set
-      and then
-       GNAT_Version'Length >= 2
-      and then
-       GNAT_Version.all /= "000"
-      and then
-       GNAT_Version (GNAT_Version'First .. GNAT_Version'First + 1) /= "3."
-      and then
-       GNAT_Version (GNAT_Version'First .. GNAT_Version'First + 1) /= "5."
+   if GNAT_Version_Set
+     and then GNAT_Version.all /= "000"
+     and then GNAT_Version_First_2 not in "3." | "5."
    then
       GNAT_6_Or_Higher := True;
 
-      if  GNAT_Version (GNAT_Version'First .. GNAT_Version'First + 1) /= "6."
-         or else
-          GNAT_Version.all >= "6.4"
-      then
+      if GNAT_Version_First_2 /= "6." or else GNAT_Version.all >= "6.4" then
          GNAT_6_4_Or_Higher := True;
       end if;
    end if;
@@ -600,9 +594,7 @@ begin
 
    if There_Are_Stand_Alone_Libraries
      and then GNAT_Version_Set
-     and then GNAT_Version'Length >= 2
-     and then GNAT_Version (GNAT_Version'First .. GNAT_Version'First + 1) /=
-                "3."
+     and then GNAT_Version_First_2 /= "3."
    then
       Gnatbind_Options.Append ("-F");
    end if;
@@ -691,9 +683,7 @@ begin
 
    if Mapping_File /= null
      and then GNAT_Version_Set
-     and then GNAT_Version'Length >= 2
-     and then GNAT_Version (GNAT_Version'First .. GNAT_Version'First + 1) /=
-                "3."
+     and then GNAT_Version_First_2 /= "3."
    then
       Gnatbind_Options.Append (Dash_Fequal & Mapping_File.all);
    end if;
@@ -755,13 +745,10 @@ begin
       --  Invoke gnatbind with the arguments if the size is not too large or
       --  if the version of GNAT is not recent enough.
 
-      Script_Write
-        (Gnatbind_Path.all,
-         Gnatbind_Options);
+      Script_Write (Gnatbind_Path.all, Gnatbind_Options);
 
       if not GNAT_6_Or_Higher or else Size <= Maximum_Size then
-         Args_List :=
-           new String_List'(To_Argument_List (Gnatbind_Options));
+         Args_List := new String_List'(To_Argument_List (Gnatbind_Options));
 
          if not GNAT_6_4_Or_Higher then
             Spawn
@@ -773,10 +760,7 @@ begin
             Success := Return_Code = 0;
 
          else
-            Return_Code :=
-              Spawn
-                (Gnatbind_Path.all,
-                 Args_List.all);
+            Return_Code := Spawn (Gnatbind_Path.all, Args_List.all);
          end if;
 
          Free (Args_List);
@@ -1127,9 +1111,7 @@ begin
             Get_Option :=
               All_Binding_Options
               or else
-              (Base_Name (Line (1 .. Last)) = "g-trasym.o")
-              or else
-              (Base_Name (Line (1 .. Last)) = "g-trasym.obj");
+              Base_Name (Line (1 .. Last)) in "g-trasym.o" | "g-trasym.obj";
             --  g-trasym is a special case as it is not included in libgnat
 
             --  Avoid duplication of object file
