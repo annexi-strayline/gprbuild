@@ -28,8 +28,7 @@ with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
 with Gprexch;        use Gprexch;
-with GPR;            use GPR;
-with GPR.ALI;
+with GPR.ALI;        use GPR;
 with GPR.Names;      use GPR.Names;
 with GPR.Opt;        use GPR.Opt;
 with GPR.Osint;      use GPR.Osint;
@@ -76,12 +75,6 @@ procedure Gprlib is
 
    S_Osinte_Ads                  : File_Name_Type := No_File;
    --  Name_Id for "s-osinte.ads"
-
-   S_Dec_Ads                     : File_Name_Type := No_File;
-   --  Name_Id for "dec.ads"
-
-   G_Trasym_Ads                  : File_Name_Type := No_File;
-   --  Name_Id for "g-trasym.ads"
 
    Libgnat                       : String_Access := new String'("-lgnat");
    --  Switch to link with libgnat
@@ -731,16 +724,6 @@ procedure Gprlib is
       if S_Osinte_Ads = No_File then
          Set_Name_Buffer ("s-osinte.ads");
          S_Osinte_Ads := Name_Find;
-      end if;
-
-      if S_Dec_Ads = No_File then
-         Set_Name_Buffer ("dec.ads");
-         S_Dec_Ads := Name_Find;
-      end if;
-
-      if G_Trasym_Ads = No_File then
-         Set_Name_Buffer ("g-trasym.ads");
-         G_Trasym_Ads := Name_Find;
       end if;
 
       for Dir of Imported_Library_Directories loop
