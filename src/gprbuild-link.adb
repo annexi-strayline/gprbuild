@@ -1250,6 +1250,9 @@ package body Gprbuild.Link is
       --  Remove duplicated -T[ ]<linker script> options from Arguments,
       --  keep left-most.
 
+      procedure Add_To_Other_Arguments (A : String) with Inline;
+      --  Add argument to Other_Arguments
+
       Were_Options : String_Sets.Set;
       --  Keep options already included
 
@@ -1315,8 +1318,7 @@ package body Gprbuild.Link is
       -- Add_Run_Path_Options --
       --------------------------
 
-      procedure Add_Run_Path_Options
-      is
+      procedure Add_Run_Path_Options is
          Nam_Nod : Name_Node;
          Length  : Natural := 0;
          Arg     : String_Access := null;
@@ -1357,9 +1359,7 @@ package body Gprbuild.Link is
 
                Get_Name_String (Nam_Nod.Name);
                Add_Str_To_Name_Buffer (Path);
-               Add_Argument
-                 (Other_Arguments,
-                  Name_Buffer (1 .. Name_Len), Opt.Verbose_Mode);
+               Add_To_Other_Arguments (Name_Buffer (1 .. Name_Len));
             end loop;
 
          else
@@ -1391,11 +1391,18 @@ package body Gprbuild.Link is
                Arg (Length) := ':';
             end loop;
 
-            Add_Argument (Other_Arguments,
-                          Arg (1 .. Arg'Last - 1),
-                          Opt.Verbose_Mode);
+            Add_To_Other_Arguments (Arg (1 .. Arg'Last - 1));
          end if;
       end Add_Run_Path_Options;
+
+      ----------------------------
+      -- Add_To_Other_Arguments --
+      ----------------------------
+
+      procedure Add_To_Other_Arguments (A : String) is
+      begin
+         Add_Argument (Other_Arguments, A, Opt.Verbose_Mode);
+      end Add_To_Other_Arguments;
 
       -------------------------
       -- Global_Archive_Name --
@@ -2045,10 +2052,7 @@ package body Gprbuild.Link is
 
       else
          if Global_Archive_Exists then
-            Add_Argument
-              (Other_Arguments,
-               Global_Archive_Name (Main_Proj),
-               Opt.Verbose_Mode);
+            Add_To_Other_Arguments (Global_Archive_Name (Main_Proj));
          end if;
 
          --  Add the library switches, if there are libraries
@@ -2088,10 +2092,7 @@ package body Gprbuild.Link is
                      end Fill_Options_Data_From_Arg_List_Access;
 
                   begin
-                     Add_Argument
-                       (Other_Arguments,
-                        Lib_Path,
-                        Opt.Verbose_Mode);
+                     Add_To_Other_Arguments (Lib_Path);
 
                      --  Extract linker switches in the case of a static SAL.
 
@@ -2511,23 +2512,19 @@ package body Gprbuild.Link is
                        (Library_Projs (J).Proj.Library_Dir.Name, True);
 
                      if Main_Proj.Config.Linker_Lib_Dir_Option = No_Name then
-                        Add_Argument
-                          (Other_Arguments,
-                           "-L"
+                        Add_To_Other_Arguments
+                          ("-L"
                            & Get_Name_String
                                (Library_Projs
-                                  (J).Proj.Library_Dir.Display_Name),
-                           Opt.Verbose_Mode);
+                                  (J).Proj.Library_Dir.Display_Name));
 
                      else
-                        Add_Argument
-                          (Other_Arguments,
-                           Get_Name_String
+                        Add_To_Other_Arguments
+                          (Get_Name_String
                              (Main_Proj.Config.Linker_Lib_Dir_Option)
                            & Get_Name_String
                                (Library_Projs
-                                  (J).Proj.Library_Dir.Display_Name),
-                           Opt.Verbose_Mode);
+                                  (J).Proj.Library_Dir.Display_Name));
                      end if;
 
                      if Opt.Run_Path_Option
@@ -2543,20 +2540,16 @@ package body Gprbuild.Link is
                   end if;
 
                   if Main_Proj.Config.Linker_Lib_Name_Option = No_Name then
-                     Add_Argument
-                       (Other_Arguments,
-                        "-l" & Get_Name_String
-                                 (Library_Projs (J).Proj.Library_Name),
-                        Opt.Verbose_Mode);
+                     Add_To_Other_Arguments
+                       ("-l" & Get_Name_String
+                                 (Library_Projs (J).Proj.Library_Name));
 
                   else
-                     Add_Argument
-                       (Other_Arguments,
-                        Get_Name_String
+                     Add_To_Other_Arguments
+                       (Get_Name_String
                           (Main_Proj.Config.Linker_Lib_Name_Option)
                         & Get_Name_String
-                            (Library_Projs (J).Proj.Library_Name),
-                        Opt.Verbose_Mode);
+                            (Library_Projs (J).Proj.Library_Name));
                   end if;
                end if;
             end if;
@@ -2712,14 +2705,6 @@ package body Gprbuild.Link is
                Tree : constant Project_Tree_Ref := Main_File.Tree;
                Project : Project_List := Tree.Projects;
 
-               procedure Add_To_Other_Arguments (A : String);
-               pragma Inline (Add_To_Other_Arguments);
-
-               procedure Add_To_Other_Arguments (A : String) is
-               begin
-                  Add_Argument (Other_Arguments, A, Opt.Verbose_Mode);
-               end Add_To_Other_Arguments;
-
             begin
                while Project /= null loop
                   Ada_Lang_Data_Ptr :=
@@ -2744,7 +2729,6 @@ package body Gprbuild.Link is
                      Line : constant String := Option;
                      Last : constant Natural := Line'Last;
                   begin
-
                      if Line (1) = '-' then
                         All_Binding_Options := True;
                      end if;
@@ -2990,10 +2974,7 @@ package body Gprbuild.Link is
 
          else
             for Option of Binding_Options loop
-               Add_Argument
-                 (Other_Arguments,
-                  Option,
-                  Opt.Verbose_Mode);
+               Add_To_Other_Arguments (Option);
             end loop;
          end if;
 
@@ -3005,12 +2986,10 @@ package body Gprbuild.Link is
            Main_Proj.Config.Trailing_Linker_Required_Switches;
 
          while Min_Linker_Opts /= No_Name_List loop
-            Add_Argument
-              (Other_Arguments,
-               Get_Name_String
+            Add_To_Other_Arguments
+              (Get_Name_String
                  (Main_File.Tree.Shared.Name_Lists.Table
-                    (Min_Linker_Opts).Name),
-               Opt.Verbose_Mode);
+                    (Min_Linker_Opts).Name));
             Min_Linker_Opts   := Main_File.Tree.Shared.Name_Lists.Table
               (Min_Linker_Opts).Next;
          end loop;
@@ -3230,8 +3209,7 @@ package body Gprbuild.Link is
                Add_Str_To_Name_Buffer (".map");
             end if;
 
-            Add_Argument
-              (Other_Arguments, Name_Buffer (1 .. Name_Len), Opt.Verbose_Mode);
+            Add_To_Other_Arguments (Name_Buffer (1 .. Name_Len));
          end if;
 
          --  Add the switch(es) to specify the name of the executable
