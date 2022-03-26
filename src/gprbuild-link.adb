@@ -2728,6 +2728,29 @@ package body Gprbuild.Link is
                   declare
                      Line : constant String := Option;
                      Last : constant Natural := Line'Last;
+
+                     procedure Add_Lib_Path_Or_Line (Lib_Name : String);
+                     --  Add full library pathname to the Other_Arguments if
+                     --  found in Prefix_Path, add Line to Other_Arguments
+                     --  otherwise.
+
+                     --------------------------
+                     -- Add_Lib_Path_Or_Line --
+                     --------------------------
+
+                     procedure Add_Lib_Path_Or_Line (Lib_Name : String) is
+                     begin
+                        Lib_Path := Locate_Regular_File
+                                      (Lib_Name, Prefix_Path.all);
+
+                        if Lib_Path /= null then
+                           Add_To_Other_Arguments (Lib_Path.all);
+                           Free (Lib_Path);
+                        else
+                           Add_To_Other_Arguments (Line);
+                        end if;
+                     end Add_Lib_Path_Or_Line;
+
                   begin
                      if Line (1) = '-' then
                         All_Binding_Options := True;
@@ -2876,20 +2899,14 @@ package body Gprbuild.Link is
                            end if;
 
                         elsif Line = "-lgnat" then
-                           if Adalib_Dir = null then
-                              Add_To_Other_Arguments ("-lgnat");
+                           Add_To_Other_Arguments
+                             (if Adalib_Dir = null or else not Static_Libs
+                              then "-lgnat"
+                              else Adalib_Dir.all & "libgnat.a");
 
-                           elsif Static_Libs then
-                              Add_To_Other_Arguments
-                                (Adalib_Dir.all & "libgnat.a");
-
-                           else
-                              Add_To_Other_Arguments ("-lgnat");
-                           end if;
-
-                        elsif Line = "-lgnarl" and then
-                          Static_Libs and then
-                          Adalib_Dir /= null
+                        elsif Line = "-lgnarl"
+                          and then Static_Libs
+                          and then Adalib_Dir /= null
                         then
                            Add_To_Other_Arguments
                              (Adalib_Dir.all & "libgnarl.a");
@@ -2897,72 +2914,27 @@ package body Gprbuild.Link is
                         elsif Line = "-laddr2line"
                           and then Prefix_Path /= null
                         then
-                           Lib_Path := Locate_Regular_File
-                             ("libaddr2line.a", Prefix_Path.all);
-
-                           if Lib_Path /= null then
-                              Add_To_Other_Arguments (Lib_Path.all);
-                              Free (Lib_Path);
-
-                           else
-                              Add_To_Other_Arguments (Line);
-                           end if;
+                           Add_Lib_Path_Or_Line ("libaddr2line.a");
 
                         elsif Line = "-lbfd"
                           and then Prefix_Path /= null
                         then
-                           Lib_Path := Locate_Regular_File
-                             ("libbfd.a", Prefix_Path.all);
-
-                           if Lib_Path /= null then
-                              Add_To_Other_Arguments (Lib_Path.all);
-                              Free (Lib_Path);
-
-                           else
-                              Add_To_Other_Arguments (Line);
-                           end if;
+                           Add_Lib_Path_Or_Line ("libbfd.a");
 
                         elsif Line = "-lgnalasup"
                           and then Prefix_Path /= null
                         then
-                           Lib_Path := Locate_Regular_File
-                             ("libgnalasup.a", Prefix_Path.all);
-
-                           if Lib_Path /= null then
-                              Add_To_Other_Arguments (Lib_Path.all);
-                              Free (Lib_Path);
-
-                           else
-                              Add_To_Other_Arguments (Line);
-                           end if;
+                           Add_Lib_Path_Or_Line ("libgnalasup.a");
 
                         elsif Line = "-lgnatmon"
                           and then Prefix_Path /= null
                         then
-                           Lib_Path := Locate_Regular_File
-                             ("libgnatmon.a", Prefix_Path.all);
-
-                           if Lib_Path /= null then
-                              Add_To_Other_Arguments (Lib_Path.all);
-                              Free (Lib_Path);
-
-                           else
-                              Add_To_Other_Arguments (Line);
-                           end if;
+                           Add_Lib_Path_Or_Line ("libgnatmon.a");
 
                         elsif Line = "-liberty"
                           and then Prefix_Path /= null
                         then
-                           Lib_Path := Locate_Regular_File
-                             ("libiberty.a", Prefix_Path.all);
-
-                           if Lib_Path /= null then
-                              Add_To_Other_Arguments (Lib_Path.all);
-                              Free (Lib_Path);
-
-                           else
-                              Add_To_Other_Arguments (Line);
-                           end if;
+                           Add_Lib_Path_Or_Line ("libiberty.a");
 
                         else
                            Add_To_Other_Arguments (Line);

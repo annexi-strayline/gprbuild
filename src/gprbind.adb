@@ -154,6 +154,10 @@ procedure Gprbind is
    --  Locate the first uninterrupted sequence of digits
    --  in S and return the corresponding Natural value.
 
+   procedure Output_Lib_Path_Or_Line (Lib_Name : String);
+   --  Output to IO_File full library pathname to the Other_Arguments if found
+   --  in Prefix_Path, Output Line (1 .. Last) otherwise.
+
    Binding_Options_Table : String_Vectors.Vector;
 
    Binding_Option_Dash_V_Specified : Boolean := False;
@@ -239,6 +243,22 @@ procedure Gprbind is
 
       return Natural'Value (S (First .. Last));
    end Head_Natural_In;
+
+   -----------------------------
+   -- Output_Lib_Path_Or_Line --
+   -----------------------------
+
+   procedure Output_Lib_Path_Or_Line (Lib_Name : String) is
+   begin
+      Lib_Path := Locate_Regular_File (Lib_Name, Prefix_Path.all);
+
+      if Lib_Path /= null then
+         Put_Line (IO_File, Lib_Path.all);
+         Free (Lib_Path);
+      else
+         Put_Line (IO_File, Line (1 .. Last));
+      end if;
+   end Output_Lib_Path_Or_Line;
 
 begin
    Set_Program_Name ("gprbind");
@@ -799,7 +819,6 @@ begin
                end loop;
 
                if Quotes_Needed then
-
                   --  Quote the argument, doubling '"'
 
                   declare
@@ -1303,81 +1322,36 @@ begin
                      Put_Line (IO_File, "-lgnat");
                   end if;
 
-               elsif Line (1 .. Last) = "-lgnarl" and then
-                     Static_Libs and then
-                     Adalib_Dir /= null
+               elsif Line (1 .. Last) = "-lgnarl"
+                 and then Static_Libs
+                 and then Adalib_Dir /= null
                then
                   Put_Line (IO_File, Adalib_Dir.all & "libgnarl.a");
 
                elsif Line (1 .. Last) = "-laddr2line"
                  and then Prefix_Path /= null
                then
-                  Lib_Path := Locate_Regular_File
-                    ("libaddr2line.a", Prefix_Path.all);
-
-                  if Lib_Path /= null then
-                     Put_Line (IO_File, Lib_Path.all);
-                     Free (Lib_Path);
-
-                  else
-                     Put_Line (IO_File, Line (1 .. Last));
-                  end if;
+                  Output_Lib_Path_Or_Line ("libaddr2line.a");
 
                elsif Line (1 .. Last) = "-lbfd"
                  and then Prefix_Path /= null
                then
-                  Lib_Path := Locate_Regular_File
-                    ("libbfd.a", Prefix_Path.all);
-
-                  if Lib_Path /= null then
-                     Put_Line (IO_File, Lib_Path.all);
-                     Free (Lib_Path);
-
-                  else
-                     Put_Line (IO_File, Line (1 .. Last));
-                  end if;
+                  Output_Lib_Path_Or_Line ("libbfd.a");
 
                elsif Line (1 .. Last) = "-lgnalasup"
                  and then Prefix_Path /= null
                then
-                  Lib_Path := Locate_Regular_File
-                    ("libgnalasup.a", Prefix_Path.all);
-
-                  if Lib_Path /= null then
-                     Put_Line (IO_File, Lib_Path.all);
-                     Free (Lib_Path);
-
-                  else
-                     Put_Line (IO_File, Line (1 .. Last));
-                  end if;
+                  Output_Lib_Path_Or_Line ("libgnalasup.a");
 
                elsif Line (1 .. Last) = "-lgnatmon"
                  and then Prefix_Path /= null
                then
-                  Lib_Path := Locate_Regular_File
-                    ("libgnatmon.a", Prefix_Path.all);
-
-                  if Lib_Path /= null then
-                     Put_Line (IO_File, Lib_Path.all);
-                     Free (Lib_Path);
-
-                  else
-                     Put_Line (IO_File, Line (1 .. Last));
-                  end if;
+                  Output_Lib_Path_Or_Line ("libgnatmon.a");
 
                elsif Line (1 .. Last) = "-liberty"
                  and then Prefix_Path /= null
                then
-                  Lib_Path := Locate_Regular_File
-                    ("libiberty.a", Prefix_Path.all);
-
-                  if Lib_Path /= null then
-                     Put_Line (IO_File, Lib_Path.all);
-                     Free (Lib_Path);
-
-                  else
-                     Put_Line (IO_File, Line (1 .. Last));
-                  end if;
+                  Output_Lib_Path_Or_Line ("libiberty.a");
 
                else
                   Put_Line (IO_File, Line (1 .. Last));
