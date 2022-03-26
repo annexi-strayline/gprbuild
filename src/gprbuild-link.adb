@@ -1253,6 +1253,10 @@ package body Gprbuild.Link is
       procedure Add_To_Other_Arguments (A : String) with Inline;
       --  Add argument to Other_Arguments
 
+      function Take_Libgcc_Mode (Option : String) return Boolean;
+      --  Process -static, -shared, -static-libgcc, -shared-libgcc options and
+      --  return True. Returns False on other options.
+
       Were_Options : String_Sets.Set;
       --  Keep options already included
 
@@ -1313,6 +1317,11 @@ package body Gprbuild.Link is
       Other_Arguments    : Options_Data;
 
       Linking_With_Static_SALs : Boolean := False;
+
+      Libgcc_Specified : Boolean := False;
+      --  True if -shared-libgcc or -static-libgcc is used
+
+      Static_Libs : Boolean := True;
 
       --------------------------
       -- Add_Run_Path_Options --
@@ -1496,6 +1505,81 @@ package body Gprbuild.Link is
             end;
          end loop;
       end Remove_Duplicated_T;
+
+      ----------------------
+      -- Take_Libgcc_Mode --
+      ----------------------
+
+      function Take_Libgcc_Mode (Option : String) return Boolean is
+
+         function Is_GNAT_Higher_3 return Boolean;
+         --  Return True if GNAT version more than 3.x
+
+         ----------------------
+         -- Is_GNAT_Higher_3 --
+         ----------------------
+
+         function Is_GNAT_Higher_3 return Boolean is
+            Project : Project_List := Main_File.Tree.Projects;
+            Ada_Lang_Data_Ptr : Language_Ptr := No_Language_Index;
+         begin
+            while Project /= null loop
+               Ada_Lang_Data_Ptr :=
+                 Get_Language_From_Name (Project.Project, "Ada");
+
+               if Ada_Lang_Data_Ptr /= No_Language_Index then
+                  declare
+                     GNAT_Version : constant String := Get_Name_String
+                       (Ada_Lang_Data_Ptr.Config.Toolchain_Version);
+                  begin
+                     return GNAT_Version'Length < 7
+                       or else GNAT_Version (6 .. 7) /= "3.";
+                  end;
+               end if;
+
+               Project := Project.Next;
+            end loop;
+
+            return True;
+         end Is_GNAT_Higher_3;
+
+      begin
+         if Option in Static_Libgcc | Shared_Libgcc then
+            if not Libgcc_Specified then
+               Add_To_Other_Arguments (Option);
+               Libgcc_Specified := True;
+            end if;
+
+            return True;
+
+         elsif Option = Dash_Static then
+            Static_Libs := True;
+
+            if Shared_Libgcc_Default = 'T'
+              and then not Libgcc_Specified
+              and then Is_GNAT_Higher_3
+            then
+               Add_To_Other_Arguments (Static_Libgcc);
+               Libgcc_Specified := True;
+            end if;
+
+            return True;
+
+         elsif Option = Dash_Shared then
+            Static_Libs := False;
+
+            if not Libgcc_Specified
+              and then Is_GNAT_Higher_3
+            then
+               Add_To_Other_Arguments (Shared_Libgcc);
+               Libgcc_Specified := True;
+            end if;
+
+            return True;
+         end if;
+
+         return False;
+      end Take_Libgcc_Mode;
 
    begin
       --  Make sure that the table Rpaths is emptied after each main, so
@@ -1831,11 +1915,7 @@ package body Gprbuild.Link is
                                  end if;
 
                               when Resulting_Options =>
-                                 if Line (1 .. Last) not in Dash_Static
-                                                          | Dash_Shared
-                                 then
-                                    Binding_Options.Append (Line (1 .. Last));
-                                 end if;
+                                 Binding_Options.Append (Line (1 .. Last));
 
                               when Gprexch.Run_Path_Option =>
                                  if Opt.Run_Path_Option
@@ -2693,37 +2773,7 @@ package body Gprbuild.Link is
                Adalib_Dir  : String_Access;
                Prefix_Path : String_Access;
                Lib_Path    : String_Access;
-
-               Libgcc_Specified : Boolean := False;
-               --  True if -shared-libgcc or -static-libgcc is used
-
-               Static_Libs : Boolean := True;
-
-               Ada_Lang_Data_Ptr : Language_Ptr := No_Language_Index;
-               GNAT_Version_Part : String := (1 .. 2 => ' ');
-
-               Tree : constant Project_Tree_Ref := Main_File.Tree;
-               Project : Project_List := Tree.Projects;
-
             begin
-               while Project /= null loop
-                  Ada_Lang_Data_Ptr :=
-                    Get_Language_From_Name (Project.Project, "Ada");
-                  exit when Ada_Lang_Data_Ptr /= No_Language_Index;
-                  Project := Project.Next;
-               end loop;
-
-               if Ada_Lang_Data_Ptr /= No_Language_Index then
-                  declare
-                     GNAT_Version : constant String := Get_Name_String
-                       (Ada_Lang_Data_Ptr.Config.Toolchain_Version);
-                  begin
-                     if GNAT_Version'Length >= 7 then
-                        GNAT_Version_Part := GNAT_Version (6 .. 7);
-                     end if;
-                  end;
-               end if;
-
                for Option of Binding_Options loop
                   declare
                      Line : constant String := Option;
@@ -2868,30 +2918,8 @@ package body Gprbuild.Link is
                            end if;
                            Add_To_Other_Arguments (Line);
 
-                        elsif Line in Static_Libgcc | Shared_Libgcc then
-                           Add_To_Other_Arguments (Line);
-                           Libgcc_Specified := True;
-
-                        elsif Line = Dash_Static then
-                           Static_Libs := True;
-                           Add_To_Other_Arguments (Line);
-
-                           if Shared_Libgcc_Default = 'T'
-                             and then GNAT_Version_Part /= "3."
-                             and then not Libgcc_Specified
-                           then
-                              Add_To_Other_Arguments (Static_Libgcc);
-                           end if;
-
-                        elsif Line = Dash_Shared then
-                           Static_Libs := False;
-                           Add_To_Other_Arguments (Line);
-
-                           if GNAT_Version_Part /= "3."
-                             and then not Libgcc_Specified
-                           then
-                              Add_To_Other_Arguments (Shared_Libgcc);
-                           end if;
+                        elsif Take_Libgcc_Mode (Line) then
+                           null;
 
                         elsif Line = "-lgnat" then
                            Add_To_Other_Arguments
@@ -2941,7 +2969,9 @@ package body Gprbuild.Link is
 
          else
             for Option of Binding_Options loop
-               Add_To_Other_Arguments (Option);
+               if not Take_Libgcc_Mode (Option) then
+                  Add_To_Other_Arguments (Option);
+               end if;
             end loop;
          end if;
 
@@ -3098,9 +3128,7 @@ package body Gprbuild.Link is
                   end if;
 
                elsif Opt.Maximum_Linkers > 1 then
-                  if Other_Arguments (J).Name = "--lto" or else
-                     Other_Arguments (J).Name = "-flto"
-                  then
+                  if Other_Arguments (J).Name in "--lto" | "-flto" then
                      declare
                         Img : String := Opt.Maximum_Linkers'Img;
                         Arg : Option_Type renames Other_Arguments.Element (J);
@@ -3127,32 +3155,24 @@ package body Gprbuild.Link is
          --  remove all the others.
 
          declare
-            Dash_Shared_Libgcc : Boolean := False;
-            Dash_Static_Libgcc : Boolean := False;
-
+            Dash_Libgcc : Boolean := False;
          begin
             for Arg in reverse
               Other_Arguments.First_Index .. Other_Arguments.Last_Index
             loop
-               if Other_Arguments (Arg).Name = Shared_Libgcc then
-                  if Dash_Shared_Libgcc or Dash_Static_Libgcc then
-                     Other_Arguments.Delete (Arg);
-
-                  else
-                     Dash_Shared_Libgcc := True;
-                  end if;
-
-               elsif Other_Arguments (Arg).Name = Static_Libgcc then
-                  if Dash_Shared_Libgcc or Dash_Static_Libgcc then
+               if Other_Arguments (Arg).Name in Shared_Libgcc | Static_Libgcc
+               then
+                  if Dash_Libgcc then
                      Other_Arguments.Delete (Arg);
                   else
-                     Dash_Static_Libgcc := True;
+                     Dash_Libgcc := True;
                   end if;
                end if;
             end loop;
          end;
 
          --  Add the run path option, if necessary
+
          if Opt.Run_Path_Option
            and then Main_Proj.Config.Run_Path_Option /= No_Name_List
          then

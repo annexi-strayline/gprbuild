@@ -20,7 +20,6 @@
 --  the driver for gnatbind. It gets its input from gprbuild through the
 --  binding exchange file and gives back its results through the same file.
 
-with Ada.Characters.Handling; use Ada.Characters.Handling;
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Containers.Indefinite_Vectors;
 with Ada.Directories;
@@ -79,12 +78,6 @@ procedure Gprbind is
    Dash_gnatWb : constant String := "-gnatWb";
    Dash_gnatiw : constant String := "-gnatiw";
    Dash_gnatws : constant String := "-gnatws";
-
-   GCC_Version : Natural := 0;
-   Gcc_Version_String : constant String := "gcc version ";
-
-   Libgcc_Specified : Boolean := False;
-   --  True if -shared-libgcc or -static-libgcc is used
 
    IO_File : File_Type;
    --  The file to get the inputs and to put the results of the binding
@@ -150,10 +143,6 @@ procedure Gprbind is
    procedure Add_To_Display_Line (S : String);
    --  Add an argument to the Display_Line
 
-   function Head_Natural_In (S : String) return Natural;
-   --  Locate the first uninterrupted sequence of digits
-   --  in S and return the corresponding Natural value.
-
    procedure Output_Lib_Path_Or_Line (Lib_Name : String);
    --  Output to IO_File full library pathname to the Other_Arguments if found
    --  in Prefix_Path, Output Line (1 .. Last) otherwise.
@@ -217,32 +206,6 @@ procedure Gprbind is
       Display_Line (Display_Last + 1 .. Display_Last + S'Length) := S;
       Display_Last := Display_Last + S'Length;
    end Add_To_Display_Line;
-
-   ---------------------
-   -- Head_Natural_In --
-   ---------------------
-
-   function Head_Natural_In (S : String) return Natural is
-      First, Last : Integer;
-   begin
-      --  Search the first index which holds a digit
-
-      First := S'First;
-      while First <= S'Last and then not Is_Digit (S (First)) loop
-         First := First + 1;
-      end loop;
-
-      pragma Assert (First <= S'Last);
-
-      --  See how far we can go with only digits from there
-
-      Last := First;
-      while Last < S'Last and then Is_Digit (S (Last + 1)) loop
-         Last := Last + 1;
-      end loop;
-
-      return Natural'Value (S (First .. Last));
-   end Head_Natural_In;
 
    -----------------------------
    -- Output_Lib_Path_Or_Line --
@@ -1014,34 +977,6 @@ begin
          Fail_Program (null, "compilation of binder generated file failed");
       end if;
 
-      --  Find the GCC version
-
-      Spawn
-        (Program_Name => Ada_Compiler_Path.all,
-         Args         => (1 => new String'("-v")),
-         Output_File  => Exchange_File_Name.all,
-         Success      => Success,
-         Return_Code  => Return_Code,
-         Err_To_Out   => True);
-
-      if Success then
-         Open (IO_File, In_File, Exchange_File_Name.all);
-         while not End_Of_File (IO_File) loop
-            Get_Line (IO_File, Line, Last);
-
-            if Last > Gcc_Version_String'Length and then
-              Line (1 .. Gcc_Version_String'Length) = Gcc_Version_String
-            then
-               GCC_Version :=
-                 Head_Natural_In
-                   (Line (Gcc_Version_String'Length + 1 .. Last));
-               exit;
-            end if;
-         end loop;
-
-         Close (IO_File);
-      end if;
-
       Create (IO_File, Out_File, Exchange_File_Name.all);
 
       --  First, the generated object file
@@ -1280,28 +1215,6 @@ begin
 
                elsif Line (1 .. Last) in Static_Libgcc | Shared_Libgcc then
                   Put_Line (IO_File, Line (1 .. Last));
-                  Libgcc_Specified := True;
-
-               elsif Line (1 .. Last) = Dash_Static then
-                  Static_Libs := True;
-                  Put_Line (IO_File, Line (1 .. Last));
-
-                  if Shared_Libgcc_Default = 'T'
-                    and then GCC_Version >= 3
-                    and then not Libgcc_Specified
-                  then
-                     Put_Line (IO_File, Static_Libgcc);
-                  end if;
-
-               elsif Line (1 .. Last) = Dash_Shared then
-                  Static_Libs := False;
-                  Put_Line (IO_File, Line (1 .. Last));
-
-                  if GCC_Version >= 3
-                    and then not Libgcc_Specified
-                  then
-                     Put_Line (IO_File, Shared_Libgcc);
-                  end if;
 
                   --  For a number of archives, we need to indicate the full
                   --  path of the archive, if we find it, to be sure that the
