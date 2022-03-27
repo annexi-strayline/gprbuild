@@ -2787,8 +2787,8 @@ package body Gprbuild.Link is
 
                         elsif Last >= 3 and then Line (1 .. 2) = "-L" then
                            if Is_Regular_File
-                             (Line (3 .. Last) &
-                                Directory_Separator & "libgnat.a")
+                                (Line (3 .. Last) & Directory_Separator
+                                 & "libgnat.a")
                            then
                               Adalib_Dir := new String'(Line (3 .. Last));
 
@@ -2801,23 +2801,20 @@ package body Gprbuild.Link is
                               begin
                                  Set_Name_Buffer (Line (3 .. Last));
 
-                                 while Name_Buffer (Name_Len) =
-                                   Directory_Separator
-                                   or else Name_Buffer (Name_Len) = '/'
+                                 while Is_Directory_Separator
+                                         (Name_Buffer (Name_Len))
                                  loop
                                     Name_Len := Name_Len - 1;
                                  end loop;
 
-                                 while Name_Buffer (Name_Len) /=
-                                   Directory_Separator
-                                   and then Name_Buffer (Name_Len) /= '/'
+                                 while not Is_Directory_Separator
+                                             (Name_Buffer (Name_Len))
                                  loop
                                     Name_Len := Name_Len - 1;
                                  end loop;
 
-                                 while Name_Buffer (Name_Len) =
-                                   Directory_Separator
-                                   or else Name_Buffer (Name_Len) = '/'
+                                 while Is_Directory_Separator
+                                         (Name_Buffer (Name_Len))
                                  loop
                                     Name_Len := Name_Len - 1;
                                  end loop;
@@ -2829,9 +2826,8 @@ package body Gprbuild.Link is
                                     Prev_Dir_Last := Dir_Last;
                                     First := Dir_Last - 1;
                                     while First > 3
-                                      and then Name_Buffer (First) /=
-                                      Directory_Separator
-                                      and then Name_Buffer (First) /= '/'
+                                      and then not Is_Directory_Separator
+                                                     (Name_Buffer (First))
                                     loop
                                        First := First - 1;
                                     end loop;
@@ -2841,9 +2837,8 @@ package body Gprbuild.Link is
                                     exit Dir_Loop when First <= 3;
 
                                     Dir_Last := First - 1;
-                                    while Name_Buffer (Dir_Last) =
-                                      Directory_Separator
-                                      or else Name_Buffer (Dir_Last) = '/'
+                                    while Is_Directory_Separator
+                                            (Name_Buffer (Dir_Last))
                                     loop
                                        Dir_Last := Dir_Last - 1;
                                     end loop;
