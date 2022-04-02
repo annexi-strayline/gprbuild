@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---      Copyright (C) 2015-2021, Free Software Foundation, Inc.             --
+--        Copyright (C) 2015-2022, Free Software Foundation, Inc.           --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -123,6 +123,7 @@ package GPR.Snames is
    Name_Artifacts_In_Exec_Dir            : constant Name_Id := Name_Id (L) - N;
    Name_Artifacts_In_Object_Dir          : constant Name_Id := Name_Id (L) - N;
    Name_Binder                           : constant Name_Id := Name_Id (L) - N;
+   Name_Bindfile_Option_Substitution     : constant Name_Id := Name_Id (L) - N;
    Name_Body_Suffix                      : constant Name_Id := Name_Id (L) - N;
    Name_Builder                          : constant Name_Id := Name_Id (L) - N;
    Name_Clean                            : constant Name_Id := Name_Id (L) - N;

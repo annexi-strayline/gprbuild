@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---      Copyright (C) 2015-2021, Free Software Foundation, Inc.             --
+--        Copyright (C) 2015-2022, Free Software Foundation, Inc.           --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -141,6 +141,7 @@ package body GPR.Snames is
       Add_Name ("artifacts_in_exec_dir");
       Add_Name ("artifacts_in_object_dir");
       Add_Name ("binder");
+      Add_Name ("bindfile_option_substitution");
       Add_Name ("body_suffix");
       Add_Name ("builder");
       Add_Name ("clean");

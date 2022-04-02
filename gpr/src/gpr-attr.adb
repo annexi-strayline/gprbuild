@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -1026,6 +1026,11 @@ package body GPR.Attr is
         (Name_Objects_Path_File,
          Var_Kind   => Single,
          Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Bindfile_Option_Substitution,
+         Var_Kind   => List,
+         Attr_Kind  => Associative_Array,
          Conf_Conc  => False);
 
       Add_Package (Name_Linker);

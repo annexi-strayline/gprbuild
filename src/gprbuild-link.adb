@@ -17,8 +17,10 @@
 ------------------------------------------------------------------------------
 
 with Ada.Calendar;               use Ada.Calendar;
+with Ada.Containers.Indefinite_Hashed_Maps;
 with Ada.Containers.Vectors;
 with Ada.Strings.Fixed;          use Ada.Strings.Fixed;
+with Ada.Strings.Hash;
 with Ada.Text_IO;                use Ada.Text_IO;
 with Ada.Unchecked_Deallocation; use Ada;
 
@@ -485,8 +487,7 @@ package body Gprbuild.Link is
          end if;
 
          Put ("global archive for project ");
-         Put
-           (Get_Name_String (For_Project.Display_Name));
+         Put (Get_Name_String (For_Project.Display_Name));
          Put_Line (" could not be built");
          OK := False;
       end Handle_Failure;
@@ -554,8 +555,8 @@ package body Gprbuild.Link is
 
       if not Need_To_Build then
          if Opt.Verbosity_Level > Opt.Low then
-            Put  ("   Checking ");
-            Put  (Archive_Name);
+            Put ("   Checking ");
+            Put (Archive_Name);
             Put_Line (" ...");
          end if;
 
@@ -583,8 +584,8 @@ package body Gprbuild.Link is
                Need_To_Build := True;
 
                if Opt.Verbosity_Level > Opt.Low then
-                  Put  ("      -> archive dependency file ");
-                  Put  (Archive_Dep_Name);
+                  Put ("      -> archive dependency file ");
+                  Put (Archive_Dep_Name);
                   Put_Line (" does not exist");
                end if;
 
@@ -623,8 +624,8 @@ package body Gprbuild.Link is
                   if Src_Id = No_Source then
                      Need_To_Build := True;
                      if Opt.Verbosity_Level > Opt.Low then
-                        Put  ("      -> ");
-                        Put  (Get_Name_String (Object_Path));
+                        Put ("      -> ");
+                        Put (Get_Name_String (Object_Path));
                         Put_Line (" is not an object of any project");
                      end if;
 
@@ -640,7 +641,7 @@ package body Gprbuild.Link is
                      Need_To_Build := True;
 
                      if Opt.Verbosity_Level > Opt.Low then
-                        Put  ("      -> archive dependency file ");
+                        Put ("      -> archive dependency file ");
                         Put_Line (" is truncated");
                      end if;
 
@@ -657,16 +658,14 @@ package body Gprbuild.Link is
                      Need_To_Build := True;
 
                      if Opt.Verbosity_Level > Opt.Low then
-                        Put  ("      -> archive dependency file ");
-                        Put_Line
-                          (" is incorrectly formatted (time stamp)");
+                        Put ("      -> archive dependency file ");
+                        Put_Line (" is incorrectly formatted (time stamp)");
                      end if;
 
                      exit;
                   end if;
 
-                  Time_Stamp :=
-                    Time_Stamp_Type (Name_Buffer (1 .. Name_Len));
+                  Time_Stamp := Time_Stamp_Type (Name_Buffer (1 .. Name_Len));
 
                   --  If the time stamp in the dependency file is
                   --  different from the time stamp of the object file,
@@ -676,32 +675,30 @@ package body Gprbuild.Link is
                   --  equal if they differ by 2 seconds or less; here the
                   --  check is for an exact match.
 
-                  if String (Time_Stamp) /=
-                    String (Src_Id.Object_TS)
-                  then
+                  if String (Time_Stamp) /= String (Src_Id.Object_TS) then
                      Need_To_Build := True;
 
-                     if Opt.Verbosity_Level > Opt.Low  then
-                        Put  ("      -> time stamp of ");
-                        Put  (Get_Name_String (Object_Path));
-                        Put  (" is incorrect in the archive");
+                     if Opt.Verbosity_Level > Opt.Low then
+                        Put ("      -> time stamp of ");
+                        Put (Get_Name_String (Object_Path));
+                        Put (" is incorrect in the archive");
                         Put_Line (" dependency file");
-                        Put  ("         recorded time stamp: ");
+                        Put ("         recorded time stamp: ");
                         Put_Line (String (Time_Stamp));
-                        Put  ("           actual time stamp: ");
+                        Put ("           actual time stamp: ");
                         Put_Line (String (Src_Id.Object_TS));
                      end if;
 
                      exit;
 
                   elsif Debug_Flag_T then
-                     Put  ("      -> time stamp of ");
-                     Put  (Get_Name_String (Object_Path));
-                     Put  (" is correct in the archive");
+                     Put ("      -> time stamp of ");
+                     Put (Get_Name_String (Object_Path));
+                     Put (" is correct in the archive");
                      Put_Line (" dependency file");
-                     Put  ("         recorded time stamp: ");
+                     Put ("         recorded time stamp: ");
                      Put_Line (String (Time_Stamp));
-                     Put  ("           actual time stamp: ");
+                     Put ("           actual time stamp: ");
                      Put_Line (String (Src_Id.Object_TS));
                   end if;
                end loop;
@@ -720,8 +717,7 @@ package body Gprbuild.Link is
 
                if Opt.Verbosity_Level > Opt.Low then
                   Put ("      -> object file ");
-                  Put (Get_Name_String
-                       (Source_Indexes (S).Id.Object_Path));
+                  Put (Get_Name_String (Source_Indexes (S).Id.Object_Path));
                   Put_Line (" is not in the dependency file");
                end if;
 
@@ -732,12 +728,10 @@ package body Gprbuild.Link is
 
       if not Need_To_Build then
          if Opt.Verbosity_Level > Opt.Low then
-            Put_Line  ("      -> up to date");
+            Put_Line ("      -> up to date");
          end if;
 
-         Report_Status
-           (Archive_Built  => False,
-            Archive_Exists => True);
+         Report_Status (Archive_Built => False, Archive_Exists => True);
 
          --  No processing needed: up-to-date. Let's return
          return;
@@ -771,14 +765,11 @@ package body Gprbuild.Link is
       --  No global archive, if there is no object file to put into
 
       if Objects.Is_Empty then
-         if Opt.Verbosity_Level > Opt.Low
-         then
+         if Opt.Verbosity_Level > Opt.Low then
             Put_Line ("      -> there is no global archive");
          end if;
 
-         Report_Status
-           (Archive_Built  => False,
-            Archive_Exists => False);
+         Report_Status (Archive_Built => False, Archive_Exists => False);
 
          return;
       end if;
@@ -820,8 +811,7 @@ package body Gprbuild.Link is
             end loop;
 
             for J in First_Object .. Objects.Last_Index loop
-               Size :=
-                 Size + Objects.Element (J)'Length + 1;
+               Size := Size + Objects.Element (J)'Length + 1;
                exit when Size > Maximum_Size;
                Current_Object := J;
             end loop;
@@ -863,9 +853,7 @@ package body Gprbuild.Link is
             end loop;
 
             Spawn_And_Script_Write
-              (Archive_Builder_Path.all,
-               Options,
-               Success);
+              (Archive_Builder_Path.all, Options, Success);
          end;
 
          if not Success then
@@ -917,9 +905,7 @@ package body Gprbuild.Link is
             end loop;
 
             Spawn_And_Script_Write
-              (Archive_Indexer_Path.all,
-               Options,
-               Success);
+              (Archive_Indexer_Path.all, Options, Success);
          end;
 
          if not Success then
@@ -951,9 +937,7 @@ package body Gprbuild.Link is
          for S in 1 .. Last_Source loop
             Src_Id := Source_Indexes (S).Id;
             if Object_To_Global_Archive (Src_Id) then
-               Put_Line
-                 (Dep_File,
-                  Get_Name_String (Src_Id.Object_Path));
+               Put_Line (Dep_File, Get_Name_String (Src_Id.Object_Path));
                Put_Line (Dep_File, String (Src_Id.Object_TS));
             end if;
          end loop;
@@ -967,9 +951,7 @@ package body Gprbuild.Link is
             end if;
       end;
 
-      Report_Status
-        (Archive_Built  => True,
-         Archive_Exists => True);
+      Report_Status (Archive_Built => True, Archive_Exists => True);
    end Build_Global_Archive;
 
    ---------------------
@@ -1250,12 +1232,22 @@ package body Gprbuild.Link is
       --  Remove duplicated -T[ ]<linker script> options from Arguments,
       --  keep left-most.
 
+      procedure Load_Bindfile_Option_Substitution;
+      --  Load all Bindfile_Option_Substitution attributes into
+      --  Bindfile_Option_Substitution container.
+
+      function Apply_Bindfile_Option_Substitution
+        (Option : String) return Boolean;
+      --  Append string list from Bindfile_Option_Substitution (Option) into
+      --  Binding_Options.
+
       procedure Add_To_Other_Arguments (A : String) with Inline;
       --  Add argument to Other_Arguments
 
-      function Take_Libgcc_Mode (Option : String) return Boolean;
-      --  Process -static, -shared, -static-libgcc, -shared-libgcc options and
-      --  return True. Returns False on other options.
+      package String_Values is new Ada.Containers.Indefinite_Hashed_Maps
+        (String, String_List_Id, Ada.Strings.Hash, "=");
+
+      Bindfile_Option_Substitution : String_Values.Map;
 
       Were_Options : String_Sets.Set;
       --  Keep options already included
@@ -1317,11 +1309,6 @@ package body Gprbuild.Link is
       Other_Arguments    : Options_Data;
 
       Linking_With_Static_SALs : Boolean := False;
-
-      Libgcc_Specified : Boolean := False;
-      --  True if -shared-libgcc or -static-libgcc is used
-
-      Static_Libs : Boolean := True;
 
       --------------------------
       -- Add_Run_Path_Options --
@@ -1420,10 +1407,65 @@ package body Gprbuild.Link is
       function Global_Archive_Name (For_Project : Project_Id) return String is
       begin
          return
-           "lib" &
-           Get_Name_String (For_Project.Name) &
+           "lib" & Get_Name_String (For_Project.Name) &
            Archive_Suffix (For_Project);
       end Global_Archive_Name;
+
+      ---------------------------------------
+      -- Load_Bindfile_Option_Substitution --
+      ---------------------------------------
+
+      procedure Load_Bindfile_Option_Substitution is
+         The_Array : Array_Element_Id;
+         Element   : Array_Element;
+
+         Shared renames Project_Tree.Shared;
+         Binder : constant Package_Id :=
+                    Value_Of
+                      (Name_Binder, Main_File.Project.Decl.Packages, Shared);
+      begin
+         The_Array :=
+           Value_Of
+             (Name      => Name_Bindfile_Option_Substitution,
+              In_Arrays => Shared.Packages.Table (Binder).Decl.Arrays,
+              Shared    => Shared);
+
+         while The_Array /= No_Array_Element loop
+            Element := Shared.Array_Elements.Table (The_Array);
+            Bindfile_Option_Substitution.Include
+              (Get_Name_String (Element.Index), Element.Value.Values);
+            The_Array := Element.Next;
+         end loop;
+      end Load_Bindfile_Option_Substitution;
+
+      ----------------------------------------
+      -- Apply_Bindfile_Option_Substitution --
+      ----------------------------------------
+
+      function Apply_Bindfile_Option_Substitution
+        (Option : String) return Boolean
+      is
+         CV : constant String_Values.Cursor :=
+                Bindfile_Option_Substitution.Find (Option);
+         Values  : String_List_Id;
+         Pointer : access String_Element;
+      begin
+         if not String_Values.Has_Element (CV) then
+            return False;
+         end if;
+
+         Values := String_Values.Element (CV);
+
+         while Values /= Nil_String loop
+            Pointer :=
+              Project_Tree.Shared.String_Elements.Table
+                (Values)'Unrestricted_Access;
+            Binding_Options.Append (Get_Name_String (Pointer.Value));
+            Values := Pointer.Next;
+         end loop;
+
+         return True;
+      end Apply_Bindfile_Option_Substitution;
 
       -----------------------------
       -- Remove_Duplicated_Specs --
@@ -1435,7 +1477,7 @@ package body Gprbuild.Link is
       begin
          for Index in reverse 1 .. Arguments.Last_Index loop
             declare
-               Arg  : constant String := Arguments (Index).Name;
+               Arg : constant String := Arguments (Index).Name;
             begin
                if Arg'Length >= 8 and then Arg (1 .. 8) = "--specs=" then
                   Were_Options.Insert (Arg, Position, Inserted);
@@ -1505,81 +1547,6 @@ package body Gprbuild.Link is
             end;
          end loop;
       end Remove_Duplicated_T;
-
-      ----------------------
-      -- Take_Libgcc_Mode --
-      ----------------------
-
-      function Take_Libgcc_Mode (Option : String) return Boolean is
-
-         function Is_GNAT_Higher_3 return Boolean;
-         --  Return True if GNAT version more than 3.x
-
-         ----------------------
-         -- Is_GNAT_Higher_3 --
-         ----------------------
-
-         function Is_GNAT_Higher_3 return Boolean is
-            Project : Project_List := Main_File.Tree.Projects;
-            Ada_Lang_Data_Ptr : Language_Ptr := No_Language_Index;
-         begin
-            while Project /= null loop
-               Ada_Lang_Data_Ptr :=
-                 Get_Language_From_Name (Project.Project, "Ada");
-
-               if Ada_Lang_Data_Ptr /= No_Language_Index then
-                  declare
-                     GNAT_Version : constant String := Get_Name_String
-                       (Ada_Lang_Data_Ptr.Config.Toolchain_Version);
-                  begin
-                     return GNAT_Version'Length < 7
-                       or else GNAT_Version (6 .. 7) /= "3.";
-                  end;
-               end if;
-
-               Project := Project.Next;
-            end loop;
-
-            return True;
-         end Is_GNAT_Higher_3;
-
-      begin
-         if Option in Static_Libgcc | Shared_Libgcc then
-            if not Libgcc_Specified then
-               Add_To_Other_Arguments (Option);
-               Libgcc_Specified := True;
-            end if;
-
-            return True;
-
-         elsif Option = Dash_Static then
-            Static_Libs := True;
-
-            if Shared_Libgcc_Default = 'T'
-              and then not Libgcc_Specified
-              and then Is_GNAT_Higher_3
-            then
-               Add_To_Other_Arguments (Static_Libgcc);
-               Libgcc_Specified := True;
-            end if;
-
-            return True;
-
-         elsif Option = Dash_Shared then
-            Static_Libs := False;
-
-            if not Libgcc_Specified
-              and then Is_GNAT_Higher_3
-            then
-               Add_To_Other_Arguments (Shared_Libgcc);
-               Libgcc_Specified := True;
-            end if;
-
-            return True;
-         end if;
-
-         return False;
-      end Take_Libgcc_Mode;
 
    begin
       --  Make sure that the table Rpaths is emptied after each main, so
@@ -1878,6 +1845,8 @@ package body Gprbuild.Link is
                      end if;
                   end if;
 
+                  Load_Bindfile_Option_Substitution;
+
                   Open (Exchange_File, In_File, Exchange_File_Name);
 
                   while not End_Of_File (Exchange_File) loop
@@ -1915,7 +1884,11 @@ package body Gprbuild.Link is
                                  end if;
 
                               when Resulting_Options =>
-                                 Binding_Options.Append (Line (1 .. Last));
+                                 if not Apply_Bindfile_Option_Substitution
+                                          (Line (1 .. Last))
+                                 then
+                                    Binding_Options.Append (Line (1 .. Last));
+                                 end if;
 
                               when Gprexch.Run_Path_Option =>
                                  if Opt.Run_Path_Option
@@ -2769,6 +2742,7 @@ package body Gprbuild.Link is
                Get_Option          : Boolean;
                Xlinker_Seen        : Boolean := False;
                Stack_Equal_Seen    : Boolean := False;
+               Static_Libs         : Boolean := True;
 
                Adalib_Dir  : String_Access;
                Prefix_Path : String_Access;
@@ -2776,7 +2750,7 @@ package body Gprbuild.Link is
             begin
                for Option of Binding_Options loop
                   declare
-                     Line : constant String := Option;
+                     Line renames Option;
                      Last : constant Natural := Line'Last;
 
                      procedure Add_Lib_Path_Or_Line (Lib_Name : String);
@@ -2918,8 +2892,9 @@ package body Gprbuild.Link is
                            end if;
                            Add_To_Other_Arguments (Line);
 
-                        elsif Take_Libgcc_Mode (Line) then
-                           null;
+                        elsif Option in Static_Libgcc | Shared_Libgcc then
+                           Add_To_Other_Arguments (Option);
+                           Static_Libs := Option = Static_Libgcc;
 
                         elsif Line = "-lgnat" then
                            Add_To_Other_Arguments
@@ -2969,9 +2944,7 @@ package body Gprbuild.Link is
 
          else
             for Option of Binding_Options loop
-               if not Take_Libgcc_Mode (Option) then
-                  Add_To_Other_Arguments (Option);
-               end if;
+               Add_To_Other_Arguments (Option);
             end loop;
          end if;
 
