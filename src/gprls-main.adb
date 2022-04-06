@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                    Copyright (C) 2015-2021, AdaCore                      --
+--                    Copyright (C) 2015-2022, AdaCore                      --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -965,6 +965,10 @@ procedure Gprls.Main is
 
    procedure Check_Version_And_Help is new Check_Version_And_Help_G (Usage);
 
+   ----------------
+   -- Initialize --
+   ----------------
+
    procedure Initialize is
    begin
       if not Initialized then
@@ -1073,6 +1077,7 @@ procedure Gprls.Main is
                Unit := Units_Htable.Get_Next (Tree.Units_HT);
             end loop;
          end;
+
       else
          --  Find the sources in the project files
 
