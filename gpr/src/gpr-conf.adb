@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---            Copyright (C) 2006-2021, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2022, Free Software Foundation, Inc.       --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -367,7 +367,9 @@ package body GPR.Conf is
                   --  Otherwise, if the value is a string list, prepend the
                   --  conf array element value to the array element.
 
-                  elsif Conf_Array_Elem.Value.Kind = List then
+                  elsif Conf_Array_Elem.Value.Kind = List
+                    and then Conf_Array_Elem.Value.Concat
+                  then
                      Conf_List := Conf_Array_Elem.Value.Values;
 
                      if Conf_List /= Nil_String then

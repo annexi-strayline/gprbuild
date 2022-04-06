@@ -1245,6 +1245,8 @@ package body GPR.Proc is
                                                               (The_List).Next;
                                  end loop;
                               end;
+
+                              Result.Concat := The_Variable.Concat;
                         end case;
                   end case;
                end;
