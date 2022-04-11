@@ -1520,10 +1520,8 @@ procedure Gprlib is
 
                PL_Options.Append_Vector (Trailing_PL_Options);
 
-               if not Quiet_Output then
-                  if Verbose_Mode then
-                     Display_Command (Partial_Linker_Path.all, PL_Options);
-                  end if;
+               if Verbose_Mode then
+                  Display_Command (Partial_Linker_Path.all, PL_Options);
                end if;
 
                Spawn_And_Script_Write
@@ -1552,8 +1550,8 @@ procedure Gprlib is
          end loop;
 
          Linker_Option_Object_File := new String'
-           (Partial_Name (Library_Name.all, 0, Object_Suffix));
-         --  We will add the Linker Opt section to p__<lib>_0.o
+           (Partial_Name (Library_Name.all, Partial_Number, Object_Suffix));
+         --  We will add the Linker Opt section to p__<lib>_<partial_number>.o
 
       else
          --  Not a standalone library, or Partial linker is not specified.

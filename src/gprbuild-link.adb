@@ -116,6 +116,13 @@ package body Gprbuild.Link is
    --  Return True if Object_Path is the path of an object file in a library
    --  project.
 
+   function Is_Object (Filename : String) return Boolean
+   is (Filename'Length > Object_Suffix'Length
+       and then
+       Filename (Filename'Last - Object_Suffix'Length + 1 .. Filename'Last)
+       = Object_Suffix);
+   --  Returns True if filename ended with Object_Suffix
+
    procedure Display_Command
      (Arguments : Options_Data;
       Path      : String_Access;
@@ -427,14 +434,10 @@ package body Gprbuild.Link is
                            Canonical_Case_File_Name
                              (Name_Buffer (1 .. Name_Len));
 
-                           if Name_Len > Object_Suffix'Length
-                             and then
-                               Name_Buffer
-                                 (Name_Len - Object_Suffix'Length + 1
-                                  .. Name_Len) = Object_Suffix
-                           then
-                              Ret.Append (Obj_Dir & Directory_Separator &
-                                   Name_Buffer (1 .. Name_Len));
+                           if Is_Object (Name_Buffer (1 .. Name_Len)) then
+                              Ret.Append
+                                (Obj_Dir & Directory_Separator
+                                 & Name_Buffer (1 .. Name_Len));
                            end if;
                         end loop;
 
@@ -2396,6 +2399,8 @@ package body Gprbuild.Link is
                               Lines : constant Name_Array_Type := Split
                                 (Output.all, EOL);
                               Lib_Fn : String := Lib_Name;
+                              PP     : constant String :=
+                                         Partial_Prefix & Lib_Fn & "_";
                            begin
                               Canonical_Case_File_Name (Lib_Fn);
                               Free (Output);
@@ -2414,9 +2419,18 @@ package body Gprbuild.Link is
                                  Canonical_Case_File_Name
                                    (Name_Buffer (1 .. Name_Len));
 
-                                 if Name_Buffer (1 .. Name_Len) in
-                                   "b__" & Lib_Fn & ".o"
-                                   | "p__" & Lib_Fn & "_0.o"
+                                 if Name_Buffer (1 .. Name_Len) =
+                                   "b__" & Lib_Fn & Object_Suffix
+                                   or else
+                                     (Starts_With
+                                        (Name_Buffer (1 .. Name_Len), PP)
+                                      and then Is_Object
+                                                 (Name_Buffer (1 .. Name_Len))
+                                      and then
+                                        (for all C of Name_Buffer
+                                           (PP'Length + 1
+                                            .. Name_Len - Object_Suffix'Length)
+                                         => C in '0' .. '9'))
                                  then
                                     Obj := new String'
                                       (Name_Buffer (1 .. Name_Len));
