@@ -27,8 +27,6 @@ with Ada.Directories;  use Ada.Directories;
 
 with Ada.Unchecked_Conversion;
 
-with GNAT.Case_Util; use GNAT.Case_Util;
-
 with System.CRTL;
 with System.OS_Constants;
 

@@ -2396,13 +2396,13 @@ package body Gprbuild.Link is
                            --  expected binder-generated ones.
 
                            declare
-                              Lines : constant Name_Array_Type := Split
-                                (Output.all, EOL);
-                              Lib_Fn : String := Lib_Name;
+                              Lines : constant Name_Array_Type :=
+                                        Split (Output.all, EOL);
+                              Lib_Fn : constant String :=
+                                         Canonical_Case_File_Name (Lib_Name);
                               PP     : constant String :=
                                          Partial_Prefix & Lib_Fn & "_";
                            begin
-                              Canonical_Case_File_Name (Lib_Fn);
                               Free (Output);
 
                               for L of Lines loop

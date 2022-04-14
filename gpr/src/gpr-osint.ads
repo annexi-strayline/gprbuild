@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -26,6 +26,8 @@
 
 with Ada.Calendar;
 with Ada.Unchecked_Deallocation;
+
+private with GNAT.Case_Util;
 
 package GPR.Osint is
 
@@ -179,6 +181,9 @@ package GPR.Osint is
    --  this call converts the given string to canonical all lower case form,
    --  so that two file names compare equal if they refer to the same file.
 
+   function Canonical_Case_File_Name (S : String) return String;
+   --  Idem, but function
+
    procedure Canonical_Case_Env_Var_Name (S : in out String);
    --  Given an environment variable name, converts it to canonical
    --  case form. For systems where environment variable names are case
@@ -229,8 +234,13 @@ package GPR.Osint is
 
 private
 
+   use GNAT.Case_Util;
+
    function File_Time_Stamp (N : C_File_Name) return Ada.Calendar.Time
      with Import, Convention => C, External_Name => "__gnat_file_time";
+
+   function Canonical_Case_File_Name (S : String) return String is
+     (if File_Names_Case_Sensitive then S else To_Lower (S));
 
    Invalid_Time : constant Ada.Calendar.Time :=
                     File_Time_Stamp (System.Null_Address);
