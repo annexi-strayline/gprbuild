@@ -30,6 +30,8 @@ with Ada.Unchecked_Conversion;
 with System.CRTL;
 with System.OS_Constants;
 
+with GNAT.Case_Util; use GNAT.Case_Util;
+
 with GPR.Names;  use GPR.Names;
 with GPR.Output; use GPR.Output;
 
@@ -68,6 +70,17 @@ package body GPR.Osint is
       if not File_Names_Case_Sensitive then
          To_Lower (S);
       end if;
+   end Canonical_Case_File_Name;
+
+   ------------------------------
+   -- Canonical_Case_File_Name --
+   ------------------------------
+
+   function Canonical_Case_File_Name (S : String) return String is
+   begin
+      return Result : String := S do
+         Canonical_Case_File_Name (Result);
+      end return;
    end Canonical_Case_File_Name;
 
    ---------------------------------

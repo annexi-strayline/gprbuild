@@ -27,8 +27,6 @@
 with Ada.Calendar;
 with Ada.Unchecked_Deallocation;
 
-private with GNAT.Case_Util;
-
 package GPR.Osint is
 
    -----------------------------------------
@@ -234,13 +232,8 @@ package GPR.Osint is
 
 private
 
-   use GNAT.Case_Util;
-
    function File_Time_Stamp (N : C_File_Name) return Ada.Calendar.Time
      with Import, Convention => C, External_Name => "__gnat_file_time";
-
-   function Canonical_Case_File_Name (S : String) return String is
-     (if File_Names_Case_Sensitive then S else To_Lower (S));
 
    Invalid_Time : constant Ada.Calendar.Time :=
                     File_Time_Stamp (System.Null_Address);
