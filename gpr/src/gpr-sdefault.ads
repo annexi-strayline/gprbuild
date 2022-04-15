@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2006-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 2006-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,8 +22,12 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with System.OS_Constants;
+--  Package that provides the default hostname value
 
 package GPR.Sdefault is
-   Hostname : constant String := System.OS_Constants.Target_Name;
+   function Hostname return String;
+   --  Calculates if necessary and returns the value of hostname. If gprtools
+   --  installation contains share/gprconfig/default_target file, takes its
+   --  contents as the hostname, otherwise defaults to target name specified
+   --  in System.OS_Constants.
 end GPR.Sdefault;
