@@ -40,12 +40,12 @@ LIB_DIR       = lib/
 # target options for cross-build
 ifeq ($(HOST),$(TARGET))
 GTARGET=
-INSTALLER=exe/$(BUILD)/$(LIB_INSTALLER)
+# INSTALLER=exe/$(BUILD)/$(LIB_INSTALLER)
 else
 GTARGET=--target=$(TARGET)
-INSTALLER=$(LIB_INSTALLER)
 endif
 
+INSTALLER=$(LIB_INSTALLER)
 EXEC_INSTALLER=$(INSTALLER) -XBUILD=${BUILD}
 
 # check for out-of-tree build
