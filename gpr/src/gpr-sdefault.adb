@@ -26,8 +26,6 @@ with Ada.Exceptions;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Text_IO;
 
-with GNAT.OS_Lib;           use GNAT.OS_Lib;
-
 with System.OS_Constants;
 
 with GPR.Util;              use GPR.Util;

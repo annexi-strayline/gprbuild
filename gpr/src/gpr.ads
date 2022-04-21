@@ -34,7 +34,6 @@ with Ada.Containers.Ordered_Sets;
 with GNAT.Dynamic_HTables; use GNAT.Dynamic_HTables;
 with GNAT.Dynamic_Tables;
 
-pragma Warnings (Off);
 with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 with System.Storage_Elements;
