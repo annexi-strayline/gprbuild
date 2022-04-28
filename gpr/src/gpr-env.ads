@@ -220,7 +220,7 @@ package GPR.Env is
    generic
       with function Check_Filename (Name : String) return Boolean;
    function Find_Name_In_Path
-     (Self : Project_Search_Path;
+     (Self : in out Project_Search_Path;
       Path : String) return String_Access;
    --  Find a name in the project search path of Self. Check_Filename is
    --  the predicate to valid the search.  If Path is an absolute filename,
@@ -244,7 +244,7 @@ package GPR.Env is
    --  Returns No_Name if no such project was found
 
    function Get_Runtime_Path
-     (Self : Project_Search_Path;
+     (Self : in out Project_Search_Path;
       Name : String) return String_Access;
    --  Compute the full path for the project-based runtime name.
    --  Name is simply searched on the project path.
@@ -257,6 +257,12 @@ private
       Hash            => Ada.Strings.Hash,
       Equivalent_Keys => "=");
 
+   package Project_Path_Maps is new Ada.Containers.Indefinite_Hashed_Maps
+     (Key_Type        => String,
+      Element_Type    => Positive,
+      Hash            => Ada.Strings.Hash,
+      Equivalent_Keys => "=");
+
    type Project_Search_Path is record
       Path : Util.String_Vectors.Vector;
       --  As a special case, if the first character is '#:" or this variable
@@ -264,6 +270,7 @@ private
       --  yet (although subprograms above will properly take care of that).
 
       Cache : Projects_Paths.Map;
+      Found : Project_Path_Maps.Map;
 
       Initialized : Boolean := False;
    end record;

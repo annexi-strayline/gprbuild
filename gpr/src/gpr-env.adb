@@ -1463,7 +1463,7 @@ package body GPR.Env is
    ----------------------
 
    function Get_Runtime_Path
-     (Self : Project_Search_Path;
+     (Self : in out Project_Search_Path;
       Name : String) return String_Access
    is
       function Find_Rts_In_Path is
@@ -2107,11 +2107,24 @@ package body GPR.Env is
    -----------------------
 
    function Find_Name_In_Path
-     (Self : Project_Search_Path;
+     (Self : in out Project_Search_Path;
       Path : String) return String_Access
    is
       use Ada.Strings.Unbounded;
       Current_Dir : Unbounded_String;
+      CF : Project_Path_Maps.Cursor;
+
+      function Current_Dir_Cached return String;
+
+      function Current_Dir_Cached return String is
+      begin
+         if Current_Dir = Null_Unbounded_String then
+            Current_Dir := To_Unbounded_String (Get_Current_Dir);
+         end if;
+
+         return To_String (Current_Dir);
+      end Current_Dir_Cached;
+
    begin
       if Current_Verbosity = High then
          Debug_Output ("Trying " & Path);
@@ -2123,34 +2136,52 @@ package body GPR.Env is
          else
             return null;
          end if;
-
-      else
-         --  Because we don't want to resolve symbolic links, we cannot use
-         --  Locate_Regular_File. So, we try each possible path successively.
-
-         for P of Self.Path loop
-            Name_Len := 0;
-
-            if not Is_Absolute_Path (P) then
-               if Current_Dir = Null_Unbounded_String then
-                  Current_Dir := To_Unbounded_String (Get_Current_Dir);
-               end if;
-
-               Add_Str_To_Name_Buffer (To_String (Current_Dir));
-            end if;
-
-            Add_Str_To_Name_Buffer (Ensure_Directory (P));
-            Add_Str_To_Name_Buffer (Path);
-
-            if Current_Verbosity = High then
-               Debug_Output ("Testing file " & Name_Buffer (1 .. Name_Len));
-            end if;
-
-            if Check_Filename (Name_Buffer (1 .. Name_Len)) then
-               return new String'(Name_Buffer (1 .. Name_Len));
-            end if;
-         end loop;
       end if;
+
+      CF := Self.Found.Find (Path);
+
+      if Project_Path_Maps.Has_Element (CF) then
+         declare
+            P : constant String_Vectors.Constant_Reference_Type :=
+                  Self.Path (Project_Path_Maps.Element (CF));
+            Candidate : constant String :=
+                          (if Is_Absolute_Path (P) then ""
+                           else Current_Dir_Cached)
+                          & Ensure_Directory (P)
+                          & Path;
+         begin
+            if Check_Filename (Candidate) then
+               return new String'(Candidate);
+            else
+               --  Cache miss
+               Self.Found.Clear;
+            end if;
+         end;
+      end if;
+
+      --  Because we don't want to resolve symbolic links, we cannot use
+      --  Locate_Regular_File. So, we try each possible path successively.
+
+      for CP in Self.Path.Iterate loop
+         Name_Len := 0;
+
+         if not Is_Absolute_Path (Self.Path (CP)) then
+            Add_Str_To_Name_Buffer (Current_Dir_Cached);
+         end if;
+
+         Add_Str_To_Name_Buffer (Ensure_Directory (Self.Path (CP)));
+         Add_Str_To_Name_Buffer (Path);
+
+         if Current_Verbosity = High then
+            Debug_Output ("Testing file " & Name_Buffer (1 .. Name_Len));
+         end if;
+
+         if Check_Filename (Name_Buffer (1 .. Name_Len)) then
+            Self.Found.Insert (Path, String_Vectors.To_Index (CP));
+
+            return new String'(Name_Buffer (1 .. Name_Len));
+         end if;
+      end loop;
 
       return null;
    end Find_Name_In_Path;
