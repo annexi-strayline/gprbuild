@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -27,6 +27,8 @@
 
 with Ada.Containers.Indefinite_Hashed_Maps;
 with Ada.Strings.Hash;
+
+with GPR.Util;
 
 package GPR.Env is
 
@@ -256,14 +258,19 @@ private
       Equivalent_Keys => "=");
 
    type Project_Search_Path is record
-      Path : GNAT.OS_Lib.String_Access;
+      Path : Util.String_Vectors.Vector;
       --  As a special case, if the first character is '#:" or this variable
       --  is unset, this means that the PATH has not been fully initialized
       --  yet (although subprograms above will properly take care of that).
 
       Cache : Projects_Paths.Map;
+
+      Initialized : Boolean := False;
    end record;
 
    No_Project_Search_Path : constant Project_Search_Path := (others => <>);
+
+   function Is_Initialized (Self : Project_Search_Path) return Boolean is
+     (Self.Initialized);
 
 end GPR.Env;
