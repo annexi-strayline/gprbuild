@@ -1590,6 +1590,7 @@ package body Gprbuild.Compile is
          Start       : Natural;
          Finish      : Natural;
          Last_Obj    : Natural;
+         Was         : Boolean := False;
 
          type Src_Record (F_Len : Natural) is record
             File : String (1 .. F_Len);
@@ -1600,20 +1601,6 @@ package body Gprbuild.Compile is
            (Positive, Src_Record);
 
          Srcs : Src_Vectors.Vector;
-
-         procedure Purge;
-         --  Deallocate Object_Path and the list of sources rooted at
-         --  First_Src.
-
-         -----------
-         -- Purge --
-         -----------
-
-         procedure Purge is
-         begin
-            Free (Object_Path);
-            Srcs.Clear;
-         end Purge;
 
          Compilation_OK  : Boolean := True;
          Dep_File_OK     : Boolean := False;
@@ -1942,18 +1929,23 @@ package body Gprbuild.Compile is
             Put (Dep_File, Object_Path.all);
             Put (Dep_File, ": ");
 
-            for J in 1 .. Srcs.Last_Index loop
-               Put (Dep_File, Srcs (J).File);
-               Put (Dep_File, " ");
-               Put (Dep_File, String (Srcs (J).TS));
+            for Src of Srcs loop
+               if Was then
+                  Put_Line (Dep_File, " \");
+               else
+                  Was := True;
+               end if;
 
-               Put_Line (Dep_File, (if J < Srcs.Last_Index then " \" else ""));
+               Put (Dep_File, Src.File);
+               Put (Dep_File, " ");
+               Put (Dep_File, String (Src.TS));
             end loop;
+            Put_Line (Dep_File, "");
 
             Close (Dep_File);
          end if;
 
-         Purge;
+         Free (Object_Path);
 
          return Compilation_OK;
       end Phase_2_Makefile;
