@@ -209,6 +209,11 @@ package GPR.Env is
    --  been called, the value set by the last call to Set_Project_Path.
    --  Self must have been initialized first.
 
+   procedure Iterate
+     (Self   : Project_Search_Path;
+      Action : not null access procedure (Path : String));
+   --  Calls Process for each path in Self
+
    procedure Set_Path (Self : in out Project_Search_Path; Path : String);
    --  Override the value of the project path. This also removes the implicit
    --  default search directories.

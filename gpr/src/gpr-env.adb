@@ -2057,6 +2057,30 @@ package body GPR.Env is
       end if;
    end Initialize_Default_Project_Path;
 
+   -------------
+   -- Iterate --
+   -------------
+
+   procedure Iterate
+     (Self   : Project_Search_Path;
+      Action : not null access procedure (Path : String)) is
+
+      procedure Process (Position : Util.String_Vectors.Cursor);
+      --  Calls Action for element at Position
+
+      -------------
+      -- Process --
+      -------------
+
+      procedure Process (Position : Util.String_Vectors.Cursor) is
+      begin
+         Action (Util.String_Vectors.Element (Position));
+      end Process;
+
+   begin
+      Self.Path.Iterate (Process'Access);
+   end Iterate;
+
    --------------
    -- Get_Path --
    --------------

@@ -400,34 +400,23 @@ procedure Gprls.Main is
       Put_Line ("Project Search Path:");
 
       declare
-         Path : constant String := Get_Path (Root_Environment.Project_Path);
-         First : Positive;
-         Last  : Natural;
+         procedure Output (Path : String);
+         --  Calls Put_Path with Path parameter if Path is not "."
+
+         ------------
+         -- Output --
+         ------------
+
+         procedure Output (Path : String) is
+         begin
+            if Path /= "." then
+               Put_Path (Path);
+            end if;
+         end Output;
+
       begin
          Put_Line ("   <Current_Directory>");
-
-         if Path /= "" then
-            First := Path'First;
-            while First < Path'Last loop
-               Last := First;
-               while Last < Path'Last and then
-                 Path (Last + 1) /= Path_Separator
-               loop
-                  Last := Last + 1;
-               end loop;
-
-               if Path (First .. Last) /= "." then
-                  Put_Path (Path (First .. Last));
-               end if;
-
-               First := Last + 1;
-               while First < Path'Last and then
-                 Path (First) = Path_Separator
-               loop
-                  First := First + 1;
-               end loop;
-            end loop;
-         end if;
+         Iterate (Root_Environment.Project_Path, Output'Access);
       end;
 
       New_Line;
