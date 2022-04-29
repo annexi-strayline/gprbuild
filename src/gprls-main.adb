@@ -400,15 +400,13 @@ procedure Gprls.Main is
       Put_Line ("Project Search Path:");
 
       declare
-         Path : String_Access;
+         Path : constant String := Get_Path (Root_Environment.Project_Path);
          First : Positive;
          Last  : Natural;
       begin
          Put_Line ("   <Current_Directory>");
 
-         GPR.Env.Get_Path (Root_Environment.Project_Path, Path);
-
-         if Path /= null then
+         if Path /= "" then
             First := Path'First;
             while First < Path'Last loop
                Last := First;

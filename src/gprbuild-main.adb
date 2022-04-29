@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2021, AdaCore                     --
+--                     Copyright (C) 2011-2022, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -1869,8 +1869,6 @@ procedure Gprbuild.Main is
 
          declare
             Prefix_Path : constant String := Executable_Prefix_Path;
-            P           : String_Access;
-
          begin
             if Prefix_Path'Length /= 0 then
                Put (Path_Separator);
@@ -1882,8 +1880,7 @@ procedure Gprbuild.Main is
 
             New_Line;
 
-            GPR.Env.Get_Path (Root_Environment.Project_Path, Path => P);
-            Put_Line (P.all);
+            Put_Line (Env.Get_Path (Root_Environment.Project_Path));
             Exit_Program (E_Success);
          end;
       end if;

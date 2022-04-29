@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -604,19 +604,11 @@ package body GPR.Part is
       GPR.Err.Scanner.Set_End_Of_Line_As_Token (Store_Comments);
 
       if Path_Name_Id = No_Path then
-         declare
-            P : String_Access;
-         begin
-            Get_Path (Env.Project_Path, Path => P);
-
-            GPR.Com.Fail
-              ("project file """
-               & Project_File_Name
-               & """ not found in "
-               & P.all);
-            Project := Empty_Project_Node;
-            return;
-         end;
+         GPR.Com.Fail
+           ("project file """ & Project_File_Name
+            & """ not found in " & Get_Path (Env.Project_Path));
+         Project := Empty_Project_Node;
+         return;
       end if;
 
       --  Parse the main project file

@@ -203,11 +203,10 @@ package GPR.Env is
    --  Calls to this subprogram must be performed before the first call to
    --  Find_Project below, or PATH will be added at the end of the search path.
 
-   procedure Get_Path (Self : Project_Search_Path; Path : out String_Access);
+   function Get_Path (Self : Project_Search_Path) return String;
    --  Return the current value of the project path, either the value set
    --  during elaboration of the package or, if procedure Set_Project_Path has
-   --  been called, the value set by the last call to Set_Project_Path. The
-   --  returned value must not be modified.
+   --  been called, the value set by the last call to Set_Project_Path.
    --  Self must have been initialized first.
 
    procedure Set_Path (Self : in out Project_Search_Path; Path : String);

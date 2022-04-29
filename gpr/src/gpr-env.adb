@@ -2061,7 +2061,7 @@ package body GPR.Env is
    -- Get_Path --
    --------------
 
-   procedure Get_Path (Self : Project_Search_Path; Path : out String_Access) is
+   function Get_Path (Self : Project_Search_Path) return String is
       Length : Integer := Self.Path.Last_Index - 1;
       Index  : Positive := 1;
    begin
@@ -2072,24 +2072,24 @@ package body GPR.Env is
       end loop;
 
       if Self.Path.Is_Empty then
-         return;
+         return "";
       end if;
 
-      Path := new String (1 .. Length);
+      return Path : String (1 .. Length) do
+         for Idx in Self.Path.First_Index .. Self.Path.Last_Index - 1 loop
+            declare
+               P : constant Util.String_Vectors.Constant_Reference_Type :=
+                     Self.Path (Idx);
+            begin
+               Path (Index .. Index + P.Element'Length - 1) := P;
+               Index := Index + P.Element'Length;
+               Path (Index) := Path_Separator;
+               Index := Index + 1;
+            end;
+         end loop;
 
-      for Idx in Self.Path.First_Index .. Self.Path.Last_Index - 1 loop
-         declare
-            P : constant Util.String_Vectors.Constant_Reference_Type :=
-                  Self.Path (Idx);
-         begin
-            Path (Index .. Index + P.Element'Length - 1) := P;
-            Index := Index + P.Element'Length;
-            Path (Index) := Path_Separator;
-            Index := Index + 1;
-         end;
-      end loop;
-
-      Path (Index .. Path'Last) := Self.Path.Last_Element;
+         Path (Index .. Path'Last) := Self.Path.Last_Element;
+      end return;
    end Get_Path;
 
    --------------
