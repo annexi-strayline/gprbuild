@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2004-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -79,6 +79,10 @@ package Gpr_Build_Util is
    --  will be used to relocate artifacts based on this directory. If this
    --  option is not specificed the default value is the directory of the
    --  main project.
+
+   Getrusage_Option : constant String := "--getrusage=";
+   --  Option to set the file where the getrusage call results will be printed.
+   --  Working only in Linux.
 
    Unchecked_Shared_Lib_Imports : constant String :=
                                     "--unchecked-shared-lib-imports";

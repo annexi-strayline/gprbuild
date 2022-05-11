@@ -79,6 +79,8 @@ procedure Gprbuild.Main is
    Main_On_Command_Line : Boolean := False;
    --  True if there is at least one main specified on the command line
 
+   Is_Unix : constant Boolean := GNAT.OS_Lib.Path_Separator = ':';
+
    procedure Initialize;
    --  Do the necessary package intialization and process the command line
    --  arguments.
@@ -104,9 +106,7 @@ procedure Gprbuild.Main is
       Language     : Name_Id;
       Success      : out Boolean);
    --  Process one gprbuild argument Arg. Command_Line is True if the argument
-   --  is specified on the command line. Optional parameter Additional gives
-   --  additional information about the origin of the argument if it is found
-   --  illegal.
+   --  is specified on the command line.
 
    procedure Add_Option (Arg : String; Command_Line : Boolean);
    --  Add a switch for a compiler or all compilers, or for the binder or for
@@ -1122,6 +1122,16 @@ procedure Gprbuild.Main is
             Subdirs :=
               new String'(Arg (Subdirs_Option'Length + 1 .. Arg'Last));
 
+         elsif Is_Unix
+           and then Arg'Length > Getrusage_Option'Length
+           and then Arg (1 .. Getrusage_Option'Length) = Getrusage_Option
+         then
+            Forbidden_In_Package_Builder;
+            Getrusage :=
+              new String'
+                (GNAT.OS_Lib.Normalize_Pathname
+                   (Arg (Getrusage_Option'Length + 1 .. Arg'Last)));
+
          elsif Arg'Length > Src_Subdirs_Option'Length
            and then Arg (1 .. Src_Subdirs_Option'Length) = Src_Subdirs_Option
          then
@@ -1203,9 +1213,7 @@ procedure Gprbuild.Main is
                Register_Command_Line_Option (Options.Indirect_Imports, 1);
             end if;
 
-         elsif Arg = No_Indirect_Imports_Switch
-               or else
-               Arg = Direct_Import_Only_Switch
+         elsif Arg in No_Indirect_Imports_Switch | Direct_Import_Only_Switch
          then
             Indirect_Imports := False;
 
@@ -2109,6 +2117,11 @@ procedure Gprbuild.Main is
          Put ("           Use dir as suffix to obj/lib/exec directories");
          New_Line;
 
+         if Is_Unix then
+            Put_Line ("  --getrusage=file");
+            Put_Line ("           Print getrusage call results into file");
+         end if;
+
          --  Line for --single-compile-per-obj-dir
 
          Put ("  ");
@@ -2802,6 +2815,10 @@ begin
 
    if Warnings_Detected /= 0 then
       GPR.Err.Finalize;
+   end if;
+
+   if Getrusage /= null then
+      Put_Resource_Usage (Getrusage.all);
    end if;
 
    Finish_Program (Project_Tree, Exit_Code);

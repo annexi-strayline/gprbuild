@@ -4078,6 +4078,12 @@ package body GPR.Util is
         & Object_Suffix;
    end Partial_Name;
 
+   ------------------------
+   -- Put_Resource_Usage --
+   ------------------------
+
+   procedure Put_Resource_Usage (Filename : String) is separate;
+
    --------------------------------
    -- Project_Compilation_Failed --
    --------------------------------

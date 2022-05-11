@@ -332,22 +332,25 @@ package GPR is
    --  Name used to replace others as an index of an associative array
    --  attribute in situations where this is allowed.
 
-   Subdirs : String_Access := null;
+   Subdirs : String_Access;
    --  The value after the equal sign in switch --subdirs=...
    --  Contains the relative subdirectory.
 
-   Src_Subdirs : String_Access := null;
+   Src_Subdirs : String_Access;
    --  The value after the equal sign in switch --src-subdirs=...
    --  Contains the relative subdirectory.
 
-   Build_Tree_Dir : String_Access := null;
+   Build_Tree_Dir : String_Access;
    --  A root directory for building out-of-tree projects. All relative object
    --  directories will be rooted at this location.
 
-   Root_Dir : String_Access := null;
+   Root_Dir : String_Access;
    --  When using out-of-tree build we need to keep information about the root
    --  directory of artifacts to properly relocate them. Note that the root
    --  directory is not necessarily the directory of the main project.
+
+   Getrusage : String_Access;
+   --  Print getrusage call output to file
 
    type Library_Support is (None, Static_Only, Full);
    --  Support for Library Project File.

@@ -109,6 +109,9 @@ package GPR.Util is
    --  When there are other problems, Result is null and Status is different
    --  from Success or Incomplete_Closure.
 
+   procedure Put_Resource_Usage (Filename : String);
+   --  Print resource usage statistic into file with Filename
+
    -------------------------
    -- Program termination --
    -------------------------
