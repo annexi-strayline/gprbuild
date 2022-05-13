@@ -96,7 +96,6 @@ procedure Put_Resource_Usage (Filename : String) is
       end if;
 
       Print (Usage.ru_utime);
-      Put (Log, ' ');
       Print (Usage.ru_stime);
 
       for L of Longs loop
