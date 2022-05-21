@@ -2045,7 +2045,6 @@ package GPR is
 
    --  The following record describes a project file representation
 
-   pragma Warnings (Off);
    type Standalone is
      (No,
 
@@ -2055,7 +2054,6 @@ package GPR is
       Standard,
 
       Encapsulated);
-   pragma Warnings (On);
 
    type Project_Data (Qualifier : Project_Qualifier := Unspecified) is record
 

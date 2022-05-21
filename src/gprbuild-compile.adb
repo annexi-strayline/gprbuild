@@ -1073,7 +1073,6 @@ package body Gprbuild.Compile is
          File : Ada.Text_IO.File_Type;
          Line : String (1 .. 1_024);
          Last : Natural;
-         Length : Natural;
          Print_New_Line : Boolean := False;
       begin
          if OS_Lib.Is_Regular_File (File_Path) then

@@ -180,8 +180,8 @@ procedure Gprlib is
    Auto_Init                     : Boolean := False;
    --  True when a SAL is auto initializable
 
-   Static                        : Boolean := False;
-   --  True if the library is an archive
+   Relocatable                   : Boolean := False;
+   --  True if the library is relocatable
 
    No_Create                     : Boolean := False;
    --  Should the library (static or dynamic) be built
@@ -229,8 +229,6 @@ procedure Gprlib is
    Archive_Suffix                : String_Access := new String'(".a");
 
    Bind_Options                  : String_Vectors.Vector;
-
-   Relocatable                   : Boolean := False;
 
    Library_Name                  : String_Access := null;
 
@@ -775,9 +773,7 @@ procedure Gprlib is
                Free (Text);
 
                if Id = No_ALI_Id and then Verbose_Mode then
-                  Put_Line
-                    ("warning: reading of " &
-                     ALI_File & " failed");
+                  Put_Line ("warning: reading of " & ALI_File & " failed");
 
                else
                   --  Look for s-osinte.ads in the dependencies
@@ -810,39 +806,33 @@ procedure Gprlib is
 
             Libgnat := null;
 
-            for Dir of Runtime_Library_Dirs loop
-               if Is_Regular_File
-                 (Dir & Directory_Separator & "libgnat_pic.a")
-               then
-                  Libgnat  := new String'
-                    (Dir &
-                       Directory_Separator &
-                       "libgnat_pic.a");
-                  Libgnarl := new String'
-                    (Dir &
-                       Directory_Separator &
-                       "libgnarl_pic.a");
-                  exit;
-               end if;
+            for D of Runtime_Library_Dirs loop
+               declare
+                  Dir : constant String := Ensure_Directory (D);
+                  Lib : constant String := Dir & "libgnat_pic.a";
+               begin
+                  if Is_Regular_File (Lib) then
+                     Libgnat  := new String'(Lib);
+                     Libgnarl := new String'(Dir & "libgnarl_pic.a");
+                     exit;
+                  end if;
+               end;
             end loop;
 
             --  If libgnat-pic.a was not found, look for libgnat.a
 
             if Libgnat = null then
-               for Dir of Runtime_Library_Dirs loop
-                  if Is_Regular_File
-                    (Dir & Directory_Separator & "libgnat.a")
-                  then
-                     Libgnat  := new String'
-                       (Dir &
-                          Directory_Separator &
-                          "libgnat.a");
-                     Libgnarl := new String'
-                       (Dir &
-                          Directory_Separator &
-                          "libgnarl.a");
-                     exit;
-                  end if;
+               for D of Runtime_Library_Dirs loop
+                  declare
+                     Dir : constant String := Ensure_Directory (D);
+                     Lib : constant String := Dir & "libgnat.a";
+                  begin
+                     if Is_Regular_File (Lib) then
+                        Libgnat  := new String'(Lib);
+                        Libgnarl := new String'(Dir & "libgnarl.a");
+                        exit;
+                     end if;
+                  end;
                end loop;
             end if;
 
@@ -850,14 +840,14 @@ procedure Gprlib is
             --  first directory. An error message will be displayed.
 
             if Libgnat = null then
-               Libgnat := new String'
-                 (Runtime_Library_Dirs.First_Element &
-                    Directory_Separator &
-                    "libgnat.a");
-               Libgnarl := new String'
-                 (Runtime_Library_Dirs.First_Element &
-                    Directory_Separator &
-                    "libgnarl.a");
+               declare
+                  Dir : constant String :=
+                          Ensure_Directory
+                            (Runtime_Library_Dirs.First_Element);
+               begin
+                  Libgnat  := new String'(Dir & "libgnat.a");
+                  Libgnarl := new String'(Dir & "libgnarl.a");
+               end;
             end if;
 
             if not Is_Regular_File (Libgnat.all) then
@@ -951,14 +941,13 @@ procedure Gprlib is
    ------------------------
 
    procedure Process_Standalone is
-      Binder_Generated_File   : String :=
-        "b__" & Library_Name.all & ".adb";
-      Binder_Generated_Spec   : String :=
-        "b__" & Library_Name.all & ".ads";
-      Binder_Generated_ALI    : String :=
-        "b__" & Library_Name.all & ".ali";
-      Binder_Generated_Object : String :=
-        "b__" & Library_Name.all & Object_Suffix;
+      Binder_Simple : constant String := "b__"
+                        & Canonical_Case_File_Name (Library_Name.all);
+      Binder_Generated_Body   : constant String := Binder_Simple & ".adb";
+      Binder_Generated_Spec   : constant String := Binder_Simple & ".ads";
+      Binder_Generated_ALI    : constant String := Binder_Simple & ".ali";
+      Binder_Generated_Object : constant String := Binder_Simple
+                                  & Canonical_Case_File_Name (Object_Suffix);
       First_ALI               : File_Name_Type;
       T                       : Text_Buffer_Ptr;
       A                       : ALI.ALI_Id;
@@ -968,11 +957,6 @@ procedure Gprlib is
       use ALI;
 
    begin
-      Osint.Canonical_Case_File_Name (Binder_Generated_File);
-      Osint.Canonical_Case_File_Name (Binder_Generated_Spec);
-      Osint.Canonical_Case_File_Name (Binder_Generated_ALI);
-      Osint.Canonical_Case_File_Name (Binder_Generated_Object);
-
       if not No_SAL_Binding then
          Linker_Option_Object_File := new String'(Binder_Generated_Object);
          --  We will add the Linker Opt section to b__<lib>.o
@@ -988,7 +972,7 @@ procedure Gprlib is
 
          Bind_Options.Append (No_Main);
          Bind_Options.Append (Output_Switch);
-         Bind_Options.Append ("b__" & Library_Name.all & ".adb");
+         Bind_Options.Append (Binder_Generated_Body);
 
          --  Make sure that the init procedure is never "adainit"
 
@@ -1251,9 +1235,9 @@ procedure Gprlib is
               (null, "invocation of " & Gnatbind_Name.all & " failed");
          end if;
 
-         Generated_Sources.Append ("b__" & Library_Name.all & ".ads");
-         Generated_Sources.Append ("b__" & Library_Name.all & ".adb");
-         Generated_Sources.Append ("b__" & Library_Name.all & ".ali");
+         Generated_Sources.Append (Binder_Generated_Spec);
+         Generated_Sources.Append (Binder_Generated_Body);
+         Generated_Sources.Append (Binder_Generated_ALI);
 
          Compiler_Path := Locate_Exec_On_Path (Compiler_Name.all);
 
@@ -1266,7 +1250,7 @@ procedure Gprlib is
 
          Bind_Options.Append_Vector (Ada_Leading_Switches);
          Bind_Options.Append (No_Warning);
-         Bind_Options.Append (Binder_Generated_File);
+         Bind_Options.Append (Binder_Generated_Body);
          Bind_Options.Append (Output_Switch);
          Bind_Options.Append (Binder_Generated_Object);
 
@@ -1325,7 +1309,7 @@ procedure Gprlib is
                Display
                  (Section  => Build_Libraries,
                   Command  => "Ada",
-                  Argument => Binder_Generated_File);
+                  Argument => Binder_Generated_Body);
             end if;
          end if;
 
@@ -1338,13 +1322,12 @@ procedure Gprlib is
          end if;
 
       else
-         if Is_Regular_File (Binder_Generated_File) then
-            Generated_Sources.Append (Binder_Generated_File);
+         if Is_Regular_File (Binder_Generated_Body) then
+            Generated_Sources.Append (Binder_Generated_Body);
          else
             Fail_Program
               (null,
-               "cannot find binder generated file " &
-                 Binder_Generated_File);
+               "cannot find binder generated file " & Binder_Generated_Body);
          end if;
 
          if Is_Regular_File (Binder_Generated_Spec) then
@@ -1386,7 +1369,7 @@ procedure Gprlib is
             Last    : Natural;
 
          begin
-            Open (BG_File, In_File, Binder_Generated_File);
+            Open (BG_File, In_File, Binder_Generated_Body);
 
             while not End_Of_File (BG_File) loop
                Get_Line (BG_File, Line, Last);
@@ -1408,8 +1391,7 @@ procedure Gprlib is
                  and then (Partial_Linker = null
                            or else Resp_File_Format /= GPR.None)
                  and then Line (9 .. 10) = "-l"
-                 and then Line (9 .. Last) /= "-lgnarl"
-                 and then Line (9 .. Last) /= "-lgnat"
+                 and then Line (9 .. Last) not in "-lgnarl" | "-lgnat"
                then
                   Additional_Switches.Append (Line (9 .. Last));
                end if;
@@ -1580,10 +1562,10 @@ procedure Gprlib is
             Objcopy_Args : String_Vectors.Vector;
 
          begin
-
             --  Read the linker options from the binder-generated file.
 
             Open (BG_File, In_File, "b__" & Library_Name.all & ".adb");
+
             Create (IO_File, Out_File, Options_File);
 
             while not End_Of_File (BG_File) loop
@@ -1839,10 +1821,8 @@ procedure Gprlib is
 
             when Gprexch.Relocatable =>
                Relocatable := True;
-               Static      := False;
 
             when Gprexch.Static =>
-               Static      := True;
                Relocatable := False;
 
             when Gprexch.Archive_Builder =>
@@ -2390,11 +2370,12 @@ begin
 
    --  Archives
 
-   if Static and then not No_Create then
-      Process_Static;
-
-   elsif not No_Create then
-      Process_Shared;
+   if not No_Create then
+      if Relocatable then
+         Process_Shared;
+      else
+         Process_Static;
+      end if;
    end if;
 
    if not ALIs.Is_Empty then
@@ -2443,9 +2424,9 @@ begin
       end loop;
    end if;
 
-   if Relocatable and then
-     Library_Version.all /= "" and then
-     Symbolic_Link_Supported
+   if Relocatable
+     and then Library_Version.all /= ""
+     and then Symbolic_Link_Supported
    then
       Put_Line (IO_File, Library_Label (Gprexch.Library_Version));
       Put_Line (IO_File, Library_Version.all);
