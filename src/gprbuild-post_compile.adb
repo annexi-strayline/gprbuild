@@ -3298,8 +3298,6 @@ package body Gprbuild.Post_Compile is
             Process_Imported_Libraries
               (For_Project, There_Are_SALs => Disregard);
 
-            Write_Runtime_Library_Dir;
-
             --  Relocatable
 
             Put_Line (Exchange_File, Library_Label (Relocatable));
@@ -3324,6 +3322,8 @@ package body Gprbuild.Post_Compile is
 
             Write_Imported_Libraries;
          end if;
+
+         Write_Runtime_Library_Dir;
 
          Write_Binding_Options;
 

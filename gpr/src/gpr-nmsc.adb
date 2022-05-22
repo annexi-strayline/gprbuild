@@ -4517,25 +4517,6 @@ package body GPR.Nmsc is
          end loop;
       end if;
 
-      if Project.Library
-        and then not Lib_Standalone.Default
-        and then Project.Library_Kind not in Relocatable | Dynamic
-        and then To_Lower (Get_Name_String (Lib_Standalone.Value)) =
-                 "encapsulated"
-      then
-         --  An encapsulated library must be a shared library
-
-         Error_Msg_Name_1 := Project.Display_Name;
-
-         Error_Msg
-           (Data.Flags,
-            Continuation.all
-            & "encapsulated library project %% must be a shared library"
-            & " project",
-            Project.Location, Project);
-         Continuation := Continuation_String'Access;
-      end if;
-
       --  Check that aggregated libraries do not share the aggregate
       --  Library_ALI_Dir.
 

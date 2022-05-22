@@ -313,13 +313,16 @@ procedure Gprlib is
    --  a Stand-Alone Library.
 
    procedure Process_Shared;
-   --  Process a shared library;
+   --  Process a shared library
 
    procedure Process_Static;
    --  Process a static library
 
    procedure Process_Standalone;
-   --  Specific processing for Sand-Alone Libraries.
+   --  Specific processing for Sand-Alone Libraries
+
+   procedure Process_Encapsulated;
+   --  Specific processing for encapsulated Sand-Alone Libraries
 
    procedure Read_Exchange_File;
    --  Read the library exchange file and initialize global variables and
@@ -699,6 +702,96 @@ procedure Gprlib is
       Put_Line (Name_Buffer (1 .. Name_Len));
    end Display_Command;
 
+   --------------------------
+   -- Process_Encapsulated --
+   --------------------------
+
+   procedure Process_Encapsulated is
+   begin
+      --  For encapsulated library we want to link against the static
+      --  GNAT runtime. For sufficiently recent compilers a static
+      --  pic version of the runtime might be present. Fallback on
+      --  the regular static libgnat otherwise.
+
+      --  First, look for libgnat_pic.a
+
+      Free (Libgnat);
+      Free (Libgnarl);
+
+      for D of Runtime_Library_Dirs loop
+         declare
+            Dir : constant String := Ensure_Directory (D);
+            Lib : constant String := Dir & "libgnat_pic.a";
+         begin
+            if Is_Regular_File (Lib) then
+               Libgnat  := new String'(Lib);
+               Libgnarl := new String'(Dir & "libgnarl_pic.a");
+               exit;
+            end if;
+         end;
+      end loop;
+
+      --  If libgnat-pic.a was not found, look for libgnat.a
+
+      if Libgnat = null then
+         for D of Runtime_Library_Dirs loop
+            declare
+               Dir : constant String := Ensure_Directory (D);
+               Lib : constant String := Dir & "libgnat.a";
+            begin
+               if Is_Regular_File (Lib) then
+                  Libgnat  := new String'(Lib);
+                  Libgnarl := new String'(Dir & "libgnarl.a");
+                  exit;
+               end if;
+            end;
+         end loop;
+      end if;
+
+      --  If libgnat.a was not found, assume it should be in the
+      --  first directory. An error message will be displayed.
+
+      if Libgnat = null and then not Runtime_Library_Dirs.Is_Empty then
+         declare
+            Dir : constant String :=
+                    Ensure_Directory
+                      (Runtime_Library_Dirs.First_Element);
+         begin
+            Libgnat  := new String'(Dir & "libgnat.a");
+            Libgnarl := new String'(Dir & "libgnarl.a");
+         end;
+      end if;
+
+      if not Is_Regular_File (Libgnat.all) then
+         Fail_Program
+           (null, "missing " & Libgnat.all & " for encapsulated library");
+      end if;
+
+      if Libgnarl_Needed and then not Is_Regular_File (Libgnarl.all) then
+         Fail_Program
+           (null, "missing " & Libgnarl.all & " for encapsulated library");
+      end if;
+
+      --  Adds options into the library options table as those static
+      --  libraries must come late in the linker command line.
+
+      if Libgnarl_Needed then
+         Library_Options_Table.Append (Libgnarl.all);
+      end if;
+
+      Library_Options_Table.Append (Libgnat.all);
+
+      --  Then adds back all libraries already on the command-line after
+      --  libgnat to fulfill dependencies on OS libraries that may be
+      --  used by the GNAT runtime. These are libraries added with a
+      --  pragma Linker_Options in sources that have already been put
+      --  in table Additional_Switches.
+
+      for Switch of Additional_Switches loop
+         Library_Options_Table.Append (Switch);
+      end loop;
+   end Process_Encapsulated;
+
    --------------------
    -- Process_Shared --
    --------------------
@@ -797,89 +890,7 @@ procedure Gprlib is
 
       if Use_GNAT_Lib and then not Runtime_Library_Dirs.Is_Empty then
          if Standalone = Encapsulated then
-            --  For encapsulated library we want to link against the static
-            --  GNAT runtime. For sufficiently recent compilers a static
-            --  pic version of the runtime might be present. Fallback on
-            --  the regular static libgnat otherwise.
-
-            --  First, look for libgnat_pic.a
-
-            Libgnat := null;
-
-            for D of Runtime_Library_Dirs loop
-               declare
-                  Dir : constant String := Ensure_Directory (D);
-                  Lib : constant String := Dir & "libgnat_pic.a";
-               begin
-                  if Is_Regular_File (Lib) then
-                     Libgnat  := new String'(Lib);
-                     Libgnarl := new String'(Dir & "libgnarl_pic.a");
-                     exit;
-                  end if;
-               end;
-            end loop;
-
-            --  If libgnat-pic.a was not found, look for libgnat.a
-
-            if Libgnat = null then
-               for D of Runtime_Library_Dirs loop
-                  declare
-                     Dir : constant String := Ensure_Directory (D);
-                     Lib : constant String := Dir & "libgnat.a";
-                  begin
-                     if Is_Regular_File (Lib) then
-                        Libgnat  := new String'(Lib);
-                        Libgnarl := new String'(Dir & "libgnarl.a");
-                        exit;
-                     end if;
-                  end;
-               end loop;
-            end if;
-
-            --  If libgnat.a was not found, assume it should be in the
-            --  first directory. An error message will be displayed.
-
-            if Libgnat = null then
-               declare
-                  Dir : constant String :=
-                          Ensure_Directory
-                            (Runtime_Library_Dirs.First_Element);
-               begin
-                  Libgnat  := new String'(Dir & "libgnat.a");
-                  Libgnarl := new String'(Dir & "libgnarl.a");
-               end;
-            end if;
-
-            if not Is_Regular_File (Libgnat.all) then
-               Fail_Program
-                 (null,
-                  "missing " & Libgnat.all & " for encapsulated library");
-            end if;
-
-            if Libgnarl_Needed and then not Is_Regular_File (Libgnarl.all) then
-               Fail_Program
-                 (null,
-                  "missing " & Libgnarl.all & " for encapsulated library");
-            end if;
-
-            --  Adds options into the library options table as those static
-            --  libraries must come late in the linker command line.
-
-            if Libgnarl_Needed then
-               Library_Options_Table.Append (Libgnarl.all);
-            end if;
-
-            Library_Options_Table.Append (Libgnat.all);
-
-            --  Then adds back all libraries already on the command-line after
-            --  libgnat to fulfill dependencies on OS libraries that may be
-            --  used by the GNAT runtime. These are libraries added with a
-            --  pragma Linker_Options in sources that have already been put
-            --  in table Additional_Switches.
-
-            for Switch of Additional_Switches loop
-               Library_Options_Table.Append (Switch);
-            end loop;
+            Process_Encapsulated;
 
          else
             for Dir of Runtime_Library_Dirs loop
@@ -891,9 +902,7 @@ procedure Gprlib is
                   --  Add to the Path Option the directory of the shared
                   --  version of libgcc.
 
-                  Add_Rpath
-                    (Shared_Libgcc_Dir (Dir),
-                     Absolute => True);
+                  Add_Rpath (Shared_Libgcc_Dir (Dir), Absolute => True);
                end if;
             end loop;
 
@@ -1404,14 +1413,12 @@ procedure Gprlib is
    -- Process_Static --
    --------------------
 
-   procedure Process_Static
-   is
+   procedure Process_Static is
       AB_Options          : String_Vectors.Vector;
       AB_Objects          : String_Vectors.Vector;
       First_AB_Object_Pos : Natural;
       Last_AB_Object_Pos  : Natural;
       --  Various indexes in AB_Options used when building an archive in chunks
-
    begin
       if Standalone /= No and then Partial_Linker /= null then
          Partial_Linker_Path := Locate_Exec_On_Path (Partial_Linker.all);
@@ -1428,30 +1435,27 @@ procedure Gprlib is
 
       Library_Path_Name :=
         new String'
-          (Library_Directory.all &
-             "lib" & Library_Name.all & Archive_Suffix.all);
+          (Library_Directory.all & "lib" & Library_Name.all
+           & Archive_Suffix.all);
 
-      if not Library_Options_Table.Is_Empty then
-         --  Add the object files specified in the Library_Options.
-
-         --  If we perform a partial link, do not check that all library
-         --  options are object files: switches may also be used.
-
-         for Opt of Library_Options_Table loop
-            if Is_Regular_File (Opt) then
-               Object_Files.Append (Opt);
-            else
-               if Partial_Linker_Path = null then
-                  Fail_Program
-                    (null,
-                     "unknown object file """ & Opt & """");
-               else
-                  Trailing_PL_Options.Append (Opt);
-               end if;
-            end if;
-         end loop;
-
+      if Standalone = Encapsulated then
+         Process_Encapsulated;
       end if;
+
+      --  Add the object files specified in the Library_Options.
+
+      --  If we perform a partial link, do not check that all library
+      --  options are object files: switches may also be used.
+
+      for Opt of Library_Options_Table loop
+         if Is_Regular_File (Opt) then
+            Object_Files.Append (Opt);
+         elsif Partial_Linker_Path = null then
+            Fail_Program (null, "unknown object file """ & Opt & """");
+         else
+            Trailing_PL_Options.Append (Opt);
+         end if;
+      end loop;
 
       if Standalone /= No and then Partial_Linker_Path /= null then
          --  If partial linker is used, do a partial link and put the resulting
@@ -1495,8 +1499,7 @@ procedure Gprlib is
 
                   First_Object := First_Object + 1;
 
-                  exit when
-                    First_Object > Object_Files.Last_Index
+                  exit when First_Object > Object_Files.Last_Index
                     or else Size >= Maximum_Size;
                end loop;
 
@@ -1507,9 +1510,7 @@ procedure Gprlib is
                end if;
 
                Spawn_And_Script_Write
-                 (Partial_Linker_Path.all,
-                  PL_Options,
-                  Success);
+                 (Partial_Linker_Path.all, PL_Options, Success);
 
                Set_Name_Buffer (Get_Current_Dir & Partial);
                Record_Temp_File (Shared => null, Path => Name_Find);
@@ -1517,8 +1518,8 @@ procedure Gprlib is
                if not Success then
                   Fail_Program
                     (null,
-                     "call to linker driver " &
-                       Partial_Linker.all & " failed");
+                     "call to linker driver " & Partial_Linker.all
+                     & " failed");
                end if;
 
                if First_Object > Object_Files.Last_Index then
@@ -1554,11 +1555,11 @@ procedure Gprlib is
             Line             : String (1 .. 1_000);
             Last             : Natural;
             Start_Retrieving : Boolean := False;
-            Options_File     : constant String := Library_Name.all &
-              ".linker_options";
+            Options_File     : constant String :=
+                                 Library_Name.all & ".linker_options";
 
-            Objcopy_Exec : String_Access := Locate_Exec_On_Path
-              (Objcopy_Name.all);
+            Objcopy_Exec : String_Access :=
+                             Locate_Exec_On_Path (Objcopy_Name.all);
             Objcopy_Args : String_Vectors.Vector;
 
          begin
@@ -2087,12 +2088,10 @@ procedure Gprlib is
                      GNAT_Version := new String'(Line (6 .. Last));
                      GNAT_Version_Set := True;
 
-                     Libgnat :=
-                       new String'
-                         ("-lgnat-" & Line (6 .. Last));
-                     Libgnarl :=
-                       new String'
-                         ("-lgnarl-" & Line (6 .. Last));
+                     Free (Libgnat);
+                     Free (Libgnarl);
+                     Libgnat  := new String'("-lgnat-" & Line (6 .. Last));
+                     Libgnarl := new String'("-lgnarl-" & Line (6 .. Last));
                   end if;
 
                else
