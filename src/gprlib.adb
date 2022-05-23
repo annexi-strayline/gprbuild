@@ -76,10 +76,10 @@ procedure Gprlib is
    S_Osinte_Ads                  : File_Name_Type := No_File;
    --  Name_Id for "s-osinte.ads"
 
-   Libgnat                       : String_Access := new String'("-lgnat");
+   Libgnat                       : String_Access := new String'(Dash_Lgnat);
    --  Switch to link with libgnat
 
-   Libgnarl                      : String_Access := new String'("-lgnarl");
+   Libgnarl                      : String_Access := new String'(Dash_Lgnarl);
    --  Switch to link with libgnarl
 
    Libgnarl_Needed               : Boolean := False;
@@ -1391,7 +1391,7 @@ procedure Gprlib is
 
                if Use_GNAT_Lib
                  and then not Runtime_Library_Dirs.Is_Empty
-                 and then Line (9 .. Last) = "-lgnarl"
+                 and then Line (9 .. Last) = Dash_Lgnarl
                then
                   Libgnarl_Needed := True;
                end if;
@@ -1400,7 +1400,7 @@ procedure Gprlib is
                  and then (Partial_Linker = null
                            or else Resp_File_Format /= GPR.None)
                  and then Line (9 .. 10) = "-l"
-                 and then Line (9 .. Last) not in "-lgnarl" | "-lgnat"
+                 and then Line (9 .. Last) not in Dash_Lgnat | Dash_Lgnarl
                then
                   Additional_Switches.Append (Line (9 .. Last));
                end if;
@@ -1585,7 +1585,14 @@ procedure Gprlib is
                if Start_Retrieving then
                   --  Don't store -static and -shared flags, they may cause
                   --  issues when linking with the library.
-                  if Line (9 .. Last) not in Dash_Static | Dash_Shared then
+                  --  Don't store -lgnat and -lgnarl for encapsulated because
+                  --  libgnat.a and libgnarl.a already encapsulated.
+
+                  if Line (9 .. Last) not in Dash_Static | Dash_Shared
+                    and then not
+                      (Standalone = Encapsulated
+                       and then Line (9 .. Last) in Dash_Lgnat | Dash_Lgnarl)
+                  then
                      Put_Line (IO_File, Line (9 .. Last));
                   end if;
                end if;

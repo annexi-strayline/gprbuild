@@ -1220,22 +1220,22 @@ begin
                   --  path of the archive, if we find it, to be sure that the
                   --  correct archive is used by the linker.
 
-               elsif Line (1 .. Last) = "-lgnat" then
+               elsif Line (1 .. Last) = Dash_Lgnat then
                   if Adalib_Dir = null then
                      if Verbose_Higher_Mode then
                         Put_Line ("No Adalib_Dir");
                      end if;
 
-                     Put_Line (IO_File, "-lgnat");
+                     Put_Line (IO_File, Dash_Lgnat);
 
                   elsif Static_Libs then
                      Put_Line (IO_File, Adalib_Dir.all & "libgnat.a");
 
                   else
-                     Put_Line (IO_File, "-lgnat");
+                     Put_Line (IO_File, Dash_Lgnat);
                   end if;
 
-               elsif Line (1 .. Last) = "-lgnarl"
+               elsif Line (1 .. Last) = Dash_Lgnarl
                  and then Static_Libs
                  and then Adalib_Dir /= null
                then

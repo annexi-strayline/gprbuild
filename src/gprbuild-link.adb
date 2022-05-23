@@ -1713,13 +1713,13 @@ package body Gprbuild.Link is
          return;
       end if;
 
-      if Main_Proj = Main_Source.Object_Project then
-         Add_Argument
-           (Arguments, Get_Name_String (Main_Source.Object), True);
-      else
-         Add_Argument
-           (Arguments, Get_Name_String (Main_Source.Object_Path), True);
-      end if;
+      Add_Argument
+        (Arguments,
+         Get_Name_String
+           (if Main_Proj = Main_Source.Object_Project
+            then Name_Id (Main_Source.Object)
+            else Name_Id (Main_Source.Object_Path)),
+         True);
 
       --  Add the Leading_Switches if there are any in package Linker
 
@@ -2150,9 +2150,9 @@ package body Gprbuild.Link is
                   begin
                      Add_To_Other_Arguments (Lib_Path);
 
-                     --  Extract linker switches in the case of a static SAL.
+                     --  Extract linker switches in the case of a static SAL
 
-                     if Proj.Standalone_Library = GPR.Standard then
+                     if Proj.Standalone_Library /= No then
                         Linking_With_Static_SALs := True;
 
                         if Archive_Builder_Path = null then
@@ -2910,13 +2910,13 @@ package body Gprbuild.Link is
                            Add_To_Other_Arguments (Option);
                            Static_Libs := Option = Static_Libgcc;
 
-                        elsif Line = "-lgnat" then
+                        elsif Line = Dash_Lgnat then
                            Add_To_Other_Arguments
                              (if Adalib_Dir = null or else not Static_Libs
-                              then "-lgnat"
+                              then Dash_Lgnat
                               else Adalib_Dir.all & "libgnat.a");
 
-                        elsif Line = "-lgnarl"
+                        elsif Line = Dash_Lgnarl
                           and then Static_Libs
                           and then Adalib_Dir /= null
                         then

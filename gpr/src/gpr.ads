@@ -54,6 +54,8 @@ package GPR is
    Static_Libgcc : constant String := "-static-libgcc";
    Dash_Shared   : constant String := "-shared";
    Dash_Static   : constant String := "-static";
+   Dash_Lgnat    : constant String := "-lgnat";
+   Dash_Lgnarl   : constant String := "-lgnarl";
 
    -----------
    -- Types --
