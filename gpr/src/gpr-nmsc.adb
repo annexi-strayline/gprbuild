@@ -5471,21 +5471,22 @@ package body GPR.Nmsc is
                                  Project.Decl.Attributes,
                                  Shared);
 
-      Auto_Init_Supported : Boolean;
+      Auto_Init_Supported : constant Boolean :=
+                              Project.Config.Auto_Init_Supported;
 
    begin
-      Auto_Init_Supported := Project.Config.Auto_Init_Supported;
-
       --  It is a stand-alone library project file if there is at least one
-      --  unit in the declared or inherited interface.
+      --  declared or inherited interface.
 
-      if Project.Lib_Interface_ALIs = Nil_String then
+      if Project.Lib_Interface_ALIs = Nil_String
+        and then Project.Other_Interfaces = Nil_String
+      then
          if not Lib_Standalone.Default
            and then To_Lower (Get_Name_String (Lib_Standalone.Value)) /= "no"
          then
             Error_Msg
               (Data.Flags,
-               "Library_Standalone valid only if library has Ada interfaces",
+               "Library_Standalone valid only if library has interfaces",
                Lib_Standalone.Location, Project);
          end if;
 
