@@ -1422,7 +1422,7 @@ package body Gprbuild.Link is
          The_Array : Array_Element_Id;
          Element   : Array_Element;
 
-         Shared renames Project_Tree.Shared;
+         Shared : Shared_Project_Tree_Data_Access renames Project_Tree.Shared;
          Binder : constant Package_Id :=
                     Value_Of
                       (Name_Binder, Main_File.Project.Decl.Packages, Shared);
@@ -2764,7 +2764,7 @@ package body Gprbuild.Link is
             begin
                for Option of Binding_Options loop
                   declare
-                     Line renames Option;
+                     Line : String renames Option;
                      Last : constant Natural := Line'Last;
 
                      procedure Add_Lib_Path_Or_Line (Lib_Name : String);

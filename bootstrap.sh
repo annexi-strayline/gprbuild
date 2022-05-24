@@ -85,6 +85,20 @@ lib_progs="gprlib gprbind"
 rm -rf "$srcdir"/share/gprconfig
 cp -r "$kb_src"/db "$srcdir"/share/gprconfig
 
+# Windows and Unix differencies
+
+UName=`uname | cut -b -5`
+PutUsage=gpr/src/gpr-util-put_resource_usage
+
+rm -f ${PutUsage}.adb
+
+if [ "$UName" = "CYGWI" ] || [ "$UName" = "MINGW" ]
+then
+	cp ${PutUsage}__null.adb ${PutUsage}.adb
+else
+	ln -s $PWD/${PutUsage}__unix.adb ${PutUsage}.adb
+fi
+
 # Build
 if [ "x"${MODE} = "x" ] || [ ${MODE} = "build" ];
 then

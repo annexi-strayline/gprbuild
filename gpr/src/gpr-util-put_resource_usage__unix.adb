@@ -22,7 +22,9 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+pragma Warnings (Off, "is an internal GNAT unit");
 with GNAT.Sockets.Thin_Common;
+pragma Warnings (On, "is an internal GNAT unit");
 
 separate (GPR.Util)
 procedure Put_Resource_Usage (Filename : String) is
