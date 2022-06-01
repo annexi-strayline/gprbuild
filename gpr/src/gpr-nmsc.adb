@@ -2444,22 +2444,12 @@ package body GPR.Nmsc is
                     Attribute.Value.Value;
 
                elsif Attribute.Name = Name_Library_Partial_Linker then
-
                   --  Attribute Library_Partial_Linker: the optional linker
                   --  driver with its minimum options, to partially link
                   --  archives.
 
-                  List := Attribute.Value.Values;
-
-                  if List = Nil_String then
-                     Error_Msg
-                       (Data.Flags,
-                        "partial linker cannot be null",
-                        Attribute.Value.Location, Project);
-                  end if;
-
                   Put (Into_List => Project.Config.Lib_Partial_Linker,
-                       From_List => List,
+                       From_List => Attribute.Value.Values,
                        In_Tree   => Data.Tree);
 
                elsif Attribute.Name = Name_Library_GCC then
