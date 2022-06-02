@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2006-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2006-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -135,10 +135,6 @@ package body GPR.Knowledge is
 
    function Node_Value_As_String (N : Node) return String;
    --  Return the value of the node, concatenating all Text children
-
-   function Ends_With (Str, Suffix : String) return Boolean;
-   --  Whether the string ends with Suffix. Always True if Suffix is the empty
-   --  string.
 
    procedure Foreach_Compiler_In_Dir
      (Iterator       : in out Compiler_Iterator'Class;
@@ -393,18 +389,6 @@ package body GPR.Knowledge is
       end loop;
       return Str2 (Str2'First .. Index - 1);
    end Unquote;
-
-   ---------------
-   -- Ends_With --
-   ---------------
-
-   function Ends_With (Str, Suffix : String) return Boolean is
-   begin
-      return Suffix = ""
-        or else
-          (Str'Length >= Suffix'Length
-           and then Str (Str'Last - Suffix'Length + 1 .. Str'Last) = Suffix);
-   end Ends_With;
 
    ---------------------------
    -- Is_Windows_Executable --

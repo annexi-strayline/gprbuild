@@ -25,6 +25,7 @@ with Ada.Text_IO;       use Ada.Text_IO;
 
 with GNAT.Case_Util;            use GNAT.Case_Util;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+with GNAT.Expect;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
 with Gprexch;        use Gprexch;
@@ -713,40 +714,28 @@ procedure Gprlib is
       --  pic version of the runtime might be present. Fallback on
       --  the regular static libgnat otherwise.
 
-      --  First, look for libgnat_pic.a
+      --  For relocatable, first, look for libgnat_pic.a, then look for
+      --  libgnat.a. For static, looks only for libgnat.a.
 
       Free (Libgnat);
       Free (Libgnarl);
 
-      for D of Runtime_Library_Dirs loop
-         declare
-            Dir : constant String := Ensure_Directory (D);
-            Lib : constant String := Dir & "libgnat_pic.a";
-         begin
-            if Is_Regular_File (Lib) then
-               Libgnat  := new String'(Lib);
-               Libgnarl := new String'(Dir & "libgnarl_pic.a");
-               exit;
-            end if;
-         end;
-      end loop;
-
-      --  If libgnat-pic.a was not found, look for libgnat.a
-
-      if Libgnat = null then
+      Main_Loop : for Dyn in reverse False .. Relocatable loop
          for D of Runtime_Library_Dirs loop
             declare
-               Dir : constant String := Ensure_Directory (D);
-               Lib : constant String := Dir & "libgnat.a";
+               Dir   : constant String := Ensure_Directory (D);
+               Pic_A : constant String :=
+                         (if Dyn then "_pic" else "") & Archive_Suffix.all;
+               Lib   : constant String := Dir & "libgnat" & Pic_A;
             begin
                if Is_Regular_File (Lib) then
                   Libgnat  := new String'(Lib);
-                  Libgnarl := new String'(Dir & "libgnarl.a");
-                  exit;
+                  Libgnarl := new String'(Dir & "libgnarl" & Pic_A);
+                  exit Main_Loop;
                end if;
             end;
          end loop;
-      end if;
+      end loop Main_Loop;
 
       --  If libgnat.a was not found, assume it should be in the
       --  first directory. An error message will be displayed.
@@ -1416,6 +1405,8 @@ procedure Gprlib is
    procedure Process_Static is
       AB_Options          : String_Vectors.Vector;
       AB_Objects          : String_Vectors.Vector;
+      Archive_Files       : String_Vectors.Vector;
+      Check_Archives      : Boolean;
       First_AB_Object_Pos : Natural;
       Last_AB_Object_Pos  : Natural;
       --  Various indexes in AB_Options used when building an archive in chunks
@@ -1442,6 +1433,10 @@ procedure Gprlib is
          Process_Encapsulated;
       end if;
 
+      Check_Archives :=
+        Base_Name (Archive_Builder.all, ".exe") = "ar"
+        and then Standalone = Encapsulated and then Partial_Linker_Path = null;
+
       --  Add the object files specified in the Library_Options.
 
       --  If we perform a partial link, do not check that all library
@@ -1449,7 +1444,14 @@ procedure Gprlib is
 
       for Opt of Library_Options_Table loop
          if Is_Regular_File (Opt) then
-            Object_Files.Append (Opt);
+            if Check_Archives
+              and then Ends_With (Opt, Archive_Suffix.all)
+            then
+               Archive_Files.Append (Opt);
+            else
+               Object_Files.Append (Opt);
+            end if;
+
          elsif Partial_Linker_Path = null then
             Fail_Program (null, "unknown object file """ & Opt & """");
          else
@@ -1700,6 +1702,7 @@ procedure Gprlib is
             --  If Archive_Builder_Append_Option is specified, for the creation
             --  of the archive, only put on the command line a number of
             --  character lower that Maximum_Size.
+
             if First_AB_Object_Pos > AB_Objects.First_Index then
                AB_Options := AB_Append_Options;
             else
@@ -1758,6 +1761,32 @@ procedure Gprlib is
                "call to archive builder " & Archive_Builder.all & " failed");
          end if;
       end loop;
+
+      if not Archive_Files.Is_Empty then
+         declare
+            Dash_M : aliased String := "-M";
+            Status : aliased Integer;
+
+            function Add_Libraries (First : Positive) return String is
+              ("ADDLIB " & Archive_Files (First) & ASCII.LF
+               & (if First = Archive_Files.Last_Index
+                  then "" else Add_Libraries (First + 1)));
+
+            Output : constant String := GNAT.Expect.Get_Command_Output
+              (Command    => Archive_Builder.all,
+               Arguments  => (1 => Dash_M'Unchecked_Access),
+               Input      => "OPEN " & Library_Path_Name.all & ASCII.LF
+                 & Add_Libraries (1) & "SAVE" & ASCII.LF & "END" & ASCII.LF,
+               Status     => Status'Unchecked_Access,
+               Err_To_Out => True);
+         begin
+            if Status /= 0 then
+               Fail_Program (null, "ar -M falure: " & Output);
+            elsif Output /= "" and then Verbose_Mode then
+               Put_Line ("ar -M output: " & Output);
+            end if;
+         end;
+      end if;
 
       --  If there is an Archive Indexer, invoke it
 

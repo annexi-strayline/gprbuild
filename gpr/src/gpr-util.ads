@@ -404,6 +404,10 @@ package GPR.Util is
    function Starts_With (Item : String; Prefix : String) return Boolean;
    --  Return True if Item starts with Prefix
 
+   function Ends_With (Str, Suffix : String) return Boolean;
+   --  Whether the string ends with Suffix. Always True if Suffix is the empty
+   --  string.
+
    generic
       with procedure Action (Source : Source_Id);
    procedure For_Interface_Sources
@@ -951,5 +955,9 @@ private
    function Starts_With (Item : String; Prefix : String) return Boolean
    is (Item'Length >= Prefix'Length
        and then Item (Item'First .. Item'First + Prefix'Length - 1) = Prefix);
+
+   function Ends_With (Str, Suffix : String) return Boolean
+   is (Str'Length >= Suffix'Length
+       and then Str (Str'Last - Suffix'Length + 1 .. Str'Last) = Suffix);
 
 end GPR.Util;
