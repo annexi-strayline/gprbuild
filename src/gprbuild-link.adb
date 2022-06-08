@@ -1331,9 +1331,6 @@ package body Gprbuild.Link is
             return;
          end if;
 
-         Nam_Nod := Main_File.Tree.Shared.Name_Lists.Table
-           (Main_Proj.Config.Run_Path_Option);
-
          if Main_Proj.Config.Run_Path_Origin /= No_Name
            and then Get_Name_String (Main_Proj.Config.Run_Path_Origin) /= ""
          then
@@ -1348,10 +1345,7 @@ package body Gprbuild.Link is
                Nam_Nod := Main_File.Tree.Shared.Name_Lists.Table
                  (Main_Proj.Config.Run_Path_Option);
                while Nam_Nod.Next /= No_Name_List loop
-                  Add_Argument
-                    (Other_Arguments,
-                     Get_Name_String (Nam_Nod.Name),
-                     True);
+                  Add_To_Other_Arguments (Get_Name_String (Nam_Nod.Name));
                   Nam_Nod := Main_File.Tree.Shared.Name_Lists.Table
                     (Nam_Nod.Next);
                end loop;
@@ -1362,9 +1356,11 @@ package body Gprbuild.Link is
             end loop;
 
          else
+            Nam_Nod := Main_File.Tree.Shared.Name_Lists.Table
+              (Main_Proj.Config.Run_Path_Option);
+
             while Nam_Nod.Next /= No_Name_List loop
-               Add_Argument
-                 (Other_Arguments, Get_Name_String (Nam_Nod.Name), True);
+               Add_To_Other_Arguments (Get_Name_String (Nam_Nod.Name));
                Nam_Nod := Main_File.Tree.Shared.Name_Lists.Table
                  (Nam_Nod.Next);
             end loop;

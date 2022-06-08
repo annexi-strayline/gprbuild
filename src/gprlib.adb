@@ -266,7 +266,7 @@ procedure Gprlib is
 
    Objcopy_Name                  : String_Access := new String'("objcopy");
 
-   Path_Option                   : String_Access := null;
+   Path_Option                   : String_Vectors.Vector;
 
    Separate_Run_Path_Options     : Boolean := False;
 
@@ -808,7 +808,7 @@ procedure Gprlib is
 
       for Dir of Imported_Library_Directories loop
          Library_Switches_Table.Append ("-L" & Dir);
-         if Path_Option /= null then
+         if not Path_Option.Is_Empty then
             Add_Rpath (Dir);
          end if;
       end loop;
@@ -885,7 +885,7 @@ procedure Gprlib is
             for Dir of Runtime_Library_Dirs loop
                Options_Table.Append ("-L" & Dir);
 
-               if Path_Option /= null then
+               if not Path_Option.Is_Empty then
                   Add_Rpath (Dir, Absolute => True);
 
                   --  Add to the Path Option the directory of the shared
@@ -912,22 +912,23 @@ procedure Gprlib is
               Shared_Lib_Suffix.all);
       end if;
 
-      if Path_Option /= null then
+      if not Path_Option.Is_Empty then
          for Path of Library_Rpath_Options_Table loop
             Add_Rpath (Path);
          end loop;
       end if;
 
-      if Path_Option /= null and then not Rpath.Is_Empty then
+      if not Path_Option.Is_Empty and then not Rpath.Is_Empty then
          if Separate_Run_Path_Options then
             for J in 1 .. Rpath.Last_Index loop
                Options_Table.Append
-                 (Path_Option.all & Rpath (J));
+                 (Concat_Paths (Path_Option, " ") & ' ' & Rpath (J));
             end loop;
 
          else
             Options_Table.Append
-              (Path_Option.all & Concat_Paths (Rpath, ":"));
+              (Concat_Paths (Path_Option, " ")
+               & Concat_Paths (Rpath, "" & Path_Separator));
          end if;
       end if;
 
@@ -1738,7 +1739,8 @@ procedure Gprlib is
                   Display_Command (Archive_Builder.all, AB_Options);
 
                elsif First_AB_Object_Pos = AB_Objects.First_Index then
-                  --  Only display this once.
+                  --  Only display this once
+
                   Display
                     (Section  => Build_Libraries,
                      Command  => "archive",
@@ -2177,11 +2179,7 @@ procedure Gprlib is
                Archive_Suffix := new String'(Line (1 .. Last));
 
             when Gprexch.Run_Path_Option =>
-               if Path_Option /= null then
-                  Fail_Program (null, "multiple run path options");
-               end if;
-
-               Path_Option := new String'(Line (1 .. Last));
+               Path_Option.Append (Line (1 .. Last));
 
             when Gprexch.Run_Path_Origin =>
                if Rpath_Origin /= null then
