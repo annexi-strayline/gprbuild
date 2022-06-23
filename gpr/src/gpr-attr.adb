@@ -25,6 +25,7 @@
 with GPR.Names;  use GPR.Names;
 with GPR.Osint;  use GPR.Osint;
 with GPR.Snames; use GPR.Snames;
+with GPR.Err;    use GPR.Err;
 
 package body GPR.Attr is
 
@@ -177,9 +178,10 @@ package body GPR.Attr is
          Attr_Set.Insert (Name, Position, Inserted);
 
          if not Inserted then
-            Osint.Fail
+            Error_Msg
               ("duplicate attribute """ & Get_Name_String (Name) & """ in "
-               & Attribute_Location);
+               & Attribute_Location, No_Location);
+            return;
          end if;
 
          Attrs.Increment_Last;
@@ -232,8 +234,10 @@ package body GPR.Attr is
          Pack_Set.Insert (Name, Position, Inserted);
 
          if not Inserted then
-            Osint.Fail
-              ("duplicate name """  & Name_Str & """ in predefined packages.");
+            Error_Msg
+              ("duplicate name """  & Name_Str & """ in predefined packages.",
+               No_Location);
+            return;
          end if;
 
          Package_Attributes.Increment_Last;
@@ -1521,16 +1525,15 @@ package body GPR.Attr is
       Curr_Attr  : Attr_Node_Id;
    begin
       if Name'Length = 0 then
-         GPR.Osint.Fail ("cannot check an attribute with no name");
-         raise Project_Error;
+         Error_Msg ("cannot check an attribute with no name", No_Location);
+         return False;
       end if;
 
       if In_Package = Empty_Package then
-         GPR.Osint.Fail
-           ("cannot check an attribute """
-            & Name
-            & """ from an undefined package");
-         raise Project_Error;
+         Error_Msg
+           ("cannot check an attribute """ & Name
+            & """ from an undefined package", No_Location);
+         return False;
       end if;
 
       Attr_Name := Name_Id_Of (Name);
@@ -1573,16 +1576,15 @@ package body GPR.Attr is
 
    begin
       if Name'Length = 0 then
-         GPR.Osint.Fail ("cannot register an attribute with no name");
-         raise Project_Error;
+         Error_Msg ("cannot register an attribute with no name", No_Location);
+         return;
       end if;
 
       if In_Package = Empty_Package then
-         GPR.Osint.Fail
-           ("attempt to add attribute """
-            & Name
-            & """ to an undefined package");
-         raise Project_Error;
+         Error_Msg
+           ("attempt to add attribute """ & Name
+            & """ to an undefined package", No_Location);
+         return;
       end if;
 
       Attr_Name := Name_Id_Of (Name);
@@ -1595,14 +1597,12 @@ package body GPR.Attr is
       Curr_Attr := First_Attr;
       while Curr_Attr /= Empty_Attr loop
          if Attrs.Table (Curr_Attr).Name = Attr_Name then
-            GPR.Osint.Fail
-              ("duplicate attribute name """
-               & Name
-               & """ in package """
+            Error_Msg
+              ("duplicate attribute name """ & Name & """ in package """
                & Get_Name_String
-                 (Package_Attributes.Table (In_Package.Value).Name)
-               & """");
-            raise Project_Error;
+                   (Package_Attributes.Table (In_Package.Value).Name)
+               & """", No_Location);
+            return;
          end if;
 
          Curr_Attr := Attrs.Table (Curr_Attr).Next;
@@ -1654,7 +1654,7 @@ package body GPR.Attr is
 
    begin
       if Name'Length = 0 then
-         GPR.Osint.Fail ("cannot register a package with no name");
+         Error_Msg ("cannot register a package with no name", No_Location);
          Id := Empty_Package;
          return;
       end if;
@@ -1664,10 +1664,9 @@ package body GPR.Attr is
       for Index in Package_Attributes.First .. Package_Attributes.Last loop
          if Package_Attributes.Table (Index).Name = Pkg_Name then
             if Package_Attributes.Table (Index).Known then
-               GPR.Osint.Fail
-                 ("cannot register a package with a non unique name """
-                  & Name
-                  & """");
+               Error_Msg
+                 ("cannot register a package with a non unique name """ & Name
+                  & """", No_Location);
                Id := Empty_Package;
                return;
 
@@ -1704,19 +1703,18 @@ package body GPR.Attr is
 
    begin
       if Name'Length = 0 then
-         GPR.Osint.Fail ("cannot register a package with no name");
-         raise Project_Error;
+         Error_Msg ("cannot register a package with no name", No_Location);
+         return;
       end if;
 
       Pkg_Name := Name_Id_Of (Name);
 
       for Index in Package_Attributes.First .. Package_Attributes.Last loop
          if Package_Attributes.Table (Index).Name = Pkg_Name then
-            GPR.Osint.Fail
-              ("cannot register a package with a non unique name """
-               & Name
-               & """");
-            raise Project_Error;
+            Error_Msg
+              ("cannot register a package with a non unique name """ & Name
+               & '"', No_Location);
+            return;
          end if;
       end loop;
 
@@ -1726,13 +1724,10 @@ package body GPR.Attr is
          Curr_Attr := First_Attr;
          while Curr_Attr /= Empty_Attr loop
             if Attrs.Table (Curr_Attr).Name = Attr_Name then
-               GPR.Osint.Fail
-                 ("duplicate attribute name """
-                  & Attributes (Index).Name
-                  & """ in new package """
-                  & Name
-                  & """");
-               raise Project_Error;
+               Error_Msg
+                 ("duplicate attribute name """ & Attributes (Index).Name
+                  & """ in new package """ & Name & '"', No_Location);
+               return;
             end if;
 
             Curr_Attr := Attrs.Table (Curr_Attr).Next;
