@@ -420,9 +420,14 @@ package GPR.Util is
    --  are handled. This routine must be called only when the project has
    --  been built successfully.
 
-   function Relative_Path (Pathname : String; To : String) return String;
+   function Relative_Path
+     (Pathname  : String;
+      To        : String;
+      Directory : Boolean := True) return String;
    --  Returns the relative pathname which corresponds to Pathname when
    --  starting from directory to. Both Pathname and To must be absolute paths.
+   --  If Directory is True then the result will be treated as directory and
+   --  directory separator will be appended at the end.
 
    function Create_Name (Name : String) return File_Name_Type
                          renames Names.Get_File_Name_Id;

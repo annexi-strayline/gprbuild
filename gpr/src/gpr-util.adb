@@ -2626,7 +2626,11 @@ package body GPR.Util is
    -- Relative_Path --
    -------------------
 
-   function Relative_Path (Pathname : String; To : String) return String is
+   function Relative_Path
+     (Pathname  : String;
+      To        : String;
+      Directory : Boolean := True) return String
+   is
       function Ensure_Directory (Path : String) return String;
       --  Returns Path with an added directory separator if needed
 
@@ -2639,7 +2643,8 @@ package body GPR.Util is
          if Path'Length = 0 then
             return "./";
 
-         elsif Is_Directory_Separator (Path (Path'Last)) then
+         elsif not Directory or else Is_Directory_Separator (Path (Path'Last))
+         then
             return Path;
 
          else

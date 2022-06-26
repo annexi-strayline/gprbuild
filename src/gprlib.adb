@@ -1769,6 +1769,20 @@ procedure Gprlib is
             Dash_M : aliased String := "-M";
             Status : aliased Integer;
 
+            Rel_Path : constant String :=
+                         Relative_Path
+                           (Library_Path_Name.all,
+                            To        => Get_Current_Dir,
+                            Directory => False);
+            --  We need relative path here because ar -M script does not accept
+            --  Linux legal absolute pathname with '+' character. Relative path
+            --  gives much less probability to get that.
+
+            Lib_Path : constant String :=
+                         (if Rel_Path'Length < Library_Path_Name'Length
+                          then Rel_Path
+                          else Library_Path_Name.all);
+
             function Add_Libraries (First : Positive) return String is
               ("ADDLIB " & Archive_Files (First) & ASCII.LF
                & (if First = Archive_Files.Last_Index
@@ -1777,7 +1791,7 @@ procedure Gprlib is
             Output : constant String := GNAT.Expect.Get_Command_Output
               (Command    => Archive_Builder.all,
                Arguments  => (1 => Dash_M'Unchecked_Access),
-               Input      => "OPEN " & Library_Path_Name.all & ASCII.LF
+               Input      => "OPEN " & Lib_Path & ASCII.LF
                  & Add_Libraries (1) & "SAVE" & ASCII.LF & "END" & ASCII.LF,
                Status     => Status'Unchecked_Access,
                Err_To_Out => True);
