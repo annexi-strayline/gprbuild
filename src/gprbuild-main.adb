@@ -2831,6 +2831,10 @@ exception
 
       Fail_Program (Project_Tree, Exception_Information (C));
 
+   when Project_Error =>
+      Fail_Program
+        (Project_Tree, '"' & Project_File_Name.all & """ processing failed");
+
    when E : others =>
       Fail_Program (Project_Tree, Exception_Information (E));
 end Gprbuild.Main;

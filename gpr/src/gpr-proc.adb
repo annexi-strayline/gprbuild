@@ -1685,15 +1685,15 @@ package body GPR.Proc is
       end loop;
 
       if Result = No_Package then
-         GPR.Osint.Fail
-           ("no package " &
-            Get_Name_String (With_Name) &
-            " in project " &
-            Get_Name_String (Project.Display_Name));
+         Error_Msg
+           ("no package " & Get_Name_String (With_Name) & " in project "
+            & Get_Name_String (Project.Display_Name),
+            Project.Location);
 
-      else
-         return Result;
+         raise Project_Error;
       end if;
+
+      return Result;
    end Package_From;
 
    -------------
