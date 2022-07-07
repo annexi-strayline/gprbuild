@@ -21,6 +21,7 @@
 --  through the same text file.
 
 with Ada.Command_Line;  use Ada.Command_Line;
+with Ada.Exceptions;
 with Ada.Text_IO;       use Ada.Text_IO;
 
 with GNAT.Case_Util;            use GNAT.Case_Util;
@@ -1788,11 +1789,87 @@ procedure Gprlib is
                & (if First = Archive_Files.Last_Index
                   then "" else Add_Libraries (First + 1)));
 
+            function Input return String;
+
+            -----------
+            -- Input --
+            -----------
+
+            function Input return String is
+               Version : Long_Float;
+               End_Of  : constant String :=
+                           "SAVE" & ASCII.LF & "END" & ASCII.LF;
+               Success : Boolean;
+
+               function Simple return String is
+                 ("OPEN " & Lib_Path & ASCII.LF & Add_Libraries (1) & End_Of);
+
+            begin
+               if not On_Windows then
+                  return Simple;
+               end if;
+
+               if not GNAT_Version_Set or else GNAT_Version = null then
+                  Fail_Program
+                    (null,
+                     "No GNAT version to detect possibility to build"
+                     & " encapsulated static SAL without partial linker");
+               end if;
+
+               begin
+                  Version := Long_Float'Value (GNAT_Version.all);
+               exception
+                  when E : others =>
+                     Fail_Program
+                       (null,
+                        "Unable to get number of GNAT version """
+                        & GNAT_Version.all
+                        & """ to detect possibility to build encapsulated"
+                        & " static SAL without partial linker. "
+                        & Ada.Exceptions.Exception_Message (E));
+               end;
+
+               if Version > 8.0 then
+                  --  I do not know exactly, but GNAT 7.3 should be procedded
+                  --  another way.
+
+                  return Simple;
+
+               elsif Ends_With (Lib_Path, ".a") then
+                  declare
+                     Tmp : constant String :=
+                             Lib_Path (Lib_Path'First .. Lib_Path'Last - 1)
+                             & "tmp";
+                  begin
+                     Rename_File (Lib_Path, Tmp, Success);
+
+                     if not Success then
+                        Fail_Program
+                          (null,
+                           "Unable to rename """ & Lib_Path & """ to """ & Tmp
+                           & '"');
+                     end if;
+
+                     Record_Temp_File (null, Get_Path_Name_Id (Tmp));
+
+                     return "CREATE " & Lib_Path & ASCII.LF
+                       & "ADDLIB " & Tmp & ASCII.LF
+                       & Add_Libraries (1) & End_Of;
+                  end;
+
+               else
+                  Fail_Program
+                    (null,
+                     "Unexpected suffix for library file name """ & Lib_Path
+                     & '"');
+               end if;
+
+            end Input;
+
             Output : constant String := GNAT.Expect.Get_Command_Output
               (Command    => Archive_Builder.all,
                Arguments  => (1 => Dash_M'Unchecked_Access),
-               Input      => "OPEN " & Lib_Path & ASCII.LF
-                 & Add_Libraries (1) & "SAVE" & ASCII.LF & "END" & ASCII.LF,
+               Input      => Input,
                Status     => Status'Unchecked_Access,
                Err_To_Out => True);
          begin

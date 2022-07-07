@@ -51,9 +51,6 @@ package Gpr_Build_Util is
    --  environment (with additional external values and project path) to parse
    --  the aggregated projects.
 
-   On_Windows : constant Boolean := Directory_Separator = '\';
-   --  True when on Windows
-
    Source_Info_Option : constant String := "--source-info=";
    --  Switch to indicate the source info file
 

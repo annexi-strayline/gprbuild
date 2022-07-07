@@ -122,7 +122,7 @@ package GPR.Util is
       Exit_Code      : Exit_Code_Type := E_Fatal;
       Flush_Messages : Boolean        := True;
       No_Message     : Boolean        := False;
-      Command        : String         := "");
+      Command        : String         := "") with No_Return;
    --  Terminate program with a message and a fatal status code. Do not issue
    --  any message when No_Message is True.
 
@@ -131,7 +131,7 @@ package GPR.Util is
       Exit_Code    : Exit_Code_Type := E_Success;
       Message      : String := "";
       No_Message   : Boolean := False;
-      Command      : String := "");
+      Command      : String := "") with No_Return;
    --  Terminate program, with or without a message, setting the status code
    --  according to Exit_Code. This properly removes all temporary files. Don't
    --  issue any message when No_Message is True.

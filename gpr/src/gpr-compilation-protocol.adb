@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -35,7 +35,6 @@ with GNAT.Rewrite_Data;
 with GNAT.String_Split; use GNAT.String_Split;
 
 with GPR.Version;       use GPR.Version;
-with Gpr_Build_Util;
 
 package body GPR.Compilation.Protocol is
 
@@ -1199,9 +1198,9 @@ package body GPR.Compilation.Protocol is
      (Channel : in out Communication_Channel; Path : String)
    is
       P : String := Normalize_Pathname
-                      (Path, Case_Sensitive => not Gpr_Build_Util.On_Windows);
+                      (Path, Case_Sensitive => not On_Windows);
    begin
-      if Gpr_Build_Util.On_Windows then
+      if On_Windows then
          --  On Windows the mapping file contains non normalized pathname. The
          --  format is an upper-case driver letter, all the remaining of the
          --  path is lower-case and the directory separator is a slash. We

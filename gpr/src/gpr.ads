@@ -57,6 +57,9 @@ package GPR is
    Dash_Lgnat    : constant String := "-lgnat";
    Dash_Lgnarl   : constant String := "-lgnarl";
 
+   On_Windows : constant Boolean := Directory_Separator = '\';
+   --  True when on Windows
+
    -----------
    -- Types --
    -----------
