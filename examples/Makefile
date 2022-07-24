@@ -1,6 +1,3 @@
-PTH := .:$(PATH)
-export PATH=${PTH}
-
 %:
 	@echo 'Unknown target. Usage:'
 	@echo 'make [all]                   build all examples'
