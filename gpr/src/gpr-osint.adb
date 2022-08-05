@@ -170,11 +170,11 @@ package body GPR.Osint is
 
    procedure Exit_Program (Exit_Code : Exit_Code_Type) is
    begin
-      --  Some exit codes can't be used.
-      --  Exit code 2 mean that progam terminated by SIGINT signal.
-      --  3 mean that program terminated by abort on Windows or by SIGQUIT
-      --  on Linux.
-      --  6 mean that program terminated by SIGABRT signal
+      --  Some exit codes can't be used because they have special meaning:
+      --    exit code 2 means that the program was terminated by SIGINT signal;
+      --    exit code 3 means that it was terminated by abort on Windows or by
+      --    SIGQUIT on Linux;
+      --    exit code 6 means that it was terminated by SIGABRT signal.
 
       OS_Exit
         (case Exit_Code is
@@ -287,7 +287,7 @@ package body GPR.Osint is
       FN : aliased constant String := Name & ASCII.NUL;
    begin
       --  Do not use Ada.Directories.Modification_Time directly because it
-      --  raises exception on absent file.
+      --  raises an exception on an absent file.
 
       return File_Time_Stamp (FN'Address);
    end File_Time_Stamp;
@@ -454,7 +454,7 @@ package body GPR.Osint is
    is
       Lib_FD : File_Descriptor;
       --  The file descriptor for the current library file. A negative value
-      --  indicates failure to open the specified source file.
+      --  indicates a failure to open the specified source file.
 
       Len : Integer;
       --  Length of source file text (ALI). If it doesn't fit in an integer
