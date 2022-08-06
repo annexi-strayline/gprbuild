@@ -5,7 +5,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C++ -o $@
 
-clean: force
+clean:
 	gprclean -r -Panimals
 	gprclean -r -Pexcept
 	$(RM) default.cgpr
@@ -14,4 +14,5 @@ run: all
 	./ada_main
 	./cpp_main
 	./main
-force:
+
+.PHONY: all clean run

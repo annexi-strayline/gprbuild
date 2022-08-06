@@ -6,7 +6,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
 
-clean: force
+clean:
 	gprclean -r main.gpr -XLIB=static
 	gprclean -r main.gpr -XLIB=dynamic
 	$(RM) default.cgpr
@@ -15,4 +15,4 @@ run: all
 	./obj/main
 	(PATH="../libraries/lib2:${PATH}" obj1/main)
 
-force:
+.PHONY: all clean run

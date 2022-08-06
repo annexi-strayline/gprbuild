@@ -10,3 +10,5 @@ clean:
 
 run: all
 	./ada_main
+
+.PHONY: all clean run

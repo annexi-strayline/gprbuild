@@ -8,7 +8,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
 
-clean: force
+clean:
 	gprclean -r main0.gpr
 	gprclean -r main1.gpr
 	gprclean -r main2.gpr
@@ -23,4 +23,4 @@ run: all
 	(PATH="lib3:${PATH}" ./main3)
 	(PATH="lib2:${PATH}" ./main4)
 
-force:
+.PHONY: all clean run

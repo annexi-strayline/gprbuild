@@ -4,10 +4,11 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C --config Fortran -o $@
 
-clean: force
+clean:
 	gprclean
 	$(RM) default.cgpr
 
 run: all
 	./obj/main
-force:
+
+.PHONY: all clean run

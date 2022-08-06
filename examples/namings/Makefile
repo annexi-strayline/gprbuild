@@ -6,7 +6,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
 
-clean: force
+clean:
 	gprclean -Pnamings -XC1=case1
 	gprclean -Pnamings -XC1=case2
 	gprclean -Pnamings -XC1=case3
@@ -16,4 +16,5 @@ run: all
 	./main-case1
 	./main-case2
 	./main-case3
-force:
+
+.PHONY: all clean run

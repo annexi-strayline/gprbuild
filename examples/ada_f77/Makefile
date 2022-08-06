@@ -10,3 +10,5 @@ clean:
 
 run: all
 	./fobj/ess
+
+.PHONY: all clean run

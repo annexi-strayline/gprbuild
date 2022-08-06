@@ -5,7 +5,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
 
-clean: force
+clean:
 	gprclean -Pc_main
 	gprclean -Pada_main
 	$(RM) default.cgpr
@@ -13,4 +13,5 @@ clean: force
 run: all
 	./ada_main
 	./obj1/c_main
-force:
+
+.PHONY: all clean default.cgpr run
