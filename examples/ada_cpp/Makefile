@@ -1,6 +1,6 @@
 all: default.cgpr
-	gprbuild -p animals.gpr
-	gprbuild -p except.gpr
+	gprbuild -p animals.gpr $(GPRBUILDFLAGS)
+	gprbuild -p except.gpr $(GPRBUILDFLAGS)
 
 default.cgpr:
 	gprconfig --batch --config Ada  --config C++ -o $@

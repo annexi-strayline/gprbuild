@@ -1,7 +1,7 @@
 all: default.cgpr
-	gprbuild -p namings.gpr -XC1=case1
-	gprbuild -p namings.gpr -XC1=case2
-	gprbuild -p namings.gpr -XC1=case3
+	gprbuild -p namings.gpr -XC1=case1 $(GPRBUILDFLAGS)
+	gprbuild -p namings.gpr -XC1=case2 $(GPRBUILDFLAGS)
+	gprbuild -p namings.gpr -XC1=case3 $(GPRBUILDFLAGS)
 
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@

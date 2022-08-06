@@ -1,5 +1,5 @@
 all: ../subsystems/default.cgpr
-	gprbuild -p new_ada_main.gpr --config=../subsystems/default.cgpr
+	gprbuild -p new_ada_main.gpr --config=../subsystems/default.cgpr $(GPRBUILDFLAGS)
 
 ../subsystems/default.cgpr:
 	make -C ../subsystems default.cgpr

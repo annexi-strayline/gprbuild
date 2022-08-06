@@ -1,6 +1,6 @@
 all: default.cgpr
-	gprbuild -p main.gpr -XLIB=static
-	gprbuild -p main.gpr -XLIB=dynamic
+	gprbuild -p main.gpr -XLIB=static $(GPRBUILDFLAGS)
+	gprbuild -p main.gpr -XLIB=dynamic $(GPRBUILDFLAGS)
 
 
 default.cgpr:

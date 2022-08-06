@@ -1,9 +1,9 @@
 all: default.cgpr
-	gprbuild -p main0.gpr
-	gprbuild -p main1.gpr
-	gprbuild -p main2.gpr
-	gprbuild -p main3.gpr
-	gprbuild -p main4.gpr
+	gprbuild -p main0.gpr $(GPRBUILDFLAGS)
+	gprbuild -p main1.gpr $(GPRBUILDFLAGS)
+	gprbuild -p main2.gpr $(GPRBUILDFLAGS)
+	gprbuild -p main3.gpr $(GPRBUILDFLAGS)
+	gprbuild -p main4.gpr $(GPRBUILDFLAGS)
 
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
