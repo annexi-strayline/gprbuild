@@ -3,7 +3,7 @@ all: default.cgpr
 	gprbuild -p ada_main.gpr $(GPRBUILDFLAGS)
 
 default.cgpr:
-	gprconfig --batch --config Ada  --config C -o $@
+	gprconfig --batch --config Ada --config C
 
 clean: default.cgpr
 	gprclean c_main.gpr

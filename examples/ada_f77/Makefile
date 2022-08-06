@@ -2,7 +2,7 @@ all: default.cgpr
 	gprbuild -p ft.gpr $(GPRBUILDFLAGS)
 
 default.cgpr:
-	gprconfig --batch --config Ada --config Fortran -o $@
+	gprconfig --batch --config Ada --config Fortran
 
 clean: default.cgpr
 	gprclean -q -r ft.gpr
