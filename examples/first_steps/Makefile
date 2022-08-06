@@ -14,4 +14,4 @@ run: all
 	./ada_main
 	./obj1/c_main
 
-.PHONY: all clean default.cgpr run
+.PHONY: all clean run
