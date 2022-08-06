@@ -1,13 +1,13 @@
 all: default.cgpr
-	gprbuild -p -Pc_main
-	gprbuild -p -Pada_main
+	gprbuild -p c_main.gpr
+	gprbuild -p ada_main.gpr
 
 default.cgpr:
 	gprconfig --batch --config Ada --config C -o $@
 
 clean: default.cgpr
-	gprclean -r -Pc_main
-	gprclean -r -Pada_main
+	gprclean -r c_main.gpr
+	gprclean -r ada_main.gpr
 	$(RM) default.cgpr
 
 run: all

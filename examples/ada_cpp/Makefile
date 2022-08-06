@@ -6,8 +6,8 @@ default.cgpr:
 	gprconfig --batch --config Ada  --config C++ -o $@
 
 clean: default.cgpr
-	gprclean -r -Panimals
-	gprclean -r -Pexcept
+	gprclean -r animals.gpr
+	gprclean -r except.gpr
 	$(RM) default.cgpr
 
 run: all

@@ -1,11 +1,11 @@
 all: default.cgpr
-	gprbuild -p
+	gprbuild -p matrix.gpr
 
 default.cgpr:
 	gprconfig --batch --config Ada  --config C --config Fortran -o $@
 
 clean: default.cgpr
-	gprclean
+	gprclean matrix.gpr
 	$(RM) default.cgpr
 
 run: all

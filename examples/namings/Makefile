@@ -1,15 +1,15 @@
 all: default.cgpr
-	gprbuild -p -Pnamings -XC1=case1
-	gprbuild -p -Pnamings -XC1=case2
-	gprbuild -p -Pnamings -XC1=case3
+	gprbuild -p namings.gpr -XC1=case1
+	gprbuild -p namings.gpr -XC1=case2
+	gprbuild -p namings.gpr -XC1=case3
 
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
 
 clean: default.cgpr
-	gprclean -Pnamings -XC1=case1
-	gprclean -Pnamings -XC1=case2
-	gprclean -Pnamings -XC1=case3
+	gprclean namings.gpr -XC1=case1
+	gprclean namings.gpr -XC1=case2
+	gprclean namings.gpr -XC1=case3
 	$(RM) default.cgpr
 
 run: all
