@@ -13,6 +13,6 @@ clean: default.cgpr
 
 run: all
 	./obj/main
-	(PATH="../libraries/lib2:${PATH}" obj1/main)
+	PATH="../libraries/lib2:${PATH}" obj1/main
 
 .PHONY: all clean run
