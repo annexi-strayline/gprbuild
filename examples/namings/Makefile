@@ -6,7 +6,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
 
-clean:
+clean: default.cgpr
 	gprclean -Pnamings -XC1=case1
 	gprclean -Pnamings -XC1=case2
 	gprclean -Pnamings -XC1=case3

@@ -5,7 +5,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
 
-clean:
+clean: default.cgpr
 	gprclean -Pc_main
 	gprclean -Pada_main
 	$(RM) default.cgpr

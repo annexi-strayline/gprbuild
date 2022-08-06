@@ -4,7 +4,7 @@ all: ../subsystems/default.cgpr
 ../subsystems/default.cgpr:
 	make -C ../subsystems default.cgpr
 
-clean:
+clean: ../subsystems/default.cgpr
 	gprclean -r -Pnew_ada_main --config=../subsystems/default.cgpr
 
 

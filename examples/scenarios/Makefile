@@ -6,7 +6,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C -o $@
 
-clean:
+clean: default.cgpr
 	gprclean -r main.gpr -XLIB=static
 	gprclean -r main.gpr -XLIB=dynamic
 	$(RM) default.cgpr

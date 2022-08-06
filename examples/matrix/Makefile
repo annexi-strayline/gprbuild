@@ -4,7 +4,7 @@ all: default.cgpr
 default.cgpr:
 	gprconfig --batch --config Ada  --config C --config Fortran -o $@
 
-clean:
+clean: default.cgpr
 	gprclean
 	$(RM) default.cgpr
 
