@@ -1,13 +1,14 @@
 all: default.cgpr
-	gprbuild -p
+	gprbuild -p -Pmatrix $(GPRBUILDFLAGS)
 
 default.cgpr:
-	gprconfig --batch --config Ada  --config C --config Fortran -o $@
+	gprconfig --batch --config Ada --config C --config Fortran
 
-clean: force
-	gprclean
+clean: default.cgpr
+	gprclean -Pmatrix
 	$(RM) default.cgpr
 
 run: all
 	./obj/main
-force:
+
+.PHONY: all clean run

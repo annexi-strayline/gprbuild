@@ -1,12 +1,14 @@
 all: default.cgpr
-	gprbuild -p ft.gpr
+	gprbuild -p -Pft $(GPRBUILDFLAGS)
 
 default.cgpr:
-	gprconfig --batch --config Ada --config Fortran -o $@
+	gprconfig --batch --config Ada --config Fortran
 
-clean:
-	gprclean -q -r ft.gpr
+clean: default.cgpr
+	gprclean -r -Pft
 	$(RM) default.cgpr
 
 run: all
 	./fobj/ess
+
+.PHONY: all clean run
