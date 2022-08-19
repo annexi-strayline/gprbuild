@@ -1688,7 +1688,7 @@ package body Gprbuild.Compile is
                         --  We should not be at the end of the line,
                         --  without a continuation character \.
 
-                        exit Name_Loop when Start = Last;
+                        exit Line_Loop when Start = Last;
 
                         --  Look for the end of the source path name
 
