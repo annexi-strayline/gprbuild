@@ -878,17 +878,14 @@ package body GPR.Util is
       end if;
 
       if Message'Length > 0 and then not No_Message then
-         if Exit_Code /= E_Success then
+         if Exit_Code not in E_Success | E_Subtool then
             Set_Standard_Error;
+         end if;
+         Write_Program_Name;
+         Write_Line (Message);
+         if Command /= "" then
             Write_Program_Name;
-            Write_Line (Message);
-            if Command /= "" then
-               Write_Program_Name;
-               Write_Line (Command);
-            end if;
-
-         else
-            Write_Str (Message);
+            Write_Line (Command);
          end if;
       end if;
 
