@@ -929,7 +929,7 @@ procedure Gprlib is
          else
             Options_Table.Append
               (Concat_Paths (Path_Option, " ")
-               & Concat_Paths (Rpath, "" & Path_Separator));
+               & Concat_Paths (Rpath, ":"));
          end if;
       end if;
 
