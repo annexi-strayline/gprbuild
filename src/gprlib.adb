@@ -747,8 +747,8 @@ procedure Gprlib is
                     Ensure_Directory
                       (Runtime_Library_Dirs.First_Element);
          begin
-            Libgnat  := new String'(Dir & "libgnat.a");
-            Libgnarl := new String'(Dir & "libgnarl.a");
+            Libgnat  := new String'(Dir & "libgnat" & Archive_Suffix.all);
+            Libgnarl := new String'(Dir & "libgnarl" & Archive_Suffix.all);
          end;
       end if;
 

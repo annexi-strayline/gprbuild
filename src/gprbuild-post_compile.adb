@@ -3306,6 +3306,12 @@ package body Gprbuild.Post_Compile is
 
             Write_Auto_Init;
 
+            --  Archive_Suffix
+            --  This is needed even in the case of dynamic libraries as they
+            --  may rely on static libraries (e.g. if they are encapsulated)
+
+            Write_Filename (Archive_Suffix, For_Project.Config.Archive_Suffix);
+
             --  Gprexch.Install_Name
 
             if Opt.Run_Path_Option then
