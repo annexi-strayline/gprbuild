@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2000-2021, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -55,6 +55,10 @@ package body GPR.Ext is
                N := Name_To_Name_HTable.Get_Next (Copy_From.Refs.all);
             end loop;
          end if;
+      end if;
+
+      if Self.Context = null then
+         Self.Context := new Context_Map.Map;
       end if;
    end Initialize;
 
@@ -140,6 +144,8 @@ package body GPR.Ext is
 
       Name_To_Name_HTable.Remove (Self.Refs.all, Key);
       Name_To_Name_HTable.Set (Self.Refs.all, N);
+
+      Self.Context.Include (Key, Name_Find);
    end Add;
 
    -----------
@@ -177,6 +183,9 @@ package body GPR.Ext is
       if Self.Refs /= null then
          Debug_Output ("Reset external references");
          Name_To_Name_HTable.Reset (Self.Refs.all);
+      end if;
+      if Self.Context /= null then
+         Self.Context.Clear;
       end if;
    end Reset;
 
@@ -233,6 +242,10 @@ package body GPR.Ext is
                  ("Value_Of (" & Name & ") is default", With_Default);
             end if;
 
+            if With_Default /= No_Name then
+               Self.Context.Include (Get_Name_Id (Name), With_Default);
+            end if;
+
             Free (Env_Value);
             return With_Default;
          end if;
@@ -248,6 +261,8 @@ package body GPR.Ext is
         (Name_To_Name_HTable.Instance, Instance_Access);
       procedure Unchecked_Free is new Ada.Unchecked_Deallocation
         (Name_To_Name, Name_To_Name_Ptr);
+      procedure Unchecked_Free is new Ada.Unchecked_Deallocation
+        (Context, Context_Access);
       Ptr  : Name_To_Name_Ptr;
       Size : Natural := 0;
    begin
@@ -278,6 +293,7 @@ package body GPR.Ext is
 
          Reset (Self);
          Unchecked_Free (Self.Refs);
+         Unchecked_Free (Self.Context);
       end if;
    end Free;
 
@@ -307,5 +323,14 @@ package body GPR.Ext is
    begin
       return E.Key;
    end Get_Key;
+
+   -----------------------------
+   -- All_External_References --
+   -----------------------------
+
+   function Get_Context (Self : External_References) return Context is
+   begin
+      return Self.Context.all;
+   end Get_Context;
 
 end GPR.Ext;

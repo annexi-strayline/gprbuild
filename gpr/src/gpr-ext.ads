@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2000-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -25,6 +25,7 @@
 --  Subprograms to set, get and cache external references, to be used as
 --  External functions in project files.
 
+with Ada.Containers.Ordered_Maps;
 with GNAT.Dynamic_HTables;
 
 package GPR.Ext is
@@ -92,6 +93,12 @@ package GPR.Ext is
    --  Clear the internal data structure that stores the external references
    --  and free any allocated memory.
 
+   package Context_Map is new Ada.Containers.Ordered_Maps (Name_Id, Name_Id);
+   subtype Context is Context_Map.Map;
+
+   function Get_Context (Self : External_References) return Context;
+   --  Returns all external references currently stored
+
 private
    --  Use a Static_HTable, rather than a Simple_HTable
 
@@ -128,14 +135,21 @@ private
 
    type Instance_Access is access all Name_To_Name_HTable.Instance;
 
+   type Context_Access is access all Context;
+
    type External_References is record
       Refs : Instance_Access;
       --  External references are stored in this hash table (and manipulated
       --  through subprogrames in prj-ext.ads). External references are
       --  project-tree specific so that one can load the same tree twice but
       --  have two views of it, for instance.
+
+      Context : Context_Access;
+      --  Names of all external references used in project tree or queried
+      --  during project processing.
    end record;
 
-   No_External_Refs : constant External_References := (Refs => null);
+   No_External_Refs : constant External_References :=
+     (Refs => null, Context => null);
 
 end GPR.Ext;
