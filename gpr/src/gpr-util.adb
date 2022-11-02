@@ -4912,8 +4912,6 @@ package body GPR.Util is
                                  end if;
                               end if;
                            end loop;
-
-                           Inside := False;
                         end Scan_String_Literal;
 
                      begin
