@@ -96,8 +96,13 @@ package GPR.Ext is
    package Context_Map is new Ada.Containers.Ordered_Maps (Name_Id, Name_Id);
    subtype Context is Context_Map.Map;
 
+   procedure Add_Name_To_Context
+     (Self          : External_References;
+      External_Name : Name_Id);
+   --  Adds given external name to the context
+
    function Get_Context (Self : External_References) return Context;
-   --  Returns all external references currently stored
+   --  Returns all external references currently stored and their values
 
 private
    --  Use a Static_HTable, rather than a Simple_HTable
@@ -135,7 +140,7 @@ private
 
    type Instance_Access is access all Name_To_Name_HTable.Instance;
 
-   type Context_Access is access all Context;
+   type Context_Access is access all Name_Id_Set.Set;
 
    type External_References is record
       Refs : Instance_Access;
@@ -145,8 +150,7 @@ private
       --  have two views of it, for instance.
 
       Context : Context_Access;
-      --  Names of all external references used in project tree or queried
-      --  during project processing.
+      --  Names of all external references used in project tree
    end record;
 
    No_External_Refs : constant External_References :=

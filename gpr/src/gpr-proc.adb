@@ -1300,6 +1300,7 @@ package body GPR.Proc is
                   if Ext_List then
                      Value :=
                        GPR.Ext.Value_Of (Env.External, Name, No_Name);
+                     GPR.Ext.Add_Name_To_Context (Env.External, Name);
 
                      if Value /= No_Name then
                         declare
@@ -1406,6 +1407,7 @@ package body GPR.Proc is
 
                      Value :=
                        GPR.Ext.Value_Of (Env.External, Name, Default);
+                     GPR.Ext.Add_Name_To_Context (Env.External, Name);
 
                      --  It is an error if an external reference is not found
                      --  and there is no default.

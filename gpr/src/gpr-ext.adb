@@ -58,8 +58,9 @@ package body GPR.Ext is
       end if;
 
       if Self.Context = null then
-         Self.Context := new Context_Map.Map;
+         Self.Context := new Name_Id_Set.Set;
       end if;
+
    end Initialize;
 
    ---------
@@ -145,7 +146,6 @@ package body GPR.Ext is
       Name_To_Name_HTable.Remove (Self.Refs.all, Key);
       Name_To_Name_HTable.Set (Self.Refs.all, N);
 
-      Self.Context.Include (Key, Name_Find);
    end Add;
 
    -----------
@@ -242,10 +242,6 @@ package body GPR.Ext is
                  ("Value_Of (" & Name & ") is default", With_Default);
             end if;
 
-            if With_Default /= No_Name then
-               Self.Context.Include (Get_Name_Id (Name), With_Default);
-            end if;
-
             Free (Env_Value);
             return With_Default;
          end if;
@@ -262,7 +258,7 @@ package body GPR.Ext is
       procedure Unchecked_Free is new Ada.Unchecked_Deallocation
         (Name_To_Name, Name_To_Name_Ptr);
       procedure Unchecked_Free is new Ada.Unchecked_Deallocation
-        (Context, Context_Access);
+        (Name_Id_Set.Set, Context_Access);
       Ptr  : Name_To_Name_Ptr;
       Size : Natural := 0;
    begin
@@ -324,13 +320,37 @@ package body GPR.Ext is
       return E.Key;
    end Get_Key;
 
-   -----------------------------
-   -- All_External_References --
-   -----------------------------
+   -----------------
+   -- Get_Context --
+   -----------------
 
    function Get_Context (Self : External_References) return Context is
+      Result : Context;
    begin
-      return Self.Context.all;
+      if Self.Context /= null then
+         for Name of Self.Context.all loop
+            Result.Include (Name, Value_Of (Self, Name));
+         end loop;
+      end if;
+
+      return Result;
    end Get_Context;
+
+   -------------------------
+   -- Add_Name_To_Context --
+   -------------------------
+
+   procedure Add_Name_To_Context
+     (Self          : External_References;
+      External_Name : Name_Id)
+   is
+      Name : String := Get_Name_String (External_Name);
+   begin
+      if Self.Context /= null then
+         Canonical_Case_Env_Var_Name (Name);
+
+         Self.Context.Include (Get_Name_Id (Name));
+      end if;
+   end Add_Name_To_Context;
 
 end GPR.Ext;
