@@ -98,7 +98,8 @@ package GPR.Ext is
 
    procedure Add_Name_To_Context
      (Self          : External_References;
-      External_Name : Name_Id);
+      External_Name : Name_Id;
+      Default       : Name_Id);
    --  Adds given external name to the context
 
    function Get_Context (Self : External_References) return Context;
@@ -140,7 +141,7 @@ private
 
    type Instance_Access is access all Name_To_Name_HTable.Instance;
 
-   type Context_Access is access all Name_Id_Set.Set;
+   type Context_Access is access all Context;
 
    type External_References is record
       Refs : Instance_Access;
