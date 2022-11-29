@@ -58,7 +58,7 @@ package body GPR.Ext is
       end if;
 
       if Self.Context = null then
-         Self.Context := new Name_Id_Set.Set;
+         Self.Context := new Context;
       end if;
 
    end Initialize;
@@ -258,7 +258,7 @@ package body GPR.Ext is
       procedure Unchecked_Free is new Ada.Unchecked_Deallocation
         (Name_To_Name, Name_To_Name_Ptr);
       procedure Unchecked_Free is new Ada.Unchecked_Deallocation
-        (Name_Id_Set.Set, Context_Access);
+        (Context, Context_Access);
       Ptr  : Name_To_Name_Ptr;
       Size : Natural := 0;
    begin
@@ -326,10 +326,17 @@ package body GPR.Ext is
 
    function Get_Context (Self : External_References) return Context is
       Result : Context;
+      Cur    : Context_Map.Cursor;
+
+      use Context_Map;
    begin
       if Self.Context /= null then
-         for Name of Self.Context.all loop
-            Result.Include (Name, Value_Of (Self, Name));
+         Cur := Self.Context.First;
+         while Cur /= No_Element loop
+            Result.Include
+              (Key (Cur),
+               Value_Of (Self, Key (Cur), Element (Cur)));
+            Next (Cur);
          end loop;
       end if;
 
@@ -342,14 +349,15 @@ package body GPR.Ext is
 
    procedure Add_Name_To_Context
      (Self          : External_References;
-      External_Name : Name_Id)
+      External_Name : Name_Id;
+      Default       : Name_Id)
    is
       Name : String := Get_Name_String (External_Name);
    begin
       if Self.Context /= null then
          Canonical_Case_Env_Var_Name (Name);
 
-         Self.Context.Include (Get_Name_Id (Name));
+         Self.Context.Include (Get_Name_Id (Name), Default);
       end if;
    end Add_Name_To_Context;
 
