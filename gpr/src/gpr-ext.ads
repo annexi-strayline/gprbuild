@@ -105,6 +105,9 @@ package GPR.Ext is
    function Get_Context (Self : External_References) return Context;
    --  Returns all external references currently stored and their values
 
+   procedure Reset_Context (Self : External_References);
+   --  Resets Context to empty (but initialized) state.
+
 private
    --  Use a Static_HTable, rather than a Simple_HTable
 

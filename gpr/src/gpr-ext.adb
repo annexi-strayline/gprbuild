@@ -361,4 +361,15 @@ package body GPR.Ext is
       end if;
    end Add_Name_To_Context;
 
+   -------------------
+   -- Reset_Context --
+   -------------------
+
+   procedure Reset_Context (Self : External_References) is
+   begin
+      if Self.Context /= null then
+         Self.Context.Clear;
+      end if;
+   end Reset_Context;
+
 end GPR.Ext;
