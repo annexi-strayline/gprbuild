@@ -315,7 +315,7 @@ procedure Gprlib is
    --  a Stand-Alone Library.
 
    function Is_Gnarl_Dependent return Boolean;
-   --  Defines from the .ali files if there is a dependency to gnarl.
+   --  Detects from the .ali files if there is a dependency on libgnarl
 
    procedure Process_Shared;
    --  Process a shared library
@@ -1857,7 +1857,7 @@ procedure Gprlib is
    is
       Gnarl_Dependent : Boolean := False;
    begin
-      --  If Ada is used and we don't already know yet that libgnarl is needed,
+      --  If Ada is used and we don't already know that libgnarl is needed,
       --  look for s-osinte.ads in all the ALI files. If found in at least one,
       --  then libgnarl is needed.
 
