@@ -2229,7 +2229,7 @@ package body Gprbuild.Link is
 
                                     Error_Msg
                                       ("?unable to locate " & Name,
-                                       Proj.Location);
+                                       GPR.No_Location);
 
                                     return False;
                                  end if;
