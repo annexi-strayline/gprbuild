@@ -2623,34 +2623,6 @@ package body Gprbuild.Compile is
                  (Config    => Config,
                   Path_Name => The_Config_Paths (J).Display_Name);
             end loop;
-
---              if not Config.Config_File_Unique then
---                 Config_File_Path :=
---                   Config_File_For
---                     (Project        => Main_Project,
---                      Package_Name   => Name_Builder,
---                      Attribute_Name => Name_Global_Config_File,
---                      Language       => Id.Language.Name);
---
---                 if Config_File_Path /= No_Path then
---                    Add_Config_File_Switch
---                      (Config    => Config,
---                       Path_Name => Config_File_Path);
---                 end if;
---
---                 Config_File_Path :=
---                   Config_File_For
---                     (Project        => Source_Project,
---                      Package_Name   => Name_Compiler,
---                      Attribute_Name => Name_Local_Config_File,
---                      Language       => Id.Language.Name);
---
---                 if Config_File_Path /= No_Path then
---                    Add_Config_File_Switch
---                      (Config    => Config,
---                       Path_Name => Config_File_Path);
---                 end if;
---              end if;
          end if;
       end Add_Config_File_Switches;
 
