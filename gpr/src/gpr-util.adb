@@ -190,6 +190,47 @@ package body GPR.Util is
       return False;
    end Calculate_Checksum;
 
+   ------------------------
+   -- Calculate_Checksum --
+   ------------------------
+
+   function Calculate_Checksum (File : Path_Name_Type) return Word is
+      Source_Index : Source_File_Index;
+      Checksum     : Word := 0;
+   begin
+
+      Source_Index :=
+        Sinput.Load_File (Get_Name_String (File));
+
+      if Source_Index /= No_Source_File then
+         Err.Scanner.Initialize_Scanner (Source_Index, Err.Scanner.Ada);
+
+         --  Scan the complete file to compute its
+         --  checksum.
+
+         loop
+            Err.Scanner.Scan;
+            exit when Token = Tok_EOF;
+         end loop;
+
+         Checksum := Scans.Checksum;
+
+         --  If there were errors we can't Clear_Source_File_Table because the
+         --  error messages refer to this table content.
+
+         if Total_Errors_Detected = 0 then
+            --  To avoid using too much memory, free the
+            --  memory allocated.
+
+            Sinput.Clear_Source_File_Table;
+         end if;
+
+         return Checksum;
+      end if;
+
+      return Checksum;
+   end Calculate_Checksum;
+
    ----------------------------
    -- Clear_Time_Stamp_Cache --
    ----------------------------
@@ -2239,6 +2280,25 @@ package body GPR.Util is
         or else Starts_With (Lower_Unit, "system.")
         or else Starts_With (Lower_Unit, "interfaces.");
    end Is_Ada_Predefined_Unit;
+
+   ----------------------------
+   -- Is_Pragmas_Config_File --
+   ----------------------------
+
+   function Is_Pragmas_Config_File (Fname : File_Name_Type) return Boolean is
+      Filename                  : constant String := Get_Name_String (Fname);
+      Pragma_Config_File_Suffix : constant String := ".adc";
+
+      E_First : constant Integer :=
+                  Filename'Last - Pragma_Config_File_Suffix'Length + 1;
+      E_Last  : constant Integer := Filename'Last;
+   begin
+      if Filename'Length > Pragma_Config_File_Suffix'Length then
+         return (Filename (E_First .. E_Last) = Pragma_Config_File_Suffix);
+      else
+         return False;
+      end if;
+   end Is_Pragmas_Config_File;
 
    ----------------
    -- Is_Subunit --
@@ -5037,9 +5097,9 @@ package body GPR.Util is
                   if Dep_Src = No_Source
                     and then ALI.Sdep.Table (D).Checksum = 0
                   then
-                     --  Probably preprocessing dependencies. Look for the file
-                     --  in the directory of the source, then the other source
-                     --  directories of the project.
+                     --  Probably preprocessing dependencies. Look for the
+                     --  file in the directory of the source, then the other
+                     --  source directories of the project.
 
                      declare
                         Path  : Path_Name_Type   := No_Path;
@@ -5053,7 +5113,8 @@ package body GPR.Util is
                         procedure Get_Path (Dir : String);
                         --  If File is in the absolute directory Dir then
                         --  set Path to the absolute path of the file and
-                        --  Stamp to its timestamp. Otherwise Path is No_Path.
+                        --  Stamp to its timestamp. Otherwise Path is
+                        --  No_Path.
 
                         --------------
                         -- Get_Path --
@@ -5074,19 +5135,21 @@ package body GPR.Util is
                         end Get_Path;
 
                      begin
+
                         if Conf_Paths'Length > 0 or else Absp then
                            Path := Path_Name_Type (Sfile);
                            Stamp := File_Stamp (Path);
 
                            declare
-                              Found : Boolean := False;
+                              Found     : Boolean := False;
                               Norm_Path : constant String :=
-                                Normalize_Pathname
-                                  (File, Case_Sensitive => False);
+                                            Normalize_Pathname
+                                              (File,
+                                               Case_Sensitive => False);
                            begin
                               for J in Conf_Paths'Range loop
                                  if Conf_Paths (J).Name = Get_Path_Name_Id
-                                                            (Norm_Path)
+                                   (Norm_Path)
                                  then
                                     Found                := True;
                                     Conf_Paths_Found (J) := True;
@@ -5098,15 +5161,15 @@ package body GPR.Util is
                                 and then not Preps.Contains (Norm_Path)
                               then
                                  --  Config pragma file is in D line but was
-                                 --  not referenced from project and -gnatec=
-                                 --  command line option.
+                                 --  not referenced from project and
+                                 --  -gnatec = command line option.
 
                                  if Opt.Verbosity_Level > Opt.Low then
                                     Put ("  -> """);
                                     Put (File);
                                     Put_Line
-                                      (""" not defined in project and -gnatec="
-                                       & " command line option");
+                                      (""" not defined in project and "
+                                       & "-gnatec= command line option");
                                  end if;
 
                                  return True;
@@ -5120,7 +5183,8 @@ package body GPR.Util is
                            Get_Path (Source_Dir_Of (Source));
                         end if;
 
-                        while Path = No_Path and then List /= Nil_String loop
+                        while Path = No_Path and then List /= Nil_String
+                        loop
                            Elem := Tree.Shared.String_Elements.Table (List);
                            Get_Path (Get_Name_String (Elem.Display_Value));
                            List := Elem.Next;
@@ -5152,8 +5216,10 @@ package body GPR.Util is
                      end;
 
                   else
+
                      if Dep_Src = No_Source
                        and then not Is_Ada_Predefined_File_Name (Sfile)
+                       and then not Is_Pragmas_Config_File (Sfile)
                      then
                         if Opt.Verbosity_Level > Opt.Low then
                            Put ("  -> """);
@@ -5162,6 +5228,73 @@ package body GPR.Util is
                         end if;
 
                         return True;
+                     end if;
+
+                     if Dep_Src = No_Source
+                       and then Is_Pragmas_Config_File (Sfile) 
+                     then
+                        declare
+                           F_And_Cksum_Found : Boolean := False;
+                           Timestamp_Found   : Boolean := False;
+                        begin
+                           for J in Conf_Paths'Range loop
+                              declare
+                                 File   : constant File_Name_Type :=
+                                            Get_File_Name_Id
+                                              (Ada.Directories.Simple_Name
+                                                 (Get_Name_String
+                                                    (Conf_Paths (J).Name)));
+                                 Cksum  : Word;
+                                 SCksum : constant Word :=
+                                            ALI.Sdep.Table (D).Checksum;
+                              begin
+                                 Cksum := Calculate_Checksum
+                                   (Conf_Paths (J).Name);
+
+                                 if File = Sfile
+                                   and then
+                                     Cksum = SCksum
+                                     and then not Conf_Paths_Found (J)
+                                 then
+                                    F_And_Cksum_Found := True;
+
+                                    if File_Stamp (Conf_Paths (J).Name) =
+                                      ALI.Sdep.Table (D).Stamp
+                                    then
+                                       Conf_Paths_Found (J) := True;
+                                       Timestamp_Found      := True;
+                                       exit;
+                                    end if;
+                                 end if;
+                              end;
+                           end loop;
+
+                           if not F_And_Cksum_Found then
+                              --  Config pragma file is in D line but was
+                              --  not referenced from project and
+                              --  -gnatec = command line option.
+
+                              if Opt.Verbosity_Level > Opt.Low then
+                                 Put ("  -> """);
+                                 Put (Get_Name_String (Sfile));
+                                 Put_Line
+                                   (""" not defined in project and "
+                                    & "-gnatec= command line option");
+                              end if;
+
+                              return True;
+                           end if;
+
+                           if not Timestamp_Found then
+                              if Opt.Verbosity_Level > Opt.Low then
+                                 Put ("   -> different time stamp from the "
+                                      & "ALI file for the config file ");
+                                 Put_Line (Get_Name_String (Sfile));
+                              end if;
+
+                              return True;
+                           end if;
+                        end;
                      end if;
 
                      while Dep_Src /= No_Source loop

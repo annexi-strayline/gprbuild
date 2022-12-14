@@ -401,6 +401,9 @@ package GPR.Util is
    function Is_Ada_Predefined_Unit (Unit : String) return Boolean;
    --  Return True if Unit is an Ada runtime unit
 
+   function Is_Pragmas_Config_File (Fname : File_Name_Type) return Boolean;
+   --  Return True if Fname is a pragmas config file
+
    function Starts_With (Item : String; Prefix : String) return Boolean;
    --  Return True if Item starts with Prefix
 
@@ -671,6 +674,9 @@ package GPR.Util is
 
    function Calculate_Checksum (Source : Source_Id) return Boolean;
    --  Calculate Source checksum from source file, returns True on success
+
+   function Calculate_Checksum (File : Path_Name_Type) return Word;
+   --  Calculate Source checksum from a file, returns the checksum
 
    generic
       with procedure Usage;
