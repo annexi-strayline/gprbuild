@@ -2163,7 +2163,6 @@ package body Gprbuild.Link is
                            Obj           : String_Access;
                            Obj_Path_Name : Path_Name_Type;
 
-                           Objcopy_Exec : String_Access;
                            Objdump_Exec : String_Access;
                            AB_Path      : constant String :=
                              Archive_Builder_Path.all;
@@ -2175,10 +2174,6 @@ package body Gprbuild.Link is
                            FD       : File_Descriptor;
                            Tmp_File : Path_Name_Type;
                            Success  : Boolean := True;
-
-                           function Check_Objtool
-                             (Exec : out String_Access;
-                              Name : String) return Boolean;
 
                            procedure Set_Tmp_File_Line;
                            --  Set Tmp_File first line to Error
@@ -2204,39 +2199,6 @@ package body Gprbuild.Link is
 
                               Close (File);
                            end Set_Tmp_File_Line;
-
-                           -------------------
-                           -- Check_Objtool --
-                           -------------------
-
-                           function Check_Objtool
-                             (Exec : out String_Access;
-                              Name : String) return Boolean
-                           is
-                              Path : constant String :=
-                                       AB_Path (1 .. AB_Path_Last) & Name;
-                           begin
-                              Exec := Locate_Exec_On_Path (Path);
-
-                              if Exec = null then
-                                 --  If objtool is not found this way, try with
-                                 --  the one from the system.
-
-                                 Exec := Locate_Exec_On_Path (Name);
-
-                                 if Exec = null then
-                                    --  Warning if we didn't find any objtool
-
-                                    Error_Msg
-                                      ("?unable to locate " & Name,
-                                       GPR.No_Location);
-
-                                    return False;
-                                 end if;
-                              end if;
-
-                              return True;
-                           end Check_Objtool;
 
                            Line  : String (1 .. 128);
                            First : Positive := 42;
@@ -2329,7 +2291,7 @@ package body Gprbuild.Link is
                            end if;
 
                            --  Use the archive builder path to compute the
-                           --  path to objcopy.
+                           --  path to objdump.
 
                            if AB_Path'Length > 2
                              and then
@@ -2346,15 +2308,26 @@ package body Gprbuild.Link is
                               AB_Path_Last := AB_Path'Last - 6;
                            end if;
 
-                           if not Check_Objtool
-                             (Objcopy_Exec, "objcopy")
-                             or else not Check_Objtool
-                               (Objdump_Exec, "objdump")
-                           then
+                           Objdump_Exec :=
+                              Locate_Exec_On_Path
+                                 (AB_Path (1 .. AB_Path_Last) & "objdump");
+
+                           --  If objdump is not found this way, try with
+                           --  the one from the system.
+
+                           if Objdump_Exec = null then
+                              Objdump_Exec := Locate_Exec_On_Path ("objdump");
+                           end if;
+
+                           --  If still not found, warn and jump away
+
+                           if Objdump_Exec = null then
+                              Error_Msg
+                                 ("?unable to locate objdump", GPR.No_Location);
                               goto Linker_Options_Incomplete;
                            end if;
 
-                           --  List the archive content.
+                           --  List the archive content
 
                            Arg_List := new GNAT.Strings.String_List'
                              (1 => new String'("-t"),
@@ -2436,7 +2409,7 @@ package body Gprbuild.Link is
                            end;
 
                            if Obj = null then
-                              --  Warning if no such object file is found.
+                              --  Warning if no such object file is found
 
                               Error_Msg
                                 ("?linker options section not found in "
@@ -2446,7 +2419,7 @@ package body Gprbuild.Link is
                               goto Linker_Options_Incomplete;
                            end if;
 
-                           --  Extract the object file.
+                           --  Extract the object file
 
                            Arg_List := new GNAT.Strings.String_List'
                              (1 => new String'("-x"),
@@ -2479,7 +2452,7 @@ package body Gprbuild.Link is
                              (Shared => Main_File.Tree.Shared,
                               Path => Obj_Path_Name);
 
-                           --  Extract the linker options section.
+                           --  Extract the linker options section
 
                            Arg_List := new GNAT.Strings.String_List'
                              (new String'("-s"),
@@ -2549,7 +2522,7 @@ package body Gprbuild.Link is
 
                            <<Linker_Options_Incomplete>>
 
-                           --  We get there if anything went wrong.
+                           --  We get here if anything went wrong
 
                            if not Success and then Opt.Verbose_Mode then
                               Put_Line ("Linker options may be incomplete.");
