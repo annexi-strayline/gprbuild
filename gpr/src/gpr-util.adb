@@ -5231,7 +5231,7 @@ package body GPR.Util is
                      end if;
 
                      if Dep_Src = No_Source
-                       and then Is_Pragmas_Config_File (Sfile) 
+                       and then Is_Pragmas_Config_File (Sfile)
                      then
                         declare
                            F_And_Cksum_Found : Boolean := False;
