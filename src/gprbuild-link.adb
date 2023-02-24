@@ -2323,7 +2323,8 @@ package body Gprbuild.Link is
 
                            if Objdump_Exec = null then
                               Error_Msg
-                                 ("?unable to locate objdump", GPR.No_Location);
+                                ("?unable to locate objdump",
+                                 GPR.No_Location);
                               goto Linker_Options_Incomplete;
                            end if;
 
