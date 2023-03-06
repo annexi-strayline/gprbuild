@@ -2966,7 +2966,7 @@ package body GPR.Util is
          Real_Index_2 := Element.Index;
 
          if (not Element.Index_Case_Sensitive or else Force_Lower_Case_Index)
-           and then (Element.Index /= All_Other_Names)
+           and then Element.Index /= All_Other_Names
          then
             Get_Name_String (Element.Index);
             To_Lower (Name_Buffer (1 .. Name_Len));
@@ -4071,7 +4071,7 @@ package body GPR.Util is
          end if;
       end if;
 
-      if (not Quiet_Output) and then Project_File_Name /= null then
+      if not Quiet_Output and then Project_File_Name /= null then
          Put ("using project file ");
          Put_Line (Project_File_Name.all);
       end if;
@@ -5808,7 +5808,7 @@ package body GPR.Util is
       --  If we are here, then everything is OK, and we don't need
       --  to recompile.
 
-      if (not Object_Check) and then Opt.Verbosity_Level > Opt.Low then
+      if not Object_Check and then Opt.Verbosity_Level > Opt.Low then
          Put_Line ("      -> up to date");
       end if;
 

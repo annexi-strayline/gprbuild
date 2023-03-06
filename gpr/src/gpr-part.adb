@@ -1655,7 +1655,7 @@ package body GPR.Part is
             --  Output a warning if the actual name is not the expected name
 
             if not Is_Config_File
-              and then (Name_From_Path /= No_Name)
+              and then Name_From_Path /= No_Name
               and then Expected_Name /= Name_From_Path
             then
                Error_Msg_Name_1 := Expected_Name;

@@ -278,7 +278,7 @@ package body GPR.PP is
             --  If the string does not fit on one line, cut it in parts and
             --  concatenate.
 
-            if (not Single_Line) and then
+            if not Single_Line and then
                J < Name_Len and then
                Column >= Max_Line_Length
             then
