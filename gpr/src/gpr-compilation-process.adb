@@ -317,7 +317,7 @@ package body GPR.Compilation.Process is
                P.Pid := Non_Blocking_Spawn (Executable, Args.all);
             end if;
 
-            Check_Local_Process (P);
+            Check_Local_Process (P, Executable, Options);
 
             Script_Write (Executable, Options);
             Free (Args);

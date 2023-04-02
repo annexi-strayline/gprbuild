@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2023, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -31,6 +31,8 @@ with Ada.Containers.Vectors;
 with Ada.Strings.Unbounded;
 
 with GNAT.OS_Lib;
+
+with GPR.Util;
 
 package GPR.Compilation is
 
@@ -114,9 +116,13 @@ package GPR.Compilation is
    function Image (Pid : Remote_Id) return String;
    --  Returns the string representation of Pid
 
-   procedure Check_Local_Process (Process : Id);
+   procedure Check_Local_Process
+     (Process    : Id;
+      Executable : String;
+      Options    : GPR.Util.String_Vectors.Vector);
    --  Check that a local process is valid. If not, fail with the errno and
-   --  associated message.
+   --  associated message and failed command composed from Executable and
+   --  Options.
 
 private
 

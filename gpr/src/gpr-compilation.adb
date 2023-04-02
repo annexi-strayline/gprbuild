@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2023, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -30,7 +30,7 @@ with Ada.Text_IO;
 with GNAT.MD5;          use GNAT;
 with GNAT.String_Split; use GNAT.String_Split;
 
-with GPR.Util;
+with GPR.Names;         use GPR.Names;
 
 package body GPR.Compilation is
 
@@ -44,7 +44,10 @@ package body GPR.Compilation is
    -- Check_Local_Process --
    -------------------------
 
-   procedure Check_Local_Process (Process : Id) is
+   procedure Check_Local_Process
+     (Process    : Id;
+      Executable : String;
+      Options    : GPR.Util.String_Vectors.Vector) is
    begin
       if Process = Invalid_Process then
          declare
@@ -52,7 +55,15 @@ package body GPR.Compilation is
               & Errno'Img
               & " (" & Errno_Message & ")";
          begin
-            GPR.Util.Fail_Program (null, Err);
+            Name_Len := 0;
+            for S of Options loop
+               Add_Str_To_Name_Buffer (S & " ");
+            end loop;
+            GPR.Util.Fail_Program
+              (null, Err,
+               Command =>
+                 "failed command was: "
+                 & Executable & " " & Name_Buffer (1 .. Name_Len));
          end;
       end if;
    end Check_Local_Process;
