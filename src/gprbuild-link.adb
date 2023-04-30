@@ -2413,7 +2413,7 @@ package body Gprbuild.Link is
                               --  Warning if no such object file is found
 
                               Error_Msg
-                                ("?linker options section not found in "
+                                ("?linker options section not found in lib"
                                  & Lib_Name & ".a, using defaults.",
                                  Proj.Location);
 
