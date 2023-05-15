@@ -1553,7 +1553,7 @@ procedure Gprlib is
                        and then not
                          (Standalone = Encapsulated
                           and then Line (9 .. Last) in
-                                     Dash_Lgnat | Dash_Lgnarl)
+                                Dash_Lgnat | Dash_Lgnarl)
                      then
                         Put_Line (IO_File, Line (9 .. Last));
                      end if;

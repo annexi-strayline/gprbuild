@@ -1896,7 +1896,9 @@ package body GPR.Conf is
       --  If --target was not specified on the command line, then check if
       --  attribute Target is declared in the main project.
 
-      if Opt.Target_Origin /= Specified then
+      if not Env.Flags.Incomplete_Withs
+        and then Opt.Target_Origin /= Specified
+      then
          declare
             Variable : constant Variable_Value :=
               Value_Of
@@ -1967,7 +1969,7 @@ package body GPR.Conf is
 
       if Main_Project /= No_Project then
          if Fallback_Try_Again then
-            if Auto_Generated then
+            if not Env.Flags.Incomplete_Withs and then Auto_Generated then
                declare
                   Variable : constant Variable_Value :=
                     Value_Of
