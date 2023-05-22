@@ -23,8 +23,10 @@
 ------------------------------------------------------------------------------
 
 with Ada.Characters.Handling; use Ada.Characters.Handling;
+with Ada.Directories;
 with Ada.Exceptions;          use Ada.Exceptions;
 
+with GNAT.Directory_Operations;
 with GNAT.HTable;               use GNAT.HTable;
 with GNAT.Table;
 
@@ -611,6 +613,14 @@ package body GPR.Part is
          return;
       end if;
 
+      --  Set default Root_Dir
+
+      if Build_Tree_Dir /= null and then Root_Dir = null then
+         Root_Dir := new String'
+           (Ada.Directories.Containing_Directory
+              (Get_Name_String (Path_Name_Id)) &
+              GNAT.Directory_Operations.Dir_Separator);
+      end if;
       --  Parse the main project file
 
       begin
