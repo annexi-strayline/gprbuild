@@ -1060,7 +1060,7 @@ begin
    --  In verbose mode, if Delete has not been called, indicate that
    --  no file needs to be deleted.
 
-   if Verbose_Mode and (not File_Deleted) then
+   if Verbose_Mode and not File_Deleted then
       New_Line;
 
       if Do_Nothing then

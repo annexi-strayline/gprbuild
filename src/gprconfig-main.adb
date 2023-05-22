@@ -610,7 +610,7 @@ begin
                   if Last - RTS'First > 6 and then
                     RTS (Last - 5 .. Last) = "adalib" and then
                     (RTS (Last - 6) = Directory_Separator or else
-                     (RTS (Last - 6) = '/'))
+                     RTS (Last - 6) = '/')
 
                   then
                      Last := Last - 6;
