@@ -1960,17 +1960,6 @@ procedure Gprbuild.Main is
             "cannot use --root-dir without --relocate-build-tree option",
             Exit_Code => E_General);
       end if;
-
-      --  Set default Root_Dir
-
-      if Build_Tree_Dir /= null and then Root_Dir = null then
-         Root_Dir := new String'
-           (Ada.Directories.Containing_Directory
-              (Normalize_Pathname
-                   (Project_File_Name.all,
-                    Resolve_Links => Opt.Follow_Links_For_Files)) &
-            Dir_Separator);
-      end if;
    end Initialize;
 
    -----------
