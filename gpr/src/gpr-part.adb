@@ -615,12 +615,16 @@ package body GPR.Part is
 
       --  Set default Root_Dir
 
-      if Build_Tree_Dir /= null and then Root_Dir = null then
+      if not Is_Config_File
+        and then Build_Tree_Dir /= null
+        and then Root_Dir = null
+      then
          Root_Dir := new String'
            (Ada.Directories.Containing_Directory
               (Get_Name_String (Path_Name_Id)) &
               GNAT.Directory_Operations.Dir_Separator);
       end if;
+
       --  Parse the main project file
 
       begin
