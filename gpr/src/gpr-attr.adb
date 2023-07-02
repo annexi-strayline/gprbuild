@@ -684,6 +684,11 @@ package body GPR.Attr is
          Var_Kind   => Single,
          Attr_Kind  => Single,
          Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_Prj_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
 
       Add_Package (Name_Naming);
       Add_Attribute

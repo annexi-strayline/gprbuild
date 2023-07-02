@@ -349,6 +349,7 @@ package body GPR.Snames is
       Add_Name ("library_reference_symbol_file");
       Add_Name ("unconditional_linking");
       Add_Name ("toolchain_path");
+      Add_Name ("config_prj_file");
       Add_Name ("");
       Add_Name (".");
       Add_Name ("*");
