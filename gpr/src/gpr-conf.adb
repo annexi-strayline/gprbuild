@@ -56,6 +56,10 @@ package body GPR.Conf is
    --  Set to False when gprbuild parse again the project files, to avoid
    --  an incorrect warning.
 
+   Warn_For_Config_In_Builder_Switches : Boolean := True;
+   --  Set to False when gprbuild parse again the project files, to avoid
+   --  an incorrect warning.
+
    type Runtime_Root_Data;
    type Runtime_Root_Ptr is access Runtime_Root_Data;
    type Runtime_Root_Data is record
@@ -622,6 +626,10 @@ package body GPR.Conf is
       --  If Target_Name is empty, get the specified target in the project
       --  file, if any.
 
+      procedure Get_Config_File;
+      --  If configuration project is not yet specified, checks for value
+      --  of Config_File attribute.
+
       procedure Get_Project_Attribute
         (Lang_Map : in out Language_Maps.Map; Attr_Name : Name_Id);
       --  Put the various Attr_Name (<lang>) into then Lang_Map from the
@@ -650,6 +658,8 @@ package body GPR.Conf is
 
          Switch_Array_Id : Array_Element_Id;
          --  The Switches to be checked
+
+         Report_Legacy_Config_Prj_Usage : Boolean := False;
 
          procedure Check_Switches;
          --  Check the switches in Switch_Array_Id
@@ -683,6 +693,7 @@ package body GPR.Conf is
                      then
                         Conf_File_Name :=
                           new String'(Name_Buffer (10 .. Name_Len));
+                        Report_Legacy_Config_Prj_Usage := True;
 
                      elsif Get_RTS_Switches
                        and then Name_Len >= 7
@@ -750,6 +761,15 @@ package body GPR.Conf is
                  In_Arrays => Shared.Packages.Table (Builder).Decl.Arrays,
                  Shared    => Shared);
             Check_Switches;
+         end if;
+
+         if Report_Legacy_Config_Prj_Usage and then not Quiet_Output
+           and then Warn_For_Config_In_Builder_Switches
+         then
+            Write_Line
+              ("warning: --config in Builder switches is obsolescent, "
+               & "use Config_Prj_File instead");
+            Warn_For_Config_In_Builder_Switches := False;
          end if;
       end Check_Builder_Switches;
 
@@ -1178,6 +1198,26 @@ package body GPR.Conf is
          return Result;
       end Get_Db_Switches;
 
+      ---------------------
+      -- Get_Config_File --
+      ---------------------
+
+      procedure Get_Config_File is
+         Variable : Variable_Value;
+      begin
+         if Conf_File_Name'Length /= 0 then
+            return;
+         end if;
+
+         Variable :=
+           Value_Of (Name_Config_Prj_File, Project.Decl.Attributes, Shared);
+
+         if Variable /= Nil_Variable_Value then
+            Free (Conf_File_Name);
+            Conf_File_Name := new String'(Get_Name_String (Variable.Value));
+         end if;
+      end Get_Config_File;
+
       -------------------------
       -- Get_Config_Switches --
       -------------------------
@@ -1466,6 +1506,11 @@ package body GPR.Conf is
       --  it extends, if any are specified.
 
       Get_Project_Attribute (RTS_Languages, Name_Runtime);
+
+      --  Get the config file specified by corresponding attribute before
+      --  checking for legacy way of specifying it in Builder switches.
+
+      Get_Config_File;
 
       Check_Builder_Switches;
 
