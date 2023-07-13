@@ -1542,6 +1542,9 @@ package body Gpr_Build_Util is
       Q_First : Natural := 1;
       --  Points to the first valid element in the queue
 
+      Q_Prev_First : Natural := 1;
+      --  Points to the previous first valid element in the queue
+
       One_Queue_Per_Obj_Dir : Boolean := False;
       --  See parameter to Initialize
 
@@ -1638,6 +1641,103 @@ package body Gpr_Build_Util is
             New_Line;
          end if;
       end Extract;
+
+      ---------
+      -- Get --
+      ---------
+
+      procedure Get
+        (Found  : out Boolean;
+         Source : out Source_Info)
+      is
+      begin
+         Found := False;
+
+         if One_Queue_Per_Obj_Dir then
+            for J in Q_First .. Q.Last loop
+               if not Q.Table (J).Processed
+                 and then Available_Obj_Dir (Q.Table (J).Info)
+               then
+                  Found := True;
+                  Source := Q.Table (J).Info;
+                  if Q_First /= J then
+                     Q_Prev_First := Q_First;
+                  end if;
+                  Q_First := J;
+                  exit;
+               end if;
+            end loop;
+
+         elsif Q_First <= Q.Last then
+            Source := Q.Table (Q_First).Info;
+            Found := True;
+         end if;
+
+         if Found and then Debug.Debug_Flag_Q then
+            Ada.Text_IO.Put ("   Q := Q = [ ");
+            Debug_Display (Source);
+            Ada.Text_IO.Put (" ]");
+            New_Line;
+
+            Ada.Text_IO.Put ("   Q_First =");
+            Ada.Text_IO.Put (Q_First'Img);
+            New_Line;
+
+            Ada.Text_IO.Put ("   Q_Prev_First =");
+            Ada.Text_IO.Put (Q_Prev_First'Img);
+            New_Line;
+
+            Ada.Text_IO.Put ("   Q.Last =");
+            Ada.Text_IO.Put (Q.Last'Img);
+            New_Line;
+         end if;
+
+      end Get;
+
+      ----------
+      -- Next --
+      ----------
+
+      procedure Next
+      is
+      begin
+         Q.Table (Q_First).Processed := True;
+         Q_Processed := Q_Processed + 1;
+
+         if Debug.Debug_Flag_Q then
+            Ada.Text_IO.Put ("   Q := Q - [ ");
+            Debug_Display (Q.Table (Q_First).Info);
+            Ada.Text_IO.Put (" ]");
+            New_Line;
+         end if;
+
+         if One_Queue_Per_Obj_Dir and then Q_First /= Q_Prev_First then
+            Q_First := Q_Prev_First;
+            while Q_First <= Q.Last
+              and then Q.Table (Q_First).Processed
+            loop
+               Q_First := Q_First + 1;
+            end loop;
+            Q_Prev_First := Q_First;
+         else
+            Q_First := Q_First + 1;
+            Q_Prev_First := Q_First;
+         end if;
+
+         if Debug.Debug_Flag_Q then
+            Ada.Text_IO.Put ("   Q_First =");
+            Ada.Text_IO.Put (Q_First'Img);
+            New_Line;
+
+            Ada.Text_IO.Put ("   Q_Prev_First =");
+            Ada.Text_IO.Put (Q_Prev_First'Img);
+            New_Line;
+
+            Ada.Text_IO.Put ("   Q.Last =");
+            Ada.Text_IO.Put (Q.Last'Img);
+            New_Line;
+         end if;
+      end Next;
 
       ---------------
       -- Processed --

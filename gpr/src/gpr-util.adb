@@ -53,6 +53,7 @@ with GPR.Conf;
 with GPR.Debug;
 with GPR.Env;
 with GPR.Err;
+with GPR.Jobserver;
 with GPR.Names;      use GPR.Names;
 with GPR.Opt;        use GPR.Opt;
 with GPR.Output;     use GPR.Output;
@@ -893,6 +894,8 @@ package body GPR.Util is
             Err.Finalize;
          end if;
       end if;
+
+      GPR.Jobserver.Unregister_All_Token_Id;
 
       Finish_Program
         (Project_Tree,

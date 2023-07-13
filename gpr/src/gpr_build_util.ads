@@ -104,6 +104,10 @@ package Gpr_Build_Util is
    --  Switch to suppress deletion of temp files created by the builder.
    --  Note that debug switch -gnatdn also has this effect.
 
+   Use_GNU_Make_Jobserver_Option : constant String := "--gnu-make-jobserver";
+   --  Switch to activate the sharing of job slots between GPRbuild and
+   --  GNU make.
+
    package Project_Vectors is new Ada.Containers.Vectors
      (Positive, Project_Id);
 
@@ -483,6 +487,17 @@ package Gpr_Build_Util is
       --  Get the first source that can be compiled from the queue. If no
       --  source may be compiled, sets Found to False. In this case, the value
       --  for Source is undefined.
+
+      procedure Get
+        (Found  : out Boolean;
+         Source : out Source_Info);
+      --  Get the first source that can be compiled from the queue. If no
+      --  source may be compiled, sets Found to False. In this case, the value
+      --  for Source is undefined.
+      --  The queue first index does not move until Next is called.
+
+      procedure Next;
+      --  Move the first index of the queue to the next source
 
       function Size return Natural;
       --  Return the total size of the queue, including the sources already

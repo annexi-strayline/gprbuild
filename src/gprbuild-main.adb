@@ -47,6 +47,7 @@ with GPR.Output;                 use GPR.Output;
 with GPR.Proc;                   use GPR.Proc;
 with GPR.Env;
 with GPR.Err;
+with GPR.Jobserver;
 with GPR.Opt;                    use GPR.Opt;
 with GPR.Script;                 use GPR.Script;
 with GPR.Snames;                 use GPR.Snames;
@@ -1357,6 +1358,13 @@ procedure Gprbuild.Main is
             Forbidden_In_Package_Builder;
 
          elsif Arg'Length > 2 and then Arg (2) = 'j' then
+
+            if Opt.Use_GNU_Make_Jobserver then
+               Put_Line ("warning: -j is ignored when using "
+                         & Use_GNU_Make_Jobserver_Option);
+               return;
+            end if;
+
             declare
                Max_Proc : Natural   := 0;
                Phase    : Character := 'a'; -- all by default
@@ -1415,6 +1423,26 @@ procedure Gprbuild.Main is
             exception
                when Constraint_Error =>
                   Processed := False;
+            end;
+
+         elsif Arg = Use_GNU_Make_Jobserver_Option then
+
+            if Opt.Maximum_Compilers > 1 then
+               Put_Line ("warning: -j is ignored when using "
+                         & Use_GNU_Make_Jobserver_Option);
+            end if;
+
+            Opt.Use_GNU_Make_Jobserver := True;
+
+            begin
+               GPR.Jobserver.Initialize;
+            exception
+               when E : GPR.Jobserver.JS_Initialize_Error =>
+                  Fail_Program
+                    (Project_Tree, Ada.Exceptions.Exception_Name (E) & " - "
+                     & Ada.Exceptions.Exception_Message (E));
+               when GPR.Jobserver.JS_Makeflags_Parsing_Detects_Dry_Run =>
+                  Finish_Program (Project_Tree, Exit_Code);
             end;
 
          elsif Arg = "-k" then
@@ -2203,6 +2231,13 @@ procedure Gprbuild.Main is
          Put (Keep_Temp_Files_Option);
          New_Line;
          Put ("           Do not delete temporary files");
+         New_Line;
+         New_Line;
+
+         Put ("  ");
+         Put (Use_GNU_Make_Jobserver_Option);
+         New_Line;
+         Put ("           Share job slots with GNU make");
          New_Line;
          New_Line;
 

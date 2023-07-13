@@ -21,6 +21,7 @@ with Ada.Text_IO;       use Ada.Text_IO;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
 with GPR.Compilation.Slave; use GPR.Compilation.Slave;
+with GPR.Jobserver;
 with GPR.Names;             use GPR.Names;
 with GPR.Script;            use GPR.Script;
 
@@ -689,6 +690,8 @@ package body Gprbuild is
    begin
       Put_Line ("*** Interrupted ***");
       Delete_All_Temp_Files (Project_Tree.Shared);
+
+      GPR.Jobserver.Unregister_All_Token_Id;
 
       if Distributed_Mode then
          Unregister_Remote_Slaves (From_Signal => True);
