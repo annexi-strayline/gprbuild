@@ -165,6 +165,10 @@ package GPR.Opt is
    --  Maximum number of processes that should be spawned to carry out
    --  linkings.
 
+   Use_GNU_Make_Jobserver : Boolean := False;
+   --  Set to True if GPRbuild should use GNU make Jobserver for sharing job
+   --  slots.
+
    Minimal_Recompilation : Boolean := False;
    --  Set to True if minimal recompilation mode requested
 

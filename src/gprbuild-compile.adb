@@ -33,6 +33,7 @@ with GPR.Compilation.Process;      use GPR.Compilation.Process;
 with GPR.Compilation.Slave;
 with GPR.Debug;
 with GPR.Env;
+with GPR.Jobserver;                use GPR.Jobserver;
 with GPR.Names;                    use GPR.Names;
 with GPR.Opt;                      use GPR.Opt;
 with GPR.Snames;                   use GPR.Snames;
@@ -444,11 +445,21 @@ package body Gprbuild.Compile is
 
                else
                   Outstanding_Compiles := Outstanding_Compiles - 1;
+
+                  if Opt.Use_GNU_Make_Jobserver then
+                     Jobserver.Unregister_Token_Id (Id => Process);
+                  end if;
+
                   return;
                end if;
 
             elsif Comp_Data.Purpose = Dependency then
                Outstanding_Compiles := Outstanding_Compiles - 1;
+
+               if Opt.Use_GNU_Make_Jobserver then
+                  Jobserver.Unregister_Token_Id (Id => Process);
+               end if;
+
                return;
             end if;
          end if;
@@ -2867,137 +2878,149 @@ package body Gprbuild.Compile is
       --  Start of processing of Spawn_Compiler_And_Register
 
       begin
-         if not Opt.Quiet_Output then
-            Name_Len := 0;
 
-            if Opt.Verbose_Mode then
-               Add_Str_To_Name_Buffer (Compiler_Path);
-
-               for Opt of Compilation_Options loop
-                  Add_Str_To_Name_Buffer (" ");
-
-                  if Opt.Simple_Name then
-                     Add_Str_To_Name_Buffer (Base_Name (Opt.Name));
-
-                  else
-                     Add_Str_To_Name_Buffer (Opt.Name);
-                  end if;
-               end loop;
-
-               Put_Line (Name_Buffer (1 .. Name_Len));
-
-            else
-               Display
-                 (Section  => GPR.Compile,
-                  Command  =>
-                    Get_Name_String (Source.Id.Language.Display_Name),
-                  Argument => Get_Name_String (Source.Id.File));
-            end if;
-         end if;
-
-         if Source_Project.Config.Max_Command_Line_Length > 0 and then
-           Source.Id.Language.Config.Resp_File_Format = GCC_GNU
+         if Opt.Use_GNU_Make_Jobserver
+           and then not Preorder_Token
          then
-            declare
-               Arg_Length : Natural := 0;
-            begin
-               for Opt of Compilation_Options loop
-                  Arg_Length :=
-                    Arg_Length + 1 + Opt.Name'Length;
-               end loop;
+            return;
+         else
+            if not Opt.Quiet_Output then
+               Name_Len := 0;
 
-               if Arg_Length
-                 > Source_Project.Config.Max_Command_Line_Length
-               then
-                  declare
-                     use GPR.Tempdir;
-                     FD : File_Descriptor;
-                     Status    : Integer;
-                     Closing_Status : Boolean;
+               if Opt.Verbose_Mode then
+                  Add_Str_To_Name_Buffer (Compiler_Path);
 
-                  begin
-                     --  Escape the following characters in the options:
-                     --  '\', ' ' and '"'.
+                  for Opt of Compilation_Options loop
+                     Add_Str_To_Name_Buffer (" ");
 
-                     Escape_Options (Compilation_Options);
+                     if Opt.Simple_Name then
+                        Add_Str_To_Name_Buffer (Base_Name (Opt.Name));
 
-                     Create_Temp_File (FD, Response_File);
-                     Record_Temp_File
-                       (Shared => Source.Tree.Shared,
-                        Path   => Response_File);
+                     else
+                        Add_Str_To_Name_Buffer (Opt.Name);
+                     end if;
+                  end loop;
 
-                     Option_Loop : for Opt of Compilation_Options loop
-                        Status :=
-                          Write
-                            (FD,
-                             Opt.Name (1)'Address,
-                             Opt.Name'Length);
+                  Put_Line (Name_Buffer (1 .. Name_Len));
 
-                        if Status /= Opt.Name'Length
+               else
+                  Display
+                    (Section  => GPR.Compile,
+                     Command  =>
+                       Get_Name_String (Source.Id.Language.Display_Name),
+                     Argument => Get_Name_String (Source.Id.File));
+               end if;
+            end if;
+
+            if Source_Project.Config.Max_Command_Line_Length > 0 and then
+              Source.Id.Language.Config.Resp_File_Format = GCC_GNU
+            then
+               declare
+                  Arg_Length : Natural := 0;
+               begin
+                  for Opt of Compilation_Options loop
+                     Arg_Length :=
+                       Arg_Length + 1 + Opt.Name'Length;
+                  end loop;
+
+                  if Arg_Length
+                    > Source_Project.Config.Max_Command_Line_Length
+                  then
+                     declare
+                        use GPR.Tempdir;
+                        FD             : File_Descriptor;
+                        Status         : Integer;
+                        Closing_Status : Boolean;
+
+                     begin
+                        --  Escape the following characters in the options:
+                        --  '\', ' ' and '"'.
+
+                        Escape_Options (Compilation_Options);
+
+                        Create_Temp_File (FD, Response_File);
+                        Record_Temp_File
+                          (Shared => Source.Tree.Shared,
+                           Path   => Response_File);
+
+                        Option_Loop : for Opt of Compilation_Options loop
+                           Status :=
+                             Write
+                               (FD,
+                                Opt.Name (1)'Address,
+                                Opt.Name'Length);
+
+                           if Status /= Opt.Name'Length
+                           then
+                              Put_Line
+                                ("Could not write option """ &
+                                   Opt.Name &
+                                   """ in response file """ &
+                                   Get_Name_String (Response_File) &
+                                   """");
+                              Response_File := No_Path;
+                              exit Option_Loop;
+                           end if;
+
+                           Status := Write (FD, ASCII.LF'Address, 1);
+                        end loop Option_Loop;
+
+                        Close (FD, Closing_Status);
+
+                        if not Closing_Status and then Response_File /= No_Path
                         then
                            Put_Line
-                             ("Could not write option """ &
-                              Opt.Name &
-                              """ in response file """ &
-                              Get_Name_String (Response_File) &
-                              """");
+                             ("Could not close response file """ &
+                                Get_Name_String (Response_File) &
+                                """");
                            Response_File := No_Path;
-                           exit Option_Loop;
                         end if;
+                     end;
 
-                        Status := Write (FD, ASCII.LF'Address, 1);
-                     end loop Option_Loop;
-
-                     Close (FD, Closing_Status);
-
-                     if not Closing_Status and then Response_File /= No_Path
+                     if Opt.Verbosity_Level > Opt.Low and then
+                       Response_File /= No_Path
                      then
-                        Put_Line
-                          ("Could not close response file """ &
-                           Get_Name_String (Response_File) &
-                           """");
-                        Response_File := No_Path;
+                        Put_Line ("using a response file");
                      end if;
-                  end;
-
-                  if Opt.Verbosity_Level > Opt.Low and then
-                    Response_File /= No_Path
-                  then
-                     Put_Line ("using a response file");
                   end if;
-               end if;
-            end;
+               end;
+            end if;
+
+            Process := Run
+              (Compiler_Path,
+               Options_List (Compilation_Options),
+               Source_Project,
+               Source        => Get_Name_String (Source.Id.File),
+               Language      => Get_Language,
+               Dep_Name      => (if Source.Id.Dep_Name = No_File
+                                 then ""
+                                 else Get_Name_String (Source.Id.Dep_Name)),
+               Obj_Name      => (if Source.Id.Object = No_File
+                                 then ""
+                                 else Get_Name_String (Source.Id.Object)),
+               Response_File => Response_File);
+
+            if Last_Switches_For_File >= 0 then
+               while Compilation_Options.Last_Index > Last_Switches_For_File
+               loop
+                  Compilation_Options.Delete_Last;
+               end loop;
+
+               Add_Trailing_Switches (Source.Id);
+            end if;
+
+            Add_Process
+              (Process        => Process,
+               Source         => Source,
+               Source_Project => Source_Project,
+               Mapping_File   => Mapping_File_Path,
+               Purpose        => Compilation,
+               Options        => Options_List (Compilation_Options));
+
+            if Opt.Use_GNU_Make_Jobserver then
+               Register_Token_Id (Id => Process);
+            end if;
          end if;
-
-         Process := Run
-           (Compiler_Path,
-            Options_List (Compilation_Options),
-            Source_Project,
-            Source => Get_Name_String (Source.Id.File),
-            Language => Get_Language,
-            Dep_Name => (if Source.Id.Dep_Name = No_File
-                         then ""
-                         else Get_Name_String (Source.Id.Dep_Name)),
-            Obj_Name => (if Source.Id.Object = No_File
-                         then ""
-                         else Get_Name_String (Source.Id.Object)),
-            Response_File => Response_File);
-
-         if Last_Switches_For_File >= 0 then
-            while Compilation_Options.Last_Index > Last_Switches_For_File loop
-               Compilation_Options.Delete_Last;
-            end loop;
-
-            Add_Trailing_Switches (Source.Id);
-         end if;
-
-         Add_Process
-           (Process        => Process,
-            Source         => Source,
-            Source_Project => Source_Project,
-            Mapping_File   => Mapping_File_Path,
-            Purpose        => Compilation,
-            Options        => Options_List (Compilation_Options));
       end Spawn_Compiler_And_Register;
 
       ------------------------------
@@ -3125,18 +3148,8 @@ package body Gprbuild.Compile is
 
             --  Concatenate the last switch and the path in a single option
 
---              case Lang.Config.Path_Syntax is
---                 when Canonical =>
             Data.Imported_Dirs_Switches (Last) := new String'
               (Get_Name_String (Nam.Name) & Name_Buffer (1 .. Name_Len));
-
---                 when Host =>
---                    Host_Path := To_Host_Dir_Spec
---                      (Name_Buffer (1 .. Name_Len), False);
---                    Data.Imported_Dirs_Switches (Last) := new String'
---                      (Get_Name_String (Nam.Name) & Host_Path.all);
---                    Free (Host_Path);
---              end case;
          end loop;
       end Prepare_Imported_Dirs_Switches;
 
@@ -3495,7 +3508,6 @@ package body Gprbuild.Compile is
 
                else
                   ALI.Initialize_ALI;
-                  --  ALI.Util.Initialize_ALI_Source;
                end if;
             end if;
          end if;
@@ -3537,12 +3549,22 @@ package body Gprbuild.Compile is
          Source : Queue.Source_Info;
       begin
          if not Queue.Is_Empty
-           and then Outstanding_Compiles < Get_Maximum_Processes
+           and then (Opt.Use_GNU_Make_Jobserver
+                     or else Outstanding_Compiles < Get_Maximum_Processes)
          then
-            Queue.Extract (Found, Source);
+            Queue.Get (Found, Source);
+
             if Found then
                Initialize_Source_Record (Source.Id);
                Process_Project_Phase_1 (Source);
+            end if;
+
+            if Opt.Use_GNU_Make_Jobserver
+              and then Unavailable_Token
+            then
+               null;
+            elsif Found then
+               Queue.Next;
             end if;
          end if;
       end Start_Compile_If_Possible;
@@ -3560,8 +3582,24 @@ package body Gprbuild.Compile is
 
          Cur : Bad_Compilations_Set.Cursor;
          OK  : Boolean;
+
+         function No_Slot_Available return Boolean;
+
+         -----------------------
+         -- No_Slot_Available --
+         -----------------------
+
+         function No_Slot_Available return Boolean is
+         begin
+            if Opt.Use_GNU_Make_Jobserver then
+               return (Unavailable_Token
+                       and then Registered_Processes);
+            else
+               return (Outstanding_Compiles = Get_Maximum_Processes);
+            end if;
+         end No_Slot_Available;
       begin
-         if Outstanding_Compiles = Get_Maximum_Processes
+         if No_Slot_Available
            or else (Queue.Is_Virtually_Empty and then Outstanding_Compiles > 0)
          then
             Await_Compile (Source_Identity, Compilation_OK, Slave);
@@ -3643,6 +3681,7 @@ package body Gprbuild.Compile is
                   Side => Ada.Strings.Left) &
                "%)...");
          end if;
+
       end loop Compilation_Loop;
 
       --  Release local memory

@@ -84,6 +84,7 @@ library project GPR is
          when "Windows_NT" =>
              for Body ("GPR.Util.Put_Resource_Usage")
                use "gpr-util-put_resource_usage__null.adb";
+             for Body ("GPR.Jobserver") use "gpr-jobserver__win.adb";
          when "UNIX" =>
              for Body ("GPR.Util.Put_Resource_Usage")
                use "gpr-util-put_resource_usage__unix.adb";
