@@ -27,9 +27,6 @@ build_and_test:
      - mem:16
   stage: builds
   script:
-    - . ~/.aws_container_credentials
-    - export PATH=/it/e3/bin:$PATH
-
     # Setup the 'anod vcs' for this repo
     - cd /it/wave
     - anod vcs --add-repo gprbuild $CI_PROJECT_DIR
