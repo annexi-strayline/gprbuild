@@ -70,6 +70,10 @@ else
    LIBGPR_TYPES=static
 endif
 
+# Make sure Windows's "OS" environment variable does not cause
+# confusion for cross-Linux builds.
+LIBGPR_OS = $(if $(findstring linux,$(TARGET)),-XOS=UNIX)
+
 # Used to pass extra options to GPRBUILD, like -d for instance
 GPRBUILD_OPTIONS=
 
@@ -79,11 +83,11 @@ CLEANER=gprclean -q $(RBD)
 
 GPRBUILD_BUILDER=$(BUILDER) $(GPRBUILD_GPR) \
 	-XLIBRARY_TYPE=static -XXMLADA_BUILD=static
-LIBGPR_BUILDER=$(BUILDER) $(GPR_GPR)
-LIBGPR_INSTALLER=$(LIB_INSTALLER) $(GPR_GPR) -XBUILD=${BUILD} \
+LIBGPR_BUILDER=$(BUILDER) $(GPR_GPR) $(LIBGPR_OS)
+LIBGPR_INSTALLER=$(LIB_INSTALLER) $(GPR_GPR) $(LIBGPR_OS) -XBUILD=${BUILD} \
 	--install-name=gpr \
 	--build-var=LIBRARY_TYPE --build-var=GPR_BUILD $(GTARGET)
-LIBGPR_UNINSTALLER=$(LIB_INSTALLER) $(GPR_GPR) --install-name=gpr --uninstall
+LIBGPR_UNINSTALLER=$(LIB_INSTALLER) $(GPR_GPR) $(LIBGPR_OS) --install-name=gpr --uninstall
 
 #########
 # build #
