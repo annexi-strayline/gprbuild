@@ -36,6 +36,7 @@ with GPR.Attr;
 with GPR.Names;  use GPR.Names;
 with GPR.Output; use GPR.Output;
 with GPR.Snames; use GPR.Snames;
+with GPR.Tempdir;
 
 package body GPR is
 
@@ -259,6 +260,8 @@ package body GPR is
                end if;
             end loop;
          end if;
+
+         GPR.Tempdir.Delete_Temp_Dir;
       end if;
    end Delete_Temporary_File;
 
@@ -317,6 +320,8 @@ package body GPR is
                end;
             end if;
          end loop;
+
+         GPR.Tempdir.Delete_Temp_Dir;
 
          if Shared = null then
             Temp_Files_Table.Init (Temp_Files);
