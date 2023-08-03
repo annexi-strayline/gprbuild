@@ -30,12 +30,9 @@ with GPR.Output; use GPR.Output;
 
 with GNAT.Strings;
 
-with Ada.Directories;
-
 package body GPR.Tempdir is
 
    Tmpdir_Needs_To_Be_Displayed : Boolean := True;
-   Valid_Tmpdir                 : Boolean := False;
 
    Tmpdir   : constant String := "TMPDIR";
    Temp     : constant String := "TEMP";
@@ -53,38 +50,6 @@ package body GPR.Tempdir is
       new String'("/usr/tmp"));
 
    Temp_Dir : String_Access := new String'("");
-
-   procedure Create_Temp_Dir;
-   --  Creates a dedicated directory from Temp_Dir.
-
-   ---------------------
-   -- Create_Temp_Dir --
-   ---------------------
-
-   procedure Create_Temp_Dir is
-      Pid : constant String := Pid_To_Integer (Current_Process_Id)'Img;
-      Dir : String_Access :=
-              new String'((if Temp_Dir.all /= "" then Temp_Dir.all
-                          else Get_Current_Dir));
-   begin
-      Free (Temp_Dir);
-
-      Temp_Dir :=
-        new String'(Dir.all & Directory_Separator & "GPR."
-                    & Pid (Pid'First + 1 .. Pid'Last));
-
-      if not Ada.Directories.Exists (Name => Temp_Dir.all) then
-         begin
-            Ada.Directories.Create_Path (New_Directory => Temp_Dir.all);
-            Valid_Tmpdir := True;
-         exception
-            when others =>
-               Write_Line ("could not create temporary dir " & Temp_Dir.all);
-         end;
-      end if;
-
-      Free (Dir);
-   end Create_Temp_Dir;
 
    ----------------------
    -- Create_Temp_File --
@@ -116,8 +81,7 @@ package body GPR.Tempdir is
    --  Start of processing for Create_Temp_File
 
    begin
-
-      if Valid_Tmpdir then
+      if Temp_Dir'Length /= 0 then
 
          --  In verbose mode, display once the value of TMPDIR, so that
          --  if temp files cannot be created, it is easier to understand
@@ -140,7 +104,7 @@ package body GPR.Tempdir is
          Change_Dir (Current_Dir);
 
       else
-         FD := Invalid_FD;
+         Create_Temp_File (FD, File_Name);
       end if;
 
       if FD = Invalid_FD then
@@ -161,44 +125,6 @@ package body GPR.Tempdir is
       end if;
    end Create_Temp_File;
 
-   ---------------------
-   -- Delete_Temp_Dir --
-   ---------------------
-
-   procedure Delete_Temp_Dir is
-      use Ada.Directories;
-   begin
-      if Current_Verbosity = High then
-         Write_Line ("Removing temp dir: " & Temp_Dir.all);
-      end if;
-
-      if Ada.Directories.Exists (Name => Temp_Dir.all) then
-         Delete_Directory (Directory => Temp_Dir.all);
-      else
-         if Current_Verbosity = High then
-            Write_Line ("Temp dir " & Temp_Dir.all & " already removed");
-         end if;
-      end if;
-   exception
-      when Name_Error =>
-         if Current_Verbosity = High then
-            Write_Line ("Failed to remove temp dir " & Temp_Dir.all);
-         end if;
-   end Delete_Temp_Dir;
-
-   ------------------------------
-   -- Temporary_Directory_Path --
-   ------------------------------
-
-   function Temporary_Directory_Path return String is
-   begin
-      if Temp_Dir /= null then
-         return Temp_Dir.all;
-      else
-         return "";
-      end if;
-   end Temporary_Directory_Path;
-
    ------------------
    -- Use_Temp_Dir --
    ------------------
@@ -213,6 +139,11 @@ package body GPR.Tempdir is
          and then Is_Directory (Dir.all));
 
    begin
+      if not Status then
+         Temp_Dir := new String'("");
+         return;
+      end if;
+
       --  Checking environment variables.
 
       Dir := Getenv (Tmpdir);
@@ -263,9 +194,21 @@ package body GPR.Tempdir is
 
    end Use_Temp_Dir;
 
+   ------------------------------
+   -- Temporary_Directory_Path --
+   ------------------------------
+
+   function Temporary_Directory_Path return String is
+   begin
+      if Temp_Dir /= null then
+         return Temp_Dir.all;
+      else
+         return "";
+      end if;
+   end Temporary_Directory_Path;
+
 --  Start of elaboration for package Tempdir
 
 begin
    Use_Temp_Dir (Status => True);
-   Create_Temp_Dir;
 end GPR.Tempdir;

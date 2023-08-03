@@ -40,9 +40,6 @@ package GPR.Tempdir is
    --  current directory. If temporary file cannot be created, FD gets the
    --  value Invalid_FD and Name gets the value No_Name.
 
-   procedure Delete_Temp_Dir;
-   --  Delete the folder used to store all temp files
-
    procedure Use_Temp_Dir (Status : Boolean);
    --  Specify if the temp file should be created in the system temporary
    --  directory as specified by the corresponding environment variables. If
