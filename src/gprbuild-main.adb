@@ -51,7 +51,6 @@ with GPR.Jobserver;
 with GPR.Opt;                    use GPR.Opt;
 with GPR.Script;                 use GPR.Script;
 with GPR.Snames;                 use GPR.Snames;
-with GPR.Tempdir;                use GPR.Tempdir;
 with GPR.Tree;                   use GPR.Tree;
 with GPR.Util.Aux;               use GPR.Util;
 
@@ -2809,8 +2808,6 @@ begin
    --  Set slave-env
 
    if Distributed_Mode then
-      Use_Temp_Dir (Status => False);
-
       if Slave_Env = null then
          Slave_Env :=
            new String'(Aux.Compute_Slave_Env (Project_Tree, Slave_Env_Auto));
