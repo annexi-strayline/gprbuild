@@ -975,12 +975,7 @@ package body Gprbuild.Link is
          Name_Len := 0;
 
          if Opt.Verbose_Mode then
-            if Opt.Verbosity_Level = Opt.Low then
-               Add_Str_To_Name_Buffer
-                 (Base_Name (Path.all, Executable_Suffix.all));
-            else
-               Add_Str_To_Name_Buffer (Path.all);
-            end if;
+            Add_Str_To_Name_Buffer (Path.all);
 
             for Arg of Arguments loop
                if Arg.Displayed then
