@@ -675,6 +675,7 @@ begin
 
    if not Dash_O_File_Specified then
       Tempdir.Create_Temp_File (FD_Objects, Objects_Path);
+      Record_Temp_File (null, Objects_Path);
    end if;
 
    if GNAT_6_4_Or_Higher then
@@ -763,6 +764,7 @@ begin
 
          begin
             Tempdir.Create_Temp_File (FD, Path);
+            Record_Temp_File (null, Path);
             Args (1) := new String'("@" & Get_Name_String (Path));
 
             for Option of Gnatbind_Options loop
@@ -841,16 +843,6 @@ begin
             else
                Return_Code := Spawn (Gnatbind_Path.all, Args);
             end if;
-
-            if Delete_Temp_Files then
-               declare
-                  Succ : Boolean;
-                  pragma Warnings (Off, Succ);
-
-               begin
-                  Delete_File (Get_Name_String (Path), Succ);
-               end;
-            end if;
          end;
       end if;
    end;
@@ -860,10 +852,6 @@ begin
    end if;
 
    if Return_Code /= 0 then
-      if Delete_Temp_Files and not Dash_O_File_Specified then
-         Delete_File (Get_Name_String (Objects_Path), Success);
-      end if;
-
       Fail_Program (null, "invocation of gnatbind failed");
    end if;
 
@@ -1021,10 +1009,6 @@ begin
       end loop;
 
       Close (Objects_File);
-
-      if Delete_Temp_Files and then not Dash_O_File_Specified then
-         Delete_File (Get_Name_String (Objects_Path), Success);
-      end if;
 
       --  For the benefit of gprclean, the generated files other than the
       --  generated object file.
@@ -1297,4 +1281,8 @@ begin
 
       Close (IO_File);
    end;
+
+   if Delete_Temp_Files then
+      Delete_All_Temp_Files (null);
+   end if;
 end Gprbind;
