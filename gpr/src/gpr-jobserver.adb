@@ -50,7 +50,7 @@ package body GPR.Jobserver is
       Named_Pipe_Delimiter  : constant String := "fifo:";
       Dry_Run               : constant String := "n";
 
-      Idx, Idx0 : Natural := 0;
+      Idx : Natural := 0;
 
       procedure Initialize_Connection (Method : Connection_Type);
       --  Try all known ways to connect to a jobserver
@@ -61,7 +61,7 @@ package body GPR.Jobserver is
 
       procedure Initialize_Connection (Method : Connection_Type) is
          Idx_Tmp  : Natural := Idx;
-         Idx0_Tmp : Natural := Idx0;
+         Idx0_Tmp : Natural := 0;
       begin
 
          case Method is
@@ -151,7 +151,7 @@ package body GPR.Jobserver is
          if Current_Implemented_Connection (Connection_Method) then
             Initialize_Connection (Method => Connection_Method);
          end if;
-         exit when (Current_Connection_Method /= Undefined);
+         exit when Current_Connection_Method /= Undefined;
       end loop;
 
       if Current_Connection_Method = Undefined then

@@ -25,7 +25,6 @@
 --  This package manages the communication with GNU make jobserver
 
 with Ada.Strings.Hash;
-with GNAT.OS_Lib; use GNAT.OS_Lib;
 with GPR.Compilation; use GPR.Compilation;
 with Ada.Containers.Indefinite_Hashed_Maps;
 
