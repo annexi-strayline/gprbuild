@@ -232,6 +232,8 @@ package body GPR.Tempdir is
    ------------------
 
    procedure Use_Temp_Dir (Status : Boolean) is
+      pragma Unreferenced (Status);
+
       Dir : String_Access := null;
 
       function Dir_Is_Temporary_Dir return Boolean is
