@@ -69,4 +69,6 @@ build_and_test:
     - anod run build
 
     - anod run testgprbuild
-    - e3-testsuite-report --failure-exit-code 1 x86_64-linux/gprbuild-testAdaCC++_Auto/results/new/
+    - e3-testsuite-report
+        --failure-exit-code 1
+        x86_64-linux/$(anod eval --primitive=test gprbuild -QAdaCC++_Auto build_space_name)/results/new
