@@ -10,13 +10,8 @@ build:
   extends: .job_template
   stage: build
   script:
-    - setup_repos gprconfig_kb gpr
-
-    # Tune to use our build & test plan
-    - anod tune --plan /tmp/gpr/.ci.plan
-
     # Build using anod
-    - anod run build
+    - anod build gnat
 
     # and save the gprbuild install
     - tar czf $CI_PROJECT_DIR/gprbuild.tar.gz -C $SANDBOX/$HOST/gprbuild/ install/
@@ -27,7 +22,6 @@ build:
 test_gprbuild:
   extends: .test_template
   script:
-    - setup_repos gprbuild-internal
     - install_packages gnatall
     - run_testsuite gprbuild -QAdaCC++_Auto test_gprbuild
   artifacts:
