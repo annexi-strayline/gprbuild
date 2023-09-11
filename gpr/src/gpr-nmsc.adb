@@ -842,6 +842,28 @@ package body GPR.Nmsc is
                Add_Src := False;
 
             elsif not Source.Locally_Removed
+              and then Source.Replaced_By = No_Source
+              and then not Data.Flags.Allow_Duplicate_Basenames
+              and then Lang_Id.Config.Kind = File_Based
+              and then Source.Language.Config.Kind = File_Based
+              and then not Data.In_Aggregate_Lib
+            then
+
+               if Path /= No_Path_Information
+                 and then Path = Source.Path
+               then
+                  Error_Msg_Name_1 := Name_Id (Path.Display_Name);
+                  Error_Msg_Name_2 := Source.Project.Name;
+                  Error_Msg
+                    (Data.Flags,
+                     "%% is already a source of project %%", Location, Project);
+
+                  Add_Src := False;
+               else
+                  Add_Src := True;
+               end if;
+
+            elsif not Source.Locally_Removed
               and then Source.Replaced_By /= No_Source
               and then not Data.Flags.Allow_Duplicate_Basenames
               and then Lang_Id.Config.Kind = Unit_Based
