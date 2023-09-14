@@ -5173,6 +5173,18 @@ package body GPR.Util is
                                     Put_Line
                                       (""" not defined in project and "
                                        & "-gnatec= command line option");
+
+                                    if Opt.Verbosity_Level > Opt.Medium then
+                                       Put ("Warning: Dependency file """);
+                                       Put (Get_Name_String (Source.Dep_Path));
+                                       Put_Line
+                                         (""" contains outdated information "
+                                          & "about configuration file. ");
+                                       Put_Line
+                                         ("Warning: Consider using the "
+                                          & "-gnateb switch if supported by "
+                                          & "the compiler.");
+                                    end if;
                                  end if;
 
                                  return True;
@@ -5272,10 +5284,30 @@ package body GPR.Util is
                               end;
                            end loop;
 
+                           --  If the file is missing from our internal config
+                           --  file list, recompute the config file checksum
+                           --  from the * .ali file and compare it.
+                           --  This prevents total project recompilation if
+                           --  --gnatec is declared at Compiler package
+                           --  switches level.
+                           if not F_And_Cksum_Found then
+                              if Calculate_Checksum
+                                (File => Path_Name_Type (Sfile)) =
+                                  ALI.Sdep.Table (D).Checksum
+                              then
+                                 F_And_Cksum_Found := True;
+                                 if File_Stamp (Path_Name_Type (Sfile)) =
+                                   ALI.Sdep.Table (D).Stamp
+                                 then
+                                    Timestamp_Found := True;
+                                 end if;
+                              end if;
+                           end if;
+
                            if not F_And_Cksum_Found then
                               --  Config pragma file is in D line but was
                               --  not referenced from project and
-                              --  -gnatec = command line option.
+                              --  -gnatec= command line option.
 
                               if Opt.Verbosity_Level > Opt.Low then
                                  Put ("  -> """);
