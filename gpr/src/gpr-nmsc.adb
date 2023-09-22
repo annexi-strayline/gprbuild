@@ -856,7 +856,9 @@ package body GPR.Nmsc is
                   Error_Msg_Name_2 := Source.Project.Name;
                   Error_Msg
                     (Data.Flags,
-                     "%% is already a source of project %%", Location, Project);
+                     "%% is already a source of project %%",
+                     Location,
+                     Project);
 
                   Add_Src := False;
                else
