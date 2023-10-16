@@ -16,6 +16,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Assertions; use Ada.Assertions;
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Directories;
 with Ada.Exceptions;   use Ada.Exceptions;
@@ -2855,6 +2856,18 @@ exception
    when Project_Error =>
       Fail_Program
         (Project_Tree, '"' & Project_File_Name.all & """ processing failed");
+
+   when A : Assertion_Error =>
+      if GPR.Util.Has_Incomplete_Withs (Flags => Root_Environment.Flags) then
+         GPR.Err.Error_Msg
+           (Root_Environment.Flags, "error in project file",
+            One_Line => True, Always => True);
+         Fail_Program
+           (Project_Tree, '"' & Project_File_Name.all
+            & """ processing failed");
+      else
+         Fail_Program (Project_Tree, Exception_Information (A));
+      end if;
 
    when E : others =>
       Fail_Program (Project_Tree, Exception_Information (E));

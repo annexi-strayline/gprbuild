@@ -950,6 +950,13 @@ package GPR.Util is
      (Path  : Path_Name_Type;
       Stamp : Time_Stamp_Type);
 
+   -----------
+   -- Flags --
+   -----------
+
+   function Has_Incomplete_Withs (Flags : Processing_Flags) return Boolean;
+   --  Return the value of the Incomplete_Withs flag
+
 private
    type Text_File_Data is record
       FD                  : File_Descriptor := Invalid_FD;

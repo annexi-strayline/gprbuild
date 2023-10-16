@@ -596,7 +596,7 @@ package body GPR.Err is
          Real_Location := Project.Location;
       end if;
 
-      if Real_Location = No_Location then
+      if not Always and then Real_Location = No_Location then
 
          --  If still null, we are parsing a project that was created in-memory
          --  so we shouldn't report errors for projects that the user has no
