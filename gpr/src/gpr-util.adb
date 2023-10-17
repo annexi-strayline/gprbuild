@@ -3952,6 +3952,13 @@ package body GPR.Util is
       end if;
    end Get_Target;
 
+   --------------------------
+   -- Has_Incomplete_Withs --
+   --------------------------
+
+   function Has_Incomplete_Withs (Flags : Processing_Flags) return Boolean
+   is (Flags.Incomplete_Withs);
+
    --------------------
    -- Locate_Runtime --
    --------------------
