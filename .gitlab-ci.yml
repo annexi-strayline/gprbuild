@@ -23,7 +23,7 @@ test_gprbuild:
   extends: .test_template
   script:
     - install_packages gnatall
-    - run_testsuite gprbuild -QAdaCC++_Auto test_gprbuild
+    - run_testsuite gprbuild test_gprbuild
   artifacts:
     when:
       always
