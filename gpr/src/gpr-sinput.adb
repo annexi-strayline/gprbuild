@@ -430,8 +430,9 @@ package body GPR.Sinput is
             pragma Assert
               (Source_File.Table (Result).Full_Debug_Name = Path_Id,
                "insertion failed for "
-               & Get_Name_String (Source_File.Table (Result).Full_Debug_Name)
-               & ' ' & Get_Name_String (Path_Id));
+               & Get_Name_String_Safe
+                 (Source_File.Table (Result).Full_Debug_Name)
+               & ' ' & Get_Name_String_Safe (Path_Id));
             pragma Assert
               (Source_File.Table (Result).Full_File_Name = Path_Id,
                "insertion failed for "

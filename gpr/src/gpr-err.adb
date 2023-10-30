@@ -553,7 +553,7 @@ package body GPR.Err is
          if Token = Tok_Identifier
            or else Token = Tok_String_Literal
          then
-            Write_Line ("  " & Get_Name_String (Token_Name));
+            Write_Line ("  " & Get_Name_String_Safe (Token_Name));
          end if;
       end if;
    end Post_Scan;

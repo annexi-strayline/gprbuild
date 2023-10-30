@@ -2346,7 +2346,8 @@ package body GPR.Util is
       pragma Assert
         (Source.Path /= No_Path_Information,
          "no path information for "
-         & Get_Name_String (Source.File) & ' ' & Source.Locally_Removed'Img);
+         & Get_Name_String_Safe (Source.File) & ' '
+         & Source.Locally_Removed'Img);
 
       Src_Ind :=
         Sinput.Load_File (Get_Name_String (Source.Path.Display_Name));
@@ -4345,20 +4346,19 @@ package body GPR.Util is
       -----------------------
 
       function Check_Object_File (Source : Source_Id) return Boolean is
-         function Obj_Path return String is
-           (Get_Name_String (Source.Object_Path));
       begin
          --  If object file does not exist, of course source needs to be
          --  compiled.
 
          if Source.Object_TS = Empty_Time_Stamp then
-            Source.Object_TS := File_Stamp (Obj_Path);
+            Source.Object_TS :=
+              File_Stamp (Get_Name_String_Safe (Source.Object_Path));
          end if;
 
          if Source.Object_TS = Empty_Time_Stamp then
             if Opt.Verbosity_Level > Opt.Low then
                Put ("      -> object file ");
-               Put (Obj_Path);
+               Put (Get_Name_String_Safe (Source.Object_Path));
                Put_Line (" does not exist");
             end if;
 
@@ -4373,7 +4373,7 @@ package body GPR.Util is
          then
             if Opt.Verbosity_Level > Opt.Low then
                Put  ("      -> object file ");
-               Put  (Obj_Path);
+               Put  (Get_Name_String_Safe (Source.Object_Path));
                Put_Line (" has time stamp earlier than source");
             end if;
 
@@ -4382,7 +4382,7 @@ package body GPR.Util is
 
          if Opt.Verbosity_Level > Opt.Low and then Debug.Debug_Flag_T then
             Put ("   object file ");
-            Put (Obj_Path);
+            Put (Get_Name_String_Safe (Source.Object_Path));
             Put (": ");
             Put_Line (String (Source.Object_TS));
 
@@ -5644,7 +5644,7 @@ package body GPR.Util is
       if Source.Language.Config.Compiler_Driver = No_File then
          Fail_Program
            (Tree,
-            "no compiler for """ & Get_Name_String (Source.File) & '"');
+            "no compiler for """ & Get_Name_String_Safe (Source.File) & '"');
       end if;
 
       --  No need to compile if there is no "compiler"

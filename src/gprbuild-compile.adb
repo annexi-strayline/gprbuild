@@ -518,7 +518,7 @@ package body Gprbuild.Compile is
                  elsif Attribute_Name = Name_Local_Config_File
                  then Name_Local_Configuration_Pragmas
                  else raise Program_Error with
-                   "Unexpected " & Get_Name_String (Attribute_Name)),
+                   "Unexpected " & Get_Name_String_Safe (Attribute_Name)),
               In_Variables => Project_Tree.Shared.Packages.Table
                                  (Config_Package).Decl.Attributes,
               Shared       => Project_Tree.Shared);
@@ -759,7 +759,7 @@ package body Gprbuild.Compile is
                   Fail_Program
                     (Project_Tree,
                      "unable to open config file "
-                     & Get_Name_String (Config_File_Path));
+                     & Get_Name_String_Safe (Config_File_Path));
             end;
 
             Check_Temp_File;
@@ -1116,9 +1116,9 @@ package body Gprbuild.Compile is
             Proj      : constant Project_Id :=
                           Ultimate_Extending_Project_Of (For_Source.Project);
             File_Path : constant String :=
-                          Get_Name_String (Proj.Object_Directory.Name)
+                          Get_Name_String_Safe (Proj.Object_Directory.Name)
                           & Directory_Separator
-                          & Get_Name_String (For_Source.File);
+                          & Get_Name_String_Safe (For_Source.File);
          begin
             Display_Content (Standard_Output, File_Path & ".stdout");
             Display_Content (Standard_Error, File_Path & ".stderr");
@@ -2309,7 +2309,7 @@ package body Gprbuild.Compile is
             if Line (1 .. Last) /= Current then
                if Opt.Verbosity_Level > Opt.Low then
                   Put_Line ("    -> switches file '"
-                              & Get_Name_String (Id.Switches_Path)
+                              & Get_Name_String_Safe (Id.Switches_Path)
                               & "' has different line");
                   Put_Line ("       " & Line (1 .. Last));
                   Put_Line ("       " & Current);

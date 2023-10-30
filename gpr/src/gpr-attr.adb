@@ -179,7 +179,7 @@ package body GPR.Attr is
 
          if not Inserted then
             Error_Msg
-              ("duplicate attribute """ & Get_Name_String (Name) & """ in "
+              ("duplicate attribute """ & Get_Name_String_Safe (Name) & """ in "
                & Attribute_Location, No_Location);
             return;
          end if;
@@ -218,7 +218,7 @@ package body GPR.Attr is
 
          else
             return "attribute of package """
-              & Get_Name_String
+              & Get_Name_String_Safe
                   (Package_Attributes.Table (Current_Package).Name) & '"';
          end if;
       end Attribute_Location;
@@ -1604,7 +1604,7 @@ package body GPR.Attr is
          if Attrs.Table (Curr_Attr).Name = Attr_Name then
             Error_Msg
               ("duplicate attribute name """ & Name & """ in package """
-               & Get_Name_String
+               & Get_Name_String_Safe
                    (Package_Attributes.Table (In_Package.Value).Name)
                & """", No_Location);
             return;

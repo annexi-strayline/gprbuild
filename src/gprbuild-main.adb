@@ -197,7 +197,7 @@ procedure Gprbuild.Main is
             if Main_Id.Source.Locally_Removed then
                Fail_Program
                  (Project_Tree,
-                  "main """ & Get_Name_String (Main_Id.Source.File)
+                  "main """ & Get_Name_String_Safe (Main_Id.Source.File)
                   & """ cannot also be an excluded file",
                   Exit_Code => E_General);
             end if;

@@ -1698,8 +1698,8 @@ package body GPR.Proc is
 
       if Result = No_Package then
          Error_Msg
-           ("no package " & Get_Name_String (With_Name) & " in project "
-            & Get_Name_String (Project.Display_Name),
+           ("no package " & Get_Name_String_Safe (With_Name) & " in project "
+            & Get_Name_String_Safe (Project.Display_Name),
             Project.Location);
 
          raise Project_Error;
@@ -2356,7 +2356,8 @@ package body GPR.Proc is
                if Current_Verbosity = High then
                   Debug_Output
                     ("'for External' has no effect except in root aggregate ("
-                     & Get_Name_String (Index_Name) & ")", New_Value.Value);
+                     & Get_Name_String_Safe (Index_Name)
+                     & ")", New_Value.Value);
                end if;
             end if;
          end if;
@@ -2413,7 +2414,8 @@ package body GPR.Proc is
 
             pragma Assert
               (not Is_Attribute,
-               "illegal attribute declaration for " & Get_Name_String (Name));
+               "illegal attribute declaration for "
+               & Get_Name_String_Safe (Name));
 
             Variable_Element_Table.Increment_Last (Shared.Variable_Elements);
             Var := Variable_Element_Table.Last (Shared.Variable_Elements);
@@ -2623,7 +2625,8 @@ package body GPR.Proc is
 
                else
                   Write_Line
-                    ("variable """ & Get_Name_String (Name) & """ not found");
+                    ("variable """ & Get_Name_String_Safe (Name)
+                     & """ not found");
                   raise Program_Error;
                end if;
             end if;
@@ -2643,7 +2646,7 @@ package body GPR.Proc is
                --  during parsing.
 
                Write_Line
-                 ("variable """ & Get_Name_String (Name)
+                 ("variable """ & Get_Name_String_Safe (Name)
                   & """ is not a single string variable");
 
                raise Program_Error;

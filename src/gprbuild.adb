@@ -213,16 +213,16 @@ package body Gprbuild is
             Fail_Program
               (Project_Tree,
                "no project with writable object directory for project "
-               & Get_Name_String (Project.Name),
+               & Get_Name_String_Safe (Project.Name),
                Exit_Code => E_General);
 
          else
             Fail_Program
               (Project_Tree,
                "object directory """
-               & Get_Name_String (Project.Object_Directory.Display_Name)
+               & Get_Name_String_Safe (Project.Object_Directory.Display_Name)
                & """ for project """
-               & Get_Name_String (Project.Name)
+               & Get_Name_String_Safe (Project.Name)
                & """ is not writable",
                Exit_Code => E_General);
          end if;

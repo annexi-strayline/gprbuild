@@ -3504,7 +3504,7 @@ package body Gprbuild.Link is
          Main := Bad_Processes.First_Element;
          Fail_Program
            (Main.Tree,
-            "link of " & Get_Name_String (Main.File) & " failed",
+            "link of " & Get_Name_String_Safe (Main.File) & " failed",
             Command =>
               (if Main.Command.Is_Empty
                  or else Opt.Verbosity_Level /= Opt.None then ""

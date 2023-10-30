@@ -2582,7 +2582,7 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                           & Get_Name_String (Attribute.Value.Value)
+                           & Get_Name_String_Safe (Attribute.Value.Value)
                            & """ for Separate_Run_Path_Options",
                            Attribute.Value.Location, Project);
                   end;
@@ -2599,7 +2599,7 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                           & Get_Name_String (Attribute.Value.Value)
+                           & Get_Name_String_Safe (Attribute.Value.Value)
                            & """ for Library_Support",
                            Attribute.Value.Location, Project);
                   end;
@@ -2617,7 +2617,7 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                           & Get_Name_String (Attribute.Value.Value)
+                           & Get_Name_String_Safe (Attribute.Value.Value)
                            & """ for Library_Encapsulated_Supported",
                            Attribute.Value.Location, Project);
                   end;
@@ -2642,7 +2642,7 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                           & Get_Name_String (Attribute.Value.Value)
+                           & Get_Name_String_Safe (Attribute.Value.Value)
                            & """ for Symbolic_Link_Supported",
                            Attribute.Value.Location, Project);
                   end;
@@ -2661,7 +2661,7 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                           & Get_Name_String (Attribute.Value.Value)
+                           & Get_Name_String_Safe (Attribute.Value.Value)
                            & """ for Library_Major_Minor_Id_Supported",
                            Attribute.Value.Location, Project);
                   end;
@@ -2677,7 +2677,7 @@ package body GPR.Nmsc is
                         Error_Msg
                           (Data.Flags,
                            "invalid value """
-                           & Get_Name_String (Attribute.Value.Value)
+                           & Get_Name_String_Safe (Attribute.Value.Value)
                            & """ for Library_Auto_Init_Supported",
                            Attribute.Value.Location, Project);
                   end;
@@ -3111,7 +3111,7 @@ package body GPR.Nmsc is
                            Error_Msg
                              (Data.Flags,
                               "invalid value """
-                              & Get_Name_String (Element.Value.Value)
+                              & Get_Name_String_Safe (Element.Value.Value)
                               & """ for Object_Generated",
                               Element.Value.Location, Project);
                      end;
@@ -3138,7 +3138,7 @@ package body GPR.Nmsc is
                            Error_Msg
                              (Data.Flags,
                               "invalid value """
-                              & Get_Name_String (Element.Value.Value)
+                              & Get_Name_String_Safe (Element.Value.Value)
                               & """ for Objects_Linked",
                               Element.Value.Location, Project);
                      end;
@@ -3163,7 +3163,7 @@ package body GPR.Nmsc is
                            Error_Msg
                              (Data.Flags,
                               "invalid value """
-                              & Get_Name_String (Element.Value.Value)
+                              & Get_Name_String_Safe (Element.Value.Value)
                               & """ for Only_Dirs_With_Sources",
                               Element.Value.Location, Project);
                      end;
@@ -3228,7 +3228,7 @@ package body GPR.Nmsc is
                      "Toolchain version "
                      & (if TVC = "" then "" else '"' & TVC & """ ")
                      & "for language "
-                     & Get_Name_String (Lang_Index.Name)
+                     & Get_Name_String_Safe (Lang_Index.Name)
                      & " differs from the required one """ & TVR & '"',
                      No_Location, Project);
                end if;
@@ -3286,7 +3286,7 @@ package body GPR.Nmsc is
                      Error_Msg
                        (Data.Flags,
                         "Dot_Replacement not specified for "
-                        & Get_Name_String (Lang_Index.Name),
+                        & Get_Name_String_Safe (Lang_Index.Name),
                         No_Location, Project);
                   end if;
 
@@ -3294,7 +3294,7 @@ package body GPR.Nmsc is
                      Error_Msg
                        (Data.Flags,
                         "\Spec_Suffix not specified for "
-                        & Get_Name_String (Lang_Index.Name),
+                        & Get_Name_String_Safe (Lang_Index.Name),
                         No_Location, Project);
                   end if;
 
@@ -3302,7 +3302,7 @@ package body GPR.Nmsc is
                      Error_Msg
                        (Data.Flags,
                         "\Body_Suffix not specified for "
-                        & Get_Name_String (Lang_Index.Name),
+                        & Get_Name_String_Safe (Lang_Index.Name),
                         No_Location, Project);
                   end if;
 
@@ -5048,10 +5048,10 @@ package body GPR.Nmsc is
                   if Associated_Lang /= Suffix_Lang_Maps.No_Element then
                      Error_Msg
                        (Data.Flags,
-                        "Spec_Suffix (""" & Get_Name_String (Suffix.Value)
-                        & """) for language " & Get_Name_String (Lang_Id.Name)
+                        "Spec_Suffix (""" & Get_Name_String_Safe (Suffix.Value)
+                        & """) for language " & Get_Name_String_Safe (Lang_Id.Name)
                         & " is also defined for language "
-                        & Get_Name_String (Suffix_Lang_Map (Suffix.Value))
+                        & Get_Name_String_Safe (Suffix_Lang_Map (Suffix.Value))
                         & '.',
                         Suffix.Location, Project);
                   else
@@ -5107,10 +5107,11 @@ package body GPR.Nmsc is
                   if Associated_Lang /= Suffix_Lang_Maps.No_Element then
                      Error_Msg
                        (Data.Flags,
-                        "Body_Suffix (""" & Get_Name_String (Suffix.Value)
-                        & """) for language " & Get_Name_String (Lang_Id.Name)
+                        "Body_Suffix (""" & Get_Name_String_Safe (Suffix.Value)
+                        & """) for language "
+                        & Get_Name_String_Safe (Lang_Id.Name)
                         & " is also defined for language "
-                        & Get_Name_String (Suffix_Lang_Map (Suffix.Value))
+                        & Get_Name_String_Safe (Suffix_Lang_Map (Suffix.Value))
                         & '.',
                         Suffix.Location, Project);
                   else
@@ -5164,7 +5165,8 @@ package body GPR.Nmsc is
                Error_Msg
                  (Data.Flags,
                   "Body_Suffix ("""
-                  & Get_Name_String (Lang_Id.Config.Naming_Data.Body_Suffix)
+                  & Get_Name_String_Safe
+                    (Lang_Id.Config.Naming_Data.Body_Suffix)
                   & """) cannot be the same as Spec_Suffix.",
                   Ada_Body_Suffix_Loc, Project);
             end if;
@@ -5177,7 +5179,7 @@ package body GPR.Nmsc is
                Error_Msg
                  (Data.Flags,
                   "Separate_Suffix ("""
-                  & Get_Name_String
+                  & Get_Name_String_Safe
                       (Lang_Id.Config.Naming_Data.Separate_Suffix)
                   & """) cannot be the same as Spec_Suffix.",
                   Sep_Suffix_Loc, Project);
@@ -7129,7 +7131,7 @@ package body GPR.Nmsc is
                              (Section  => Setup,
                               Command  => "mkdir",
                               Argument => Create & " directory for project "
-                              & Get_Name_String (Project.Display_Name));
+                              & Get_Name_String_Safe (Project.Display_Name));
                         end if;
                      end if;
 
@@ -7633,10 +7635,11 @@ package body GPR.Nmsc is
                                  if Current_Verbosity = High then
                                     Debug_Output
                                       ("setting full path for "
-                                       & Get_Name_String (Source.File)
+                                       & Get_Name_String_Safe (Source.File)
                                        & " at" & Source.Index'Img
                                        & " to "
-                                       & Get_Name_String (Source.Path.Name));
+                                       & Get_Name_String_Safe
+                                         (Source.Path.Name));
                                  end if;
 
                                  exit;
@@ -7836,7 +7839,7 @@ package body GPR.Nmsc is
          if Current_Verbosity = High then
             Debug_Output
               ("testing language "
-               & Get_Name_String (Tmp_Lang.Name)
+               & Get_Name_String_Safe (Tmp_Lang.Name)
                & " Header_File=" & Header_File'Img);
          end if;
 
@@ -7906,7 +7909,7 @@ package body GPR.Nmsc is
 
       if Current_Verbosity = High and then Source.File /= No_File then
          Debug_Output ("override kind for "
-                       & Get_Name_String (Source.File)
+                       & Get_Name_String_Safe (Source.File)
                        & " idx=" & Source.Index'Img
                        & " kind=" & Source.Kind'Img);
       end if;
@@ -8888,7 +8891,7 @@ package body GPR.Nmsc is
                         Write_Str ("removing file ");
                         Write_Line
                           (Get_Name_String (Excluded.File)
-                           & " " & Get_Name_String (Source.Project.Name));
+                           & " " & Get_Name_String_Safe (Source.Project.Name));
                      end if;
 
                      Excluded_Sources_Htable.Remove
@@ -8925,7 +8928,7 @@ package body GPR.Nmsc is
                   Error_Msg
                     (Data.Flags,
                      (if Excluded.Excl_File = No_File then ""
-                      else "in " & Get_Name_String (Excluded.Excl_File)
+                      else "in " & Get_Name_String_Safe (Excluded.Excl_File)
                       & ':' & No_Space_Img (Excluded.Excl_Line) & ": ")
                       & (if Src = No_Source then "unknown file {"
                          else "cannot remove a source from an imported project"
@@ -9287,7 +9290,7 @@ package body GPR.Nmsc is
          Current := Project.Source_Dirs;
          while Current /= Nil_String loop
             Element := Shared.String_Elements.Table (Current);
-            Debug_Output (Get_Name_String (Element.Display_Value));
+            Debug_Output (Get_Name_String_Safe (Element.Display_Value));
             Current := Element.Next;
          end loop;
 

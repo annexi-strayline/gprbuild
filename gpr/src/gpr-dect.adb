@@ -462,7 +462,7 @@ package body GPR.Dect is
             Error_Msg
               (Flags,
                "the attribute """
-               & Get_Name_String (Attribute_Name_Of (Current_Attribute))
+               & Get_Name_String_Safe (Attribute_Name_Of (Current_Attribute))
                & """ cannot be an associative array",
                Location_Of (Attribute, In_Tree));
 
@@ -687,7 +687,7 @@ package body GPR.Dect is
                               Error_Msg
                                 (Flags,
                                  "not the same package as "
-                                 & Get_Name_String
+                                 & Get_Name_String_Safe
                                      (Name_Of (Current_Package, In_Tree)),
                                  Token_Ptr);
                               Scan (In_Tree); --  past the package name
@@ -817,7 +817,7 @@ package body GPR.Dect is
                      Error_Msg
                        (Flags,
                         "wrong expression kind for attribute """
-                        & Get_Name_String
+                        & Get_Name_String_Safe
                             (Attribute_Name_Of (Current_Attribute))
                         & '"',
                         Expression_Location);
@@ -912,7 +912,7 @@ package body GPR.Dect is
             Error_Msg
               (Flags,
                "variable """
-               & Get_Name_String (Name_Of (Case_Variable, In_Tree))
+               & Get_Name_String_Safe (Name_Of (Case_Variable, In_Tree))
                & """ is not a single string",
                Variable_Location);
          end if;
@@ -1394,7 +1394,8 @@ package body GPR.Dect is
                Error_Msg
                  (Flags,
                   "package """
-                  & Get_Name_String (Name_Of (Package_Declaration, In_Tree))
+                  & Get_Name_String_Safe
+                    (Name_Of (Package_Declaration, In_Tree))
                   & """ is declared twice in the same project",
                   Token_Ptr);
 
@@ -1562,7 +1563,7 @@ package body GPR.Dect is
                      if No (Current) then
                         Error_Msg
                           (Flags,
-                           '"' & Get_Name_String (Package_Name)
+                           '"' & Get_Name_String_Safe (Package_Name)
                            & """ is not a package declared by the project",
                            Package_Source_Ptr);
                      end if;
@@ -1674,8 +1675,8 @@ package body GPR.Dect is
          if Present (Current) then
             Error_Msg
               (Flags,
-               "duplicate string type name """ & Get_Name_String (Token_Name)
-               & '"',
+               "duplicate string type name """
+               & Get_Name_String_Safe (Token_Name) & '"',
                Token_Ptr);
          else
             Current := First_Variable_Of (Current_Project, In_Tree);
@@ -1688,7 +1689,7 @@ package body GPR.Dect is
             if Present (Current) then
                Error_Msg
                  (Flags,
-                  '"' & Get_Name_String (Token_Name)
+                  '"' & Get_Name_String_Safe (Token_Name)
                   & """ is already a variable name",
                   Token_Ptr);
             else
@@ -1815,7 +1816,7 @@ package body GPR.Dect is
                            Error_Msg
                              (Flags,
                               "unknown project """
-                              & Get_Name_String (Project_String_Type_Name)
+                              & Get_Name_String_Safe (Project_String_Type_Name)
                               & '"',
                               Project_Location);
                            Current := Empty_Project_Node;
@@ -1860,7 +1861,7 @@ package body GPR.Dect is
                      Error_Msg
                        (Flags,
                         "unknown string type """
-                        & Get_Name_String (String_Type_Name) & '"',
+                        & Get_Name_String_Safe (String_Type_Name) & '"',
                         Type_Location);
                      OK := False;
 
@@ -1955,7 +1956,8 @@ package body GPR.Dect is
                         Error_Msg
                           (Flags,
                            "wrong expression kind for variable """
-                           & Get_Name_String (Name_Of (The_Variable, In_Tree))
+                           & Get_Name_String_Safe
+                             (Name_Of (The_Variable, In_Tree))
                            & '"',
                            Expression_Location);
                      end if;
