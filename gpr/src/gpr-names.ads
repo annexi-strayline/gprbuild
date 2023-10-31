@@ -43,6 +43,12 @@ package GPR.Names is
    --  This functional form returns the result as a string without affecting
    --  the contents of either Name_Buffer or Name_Len. The lower bound is 1.
 
+   function Get_Name_String_Safe (Id : Name_Id) return String;
+   function Get_Name_String_Safe (Id : File_Name_Type) return String;
+   function Get_Name_String_Safe (Id : Path_Name_Type) return String;
+   --  This functional form returns the result as a string without affecting
+   --  the contents of either Name_Buffer or Name_Len. The lower bound is 1.
+
    function Get_Name_Id (Name : String) return Name_Id;
    --  Returns Name_Id associated with Name
 

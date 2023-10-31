@@ -553,7 +553,7 @@ package body GPR.Conf is
             raise Invalid_Config with
               (if Tgt_Name = No_Name
                then "no target specified in configuration file"
-               else "mismatched targets: """ & Get_Name_String (Tgt_Name)
+               else "mismatched targets: """ & Get_Name_String_Safe (Tgt_Name)
                     & """ in configuration, """ & Target & """ specified");
          end if;
       end if;
@@ -2484,7 +2484,7 @@ package body GPR.Conf is
       if Conf_Project = No_Project then
          Messages_Decision (Error);
          raise Invalid_Config with "there are no non-aggregate projects for" &
-           " project " & Get_Name_String (Main_Project.Name);
+           " project " & Get_Name_String_Safe (Main_Project.Name);
       else
          Messages_Decision (Silent);
       end if;

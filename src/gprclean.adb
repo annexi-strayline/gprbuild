@@ -86,12 +86,13 @@ package body Gprclean is
    procedure Clean_Archive (Project : Project_Id) is
       Current_Dir  : constant Dir_Name_Str := Get_Current_Dir;
       Archive_Name : constant String :=
-                       "lib" & Get_Name_String (Project.Name)
-                       & Get_Name_String (Project.Config.Archive_Suffix);
+                       "lib" & Get_Name_String_Safe (Project.Name)
+                       & Get_Name_String_Safe (Project.Config.Archive_Suffix);
       --  The name of the archive file for this project
 
       Archive_Dep_Name : constant String :=
-                           "lib" & Get_Name_String (Project.Name) & ".deps";
+                           "lib" & Get_Name_String_Safe (Project.Name)
+                           & ".deps";
       --  The name of the archive dependency file for this project
 
       Obj_Dir     : constant String :=
@@ -203,11 +204,11 @@ package body Gprclean is
                                      Get_Name_String
                                        (Project.Config.Shared_Lib_Prefix)
                                      & Lib_Filename
-                                     & Get_Name_String
+                                     & Get_Name_String_Safe
                                        (Project.Config.Shared_Lib_Suffix);
       Archive_Name               : String :=
                                      "lib" & Lib_Filename
-                                     & Get_Name_String
+                                     & Get_Name_String_Safe
                                        (Project.Config.Archive_Suffix);
       Library_Exchange_File_Name : String :=
                                      Lib_Filename & Library_Exchange_Suffix;
@@ -507,9 +508,8 @@ package body Gprclean is
          Node := Project_Tree.Shared.Name_Lists.Table (List);
 
          declare
-            Artifact : constant String :=
-              Object (Object'First .. Last - 1) & Get_Name_String (Node.Name);
-
+            Artifact : constant String := Object (Object'First .. Last - 1)
+                         & Get_Name_String_Safe (Node.Name);
          begin
             if Is_Regular_File (Artifact) then
                Delete (Directory, Artifact);

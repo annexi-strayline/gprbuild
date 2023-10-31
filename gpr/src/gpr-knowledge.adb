@@ -1655,7 +1655,7 @@ package body GPR.Knowledge is
             begin
                if Visited.Contains (Normalized) then
                   Put_Verbose ("<dir>: ALREADY FOUND ("
-                               & Get_Name_String (Val) & ") "
+                               & Get_Name_String_Safe (Val) & ") "
                                & Current_Dir);
 
                   Prev := Visited.Element (Normalized);
@@ -1667,7 +1667,7 @@ package body GPR.Knowledge is
                      New_Item  => Rec);
 
                else
-                  Put_Verbose ("<dir>: SAVE (" & Get_Name_String (Val)
+                  Put_Verbose ("<dir>: SAVE (" & Get_Name_String_Safe (Val)
                                & ") " & Current_Dir);
                   Append
                     (Processed_Value,
@@ -2048,7 +2048,7 @@ package body GPR.Knowledge is
                            Put_Verbose
                              (Attribute & ": search directories matching "
                               & Search & ", starting from "
-                              & Get_Name_String (Comp.Path), 1);
+                              & Get_Name_String_Safe (Comp.Path), 1);
                         end if;
                         Parse_All_Dirs
                           (Processed_Value => Processed_Value,
@@ -2108,7 +2108,7 @@ package body GPR.Knowledge is
                         Put_Verbose
                           ("Ignore compiler since external value """
                            & To_String (Tmp_Result) & """ must match "
-                           & Get_Name_String (Node.Must_Match));
+                           & Get_Name_String_Safe (Node.Must_Match));
                      end if;
                      Tmp_Result := Null_Unbounded_String;
                      raise Ignore_Compiler;
@@ -2414,7 +2414,8 @@ package body GPR.Knowledge is
                   if Current_Verbosity /= Default then
                      Put_Verbose
                        ("Ignore compiler since variable '"
-                        & Get_Name_String (Ext.Extracted_From) & "' is empty");
+                        & Get_Name_String_Safe (Ext.Extracted_From)
+                        & "' is empty");
                   end if;
                   Continue := True;
                   return;
@@ -2425,7 +2426,7 @@ package body GPR.Knowledge is
                then
                   Put_Line
                     (Standard_Error, "Variable '"
-                     & Get_Name_String (Ext.Extracted_From)
+                     & Get_Name_String_Safe (Ext.Extracted_From)
                      & "' is already defined");
                else
                   Variables_Maps.Insert
@@ -2517,7 +2518,7 @@ package body GPR.Knowledge is
             if Is_Empty (Runtimes) then
                if Descr.Runtimes /= Null_External_Value then
                   Put_Verbose ("No runtime found where one is required for: "
-                               & Get_Name_String (Comp.Path));
+                               & Get_Name_String_Safe (Comp.Path));
                else
                   Callback
                     (Iterator          => Iterator,
@@ -2604,11 +2605,11 @@ package body GPR.Knowledge is
       begin
          if Comp.Runtime /= No_Name then
             if Comp.Alt_Runtime = No_Name then
-               return " (" & Get_Name_String (Comp.Runtime) & " runtime)";
+               return " (" & Get_Name_String_Safe (Comp.Runtime) & " runtime)";
             else
                return
-                 " (" & Get_Name_String (Comp.Runtime) &
-                 " [" & Get_Name_String (Comp.Alt_Runtime) &
+                 " (" & Get_Name_String_Safe (Comp.Runtime) &
+                 " [" & Get_Name_String_Safe (Comp.Alt_Runtime) &
                  "] runtime)";
             end if;
          else
@@ -2642,7 +2643,7 @@ package body GPR.Knowledge is
       function Target return String is
       begin
          if Show_Target then
-            return " on " & Get_Name_String (Comp.Target);
+            return " on " & Get_Name_String_Safe (Comp.Target);
          else
             return "";
          end if;
@@ -2918,7 +2919,8 @@ package body GPR.Knowledge is
                   Put_Verbose ("--------------------------------------");
                   Put_Verbose
                     ("Processing "
-                     & Get_Name_String (Config.Name) & " in " & Directory);
+                     & Get_Name_String_Safe (Config.Name) & " in "
+                     & Directory);
                   Foreach_Language_Runtime
                     (Iterator       => Iterator,
                      Base           => Base,
@@ -4265,7 +4267,7 @@ package body GPR.Knowledge is
                         Put
                           (Standard_Error,
                            ", runtime '"
-                           & Get_Name_String (Comp.Runtime) & "'");
+                           & Get_Name_String_Safe (Comp.Runtime) & "'");
                      end if;
                   else
                      Put
@@ -4282,7 +4284,7 @@ package body GPR.Knowledge is
                         Put
                           (Standard_Error,
                            ", runtime '"
-                           & Get_Name_String (Comp.Runtime) & "'");
+                           & Get_Name_String_Safe (Comp.Runtime) & "'");
                      end if;
                   end if;
 

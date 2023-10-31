@@ -1020,7 +1020,7 @@ package body GPR.Env is
       if Path_Name /= No_Path then
          if Current_Verbosity = High then
             Write_Line ("Create temp file (" & File_Use & ") "
-                        & Get_Name_String (Path_Name));
+                        & Get_Name_String_Safe (Path_Name));
          end if;
 
          Record_Temp_File (Shared, Path_Name);

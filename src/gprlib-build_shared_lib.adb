@@ -314,7 +314,7 @@ procedure Build_Shared_Lib is
                  or else Resp_File_Format = GCC_Option_List
                then
                   Arguments.Append
-                    ("@" & Get_Name_String (Response_File_Name));
+                    ("@" & Get_Name_String_Safe (Response_File_Name));
                else
                   if Response_File_Switches.Is_Empty then
                      Arguments.Append (Get_Name_String (Response_File_Name));
@@ -386,7 +386,7 @@ procedure Build_Shared_Lib is
 
          if Export_File /= No_Path then
             Arguments.Append
-              (Export_File_Switch.all & Get_Name_String (Export_File));
+              (Export_File_Switch.all & Get_Name_String_Safe (Export_File));
          end if;
       end if;
 

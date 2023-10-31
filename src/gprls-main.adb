@@ -529,7 +529,7 @@ procedure Gprls.Main is
             Put_Line
               (Standard_Error,
                "Can't find ALI file for "
-               & Get_Name_String (FN_Source.Source.Path.Display_Name));
+               & Get_Name_String_Safe (FN_Source.Source.Path.Display_Name));
 
          else
             declare
@@ -585,7 +585,7 @@ procedure Gprls.Main is
                      Put_Line
                        (Standard_Error,
                         "Can't find ALI file for "
-                        & Get_Name_String (Source.Path.Display_Name));
+                        & Get_Name_String_Safe (Source.Path.Display_Name));
                   end if;
                end if;
             end;

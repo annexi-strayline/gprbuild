@@ -237,7 +237,7 @@ package body GPR is
    begin
       if not Opt.Keep_Temporary_Files then
          if Current_Verbosity = High then
-            Write_Line ("Removing temp file: " & Get_Name_String (Path));
+            Write_Line ("Removing temp file: " & Get_Name_String_Safe (Path));
          end if;
 
          Delete_File (Get_Name_String (Path), Dont_Care);
@@ -2208,7 +2208,7 @@ package body GPR is
          if Str2 = No_Name then
             Write_Line (" <no_name>");
          else
-            Write_Line (" """ & Get_Name_String (Str2) & '"');
+            Write_Line (" """ & Get_Name_String_Safe (Str2) & '"');
          end if;
 
          Set_Standard_Output;

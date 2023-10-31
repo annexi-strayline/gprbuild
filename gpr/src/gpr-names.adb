@@ -250,6 +250,25 @@ package body GPR.Names is
       return Get_Name_String (Name_Id (Id));
    end Get_Name_String;
 
+   --------------------------
+   -- Get_Name_String_Safe --
+   --------------------------
+
+   --  Function version returning a string
+
+   function Get_Name_String_Safe (Id : Name_Id) return String is
+     (if Is_Valid_Name (Id) then Name_Entries (Id).Value else "<invalid_id>");
+
+   function Get_Name_String_Safe (Id : File_Name_Type) return String is
+   begin
+      return Get_Name_String_Safe (Name_Id (Id));
+   end Get_Name_String_Safe;
+
+   function Get_Name_String_Safe (Id : Path_Name_Type) return String is
+   begin
+      return Get_Name_String_Safe (Name_Id (Id));
+   end Get_Name_String_Safe;
+
    --------------------------------
    -- Get_Name_String_And_Append --
    --------------------------------

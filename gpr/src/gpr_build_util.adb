@@ -265,9 +265,9 @@ package body Gpr_Build_Util is
                         then
                            Put_Line
                              ("source file"
-                              & Get_Name_String (SD.Sfile)
+                              & Get_Name_String_Safe (SD.Sfile)
                               & " has been replaced by "
-                              & Get_Name_String (Replacement));
+                              & Get_Name_String_Safe (Replacement));
                         end if;
 
                         return No_Name;
@@ -316,9 +316,9 @@ package body Gpr_Build_Util is
                      then
                         Put_Line
                           ("While parsing ALI file, file "
-                           & Get_Name_String (SD.Sfile)
+                           & Get_Name_String_Safe (SD.Sfile)
                            & " is indicated as containing subunit "
-                           & Get_Name_String (Unit_Name)
+                           & Get_Name_String_Safe (Unit_Name)
                            & " but this does not match what was found while"
                            & " parsing the project. Will recompile");
                      end if;
@@ -1129,7 +1129,7 @@ package body Gpr_Build_Util is
                            Debug_Output
                              ("search for main """ & Main
                               & '"' & File.Index'Img & " in "
-                              & Get_Name_String (Debug_Name (File.Tree))
+                              & Get_Name_String_Safe (Debug_Name (File.Tree))
                               & ", project", Project.Name);
                         end if;
 
@@ -1294,7 +1294,7 @@ package body Gpr_Build_Util is
             if N.Source = No_Source then
                Fail_Program
                  (Project_Tree,
-                  '"' & Get_Name_String (N.File)
+                  '"' & Get_Name_String_Safe (N.File)
                   & """ was not found in the sources of any project",
                   Exit_Code => E_General);
             end if;
@@ -2025,7 +2025,7 @@ package body Gpr_Build_Util is
 
                      else
                         Error_Msg
-                          ("Unit " & Get_Name_String (Unit_Name)
+                          ("Unit " & Get_Name_String_Safe (Unit_Name)
                            & " does not exist", Roots.Location);
                      end if;
                   end if;
@@ -2680,7 +2680,7 @@ package body Gpr_Build_Util is
                if Switches_For_Lang /= Nil_Variable_Value then
                   Put_Line
                     ("Warning: using Builder'Switches("""
-                     & Get_Name_String (Lang)
+                     & Get_Name_String_Safe (Lang)
                      & """), as there are several mains");
 
                elsif Other_Switches /= Nil_Variable_Value then
@@ -2691,7 +2691,7 @@ package body Gpr_Build_Util is
                elsif Defaults /= Nil_Variable_Value then
                   Put_Line
                     ("Warning: using Builder'Default_Switches("""
-                     & Get_Name_String (Lang)
+                     & Get_Name_String_Safe (Lang)
                      & """), as there are several mains");
                else
                   Put_Line
@@ -2765,7 +2765,7 @@ package body Gpr_Build_Util is
                      Fail_Program
                        (Project_Tree,
                         "*** illegal switch """
-                        & Get_Name_String (Element.Value) & '"',
+                        & Get_Name_String_Safe (Element.Value) & '"',
                         Exit_Code => E_General);
                   end if;
                end if;
