@@ -5049,7 +5049,8 @@ package body GPR.Nmsc is
                      Error_Msg
                        (Data.Flags,
                         "Spec_Suffix (""" & Get_Name_String_Safe (Suffix.Value)
-                        & """) for language " & Get_Name_String_Safe (Lang_Id.Name)
+                        & """) for language "
+                        & Get_Name_String_Safe (Lang_Id.Name)
                         & " is also defined for language "
                         & Get_Name_String_Safe (Suffix_Lang_Map (Suffix.Value))
                         & '.',

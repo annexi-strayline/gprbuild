@@ -1654,6 +1654,16 @@ package body Gprbuild.Link is
          end if;
       end if;
 
+      if not Linker_Needs_To_Be_Called
+        and then Is_File_Empty (Name => Exec_Path_Name)
+      then
+         Linker_Needs_To_Be_Called := True;
+
+         if Opt.Verbosity_Level > Opt.Low then
+            Put_Line ("      -> empty executable");
+         end if;
+      end if;
+
       --  Get the path of the linker driver
 
       if Main_Proj.Config.Linker /= No_Path then

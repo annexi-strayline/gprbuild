@@ -217,6 +217,9 @@ package GPR.Osint is
    function File_Stamp (Name : String) return Time_Stamp_Type;
    --  Same as above for a string filename
 
+   function Is_File_Empty (Name : Path_Name_Type) return Boolean;
+   --  Returns true if the file size is 0, returns false otherwise
+
    type Exit_Code_Type is
      (E_Success, -- No errors (but there may be warnings)
       E_General, -- General tool error (invalid option, missing file, etc)

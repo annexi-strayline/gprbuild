@@ -344,6 +344,15 @@ package body GPR.Osint is
       return C in Directory_Separator | '/';
    end Is_Directory_Separator;
 
+   -------------------
+   -- Is_File_Empty --
+   -------------------
+
+   function Is_File_Empty (Name : Path_Name_Type) return Boolean is
+   begin
+      return (Size (Get_Name_String (Name)) = 0);
+   end Is_File_Empty;
+
    ---------------------
    -- Is_Regular_File --
    ---------------------
