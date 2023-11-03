@@ -179,8 +179,8 @@ package body GPR.Attr is
 
          if not Inserted then
             Error_Msg
-              ("duplicate attribute """ & Get_Name_String_Safe (Name) & """ in "
-               & Attribute_Location, No_Location);
+              ("duplicate attribute """ & Get_Name_String_Safe (Name)
+               & """ in " & Attribute_Location, No_Location);
             return;
          end if;
 

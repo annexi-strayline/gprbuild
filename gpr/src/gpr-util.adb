@@ -5469,7 +5469,7 @@ package body GPR.Util is
                                     if Opt.Verbosity_Level > Opt.Low then
                                        Put ("   ");
                                        Put
-                                         (Get_Name_String
+                                         (Get_Name_String_Safe
                                             (ALI.Sdep.Table (D).Sfile));
                                        Put (": up to date, " &
                                               "different timestamps " &
@@ -5484,7 +5484,7 @@ package body GPR.Util is
                                     if Opt.Verbosity_Level > Opt.Low then
                                        Put ("   ");
                                        Put
-                                         (Get_Name_String
+                                         (Get_Name_String_Safe
                                             (ALI.Sdep.Table (D).Sfile));
                                        Put_Line
                                          (": changed, same timestamp but"
@@ -5501,7 +5501,7 @@ package body GPR.Util is
                               if Opt.Verbosity_Level > Opt.Low then
                                  Put
                                    ("   -> different time stamp for ");
-                                 Put_Line (Get_Name_String (Sfile));
+                                 Put_Line (Get_Name_String_Safe (Sfile));
 
                                  if Debug.Debug_Flag_T then
                                     Put ("   in ALI file: ");
@@ -5521,7 +5521,7 @@ package body GPR.Util is
                                     Put_Line
                                       ("   -> dependency file not in " &
                                          "object directory of project """ &
-                                         Get_Name_String
+                                         Get_Name_String_Safe
                                          (Projects
                                               (Projects'Last).Display_Name) &
                                          """");
@@ -5599,8 +5599,9 @@ package body GPR.Util is
                   if not Conf_Paths_Found (J) then
                      if Opt.Verbosity_Level > Opt.Low then
                         Put_Line
-                          ("   -> new config file " &
-                             Get_Name_String (Conf_Paths (J).Display_Name));
+                          ("   -> new config file "
+                           & Get_Name_String_Safe
+                             (Conf_Paths (J).Display_Name));
                      end if;
 
                      return True;
