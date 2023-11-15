@@ -443,8 +443,10 @@ package body Gprbuild.Post_Compile is
             if Proj.Qualifier = Aggregate_Library then
                Aggr_Projs := Proj.Aggregated_Projects;
                while Aggr_Projs /= null loop
-                  Find_ALI_Path
-                    (The_ALI, ALI_Path, Aggr_Projs.Project, Aggr_Projs.Tree);
+                  --  We are passing the root Tree as in Aggregate_Library all
+                  --  Tree.Projects are stored in the Aggregate_Library.Tree
+                  --  and not in Aggr_Projs.Tree
+                  Find_ALI_Path (The_ALI, ALI_Path, Aggr_Projs.Project, Tree);
                   exit when ALI_Path /= No_Path;
                   Aggr_Projs := Aggr_Projs.Next;
                end loop;
