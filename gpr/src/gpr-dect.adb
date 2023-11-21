@@ -1323,7 +1323,7 @@ package body GPR.Dect is
                         "\?possible misspelling of """ & Pack.all & '"',
                         Token_Ptr);
                   else
-                     if (Verbose_Mode and then Opt.Verbosity_Level > Opt.Low)
+                     if Verbose_Mode and then Opt.Verbosity_Level > Opt.Low
                      then
                         declare
                            Sfile : Source_File_Index;
