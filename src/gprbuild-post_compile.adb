@@ -1295,7 +1295,7 @@ package body Gprbuild.Post_Compile is
                      Put_Line
                        (Exchange_File,
                         Get_Name_String (Lang.Name) & ASCII.LF
-                        & Get_Name_String_Safe (Lang.Config.Compiler_Driver));
+                        & Get_Name_String (Lang.Config.Compiler_Driver));
                   end if;
                end if;
 
@@ -1355,7 +1355,7 @@ package body Gprbuild.Post_Compile is
                   if Indx /= No_Name_List then
                      Put_Line
                        (Exchange_File,
-                        "language=" & Get_Name_String_Safe (Lang.Name));
+                        "language=" & Get_Name_String (Lang.Name));
                      Emit_Compiler_Switches (Exchange_File, Indx);
 
                      if Opt.CodePeer_Mode then
@@ -1420,7 +1420,7 @@ package body Gprbuild.Post_Compile is
                   if Indx /= No_Name_List then
                      Put_Line
                        (Exchange_File,
-                        "language=" & Get_Name_String_Safe (Lang.Name));
+                        "language=" & Get_Name_String (Lang.Name));
 
                      while Indx /= No_Name_List loop
                         Node := Project_Tree.Shared.Name_Lists.Table (Indx);
@@ -1458,7 +1458,7 @@ package body Gprbuild.Post_Compile is
          if Name /= No_Name then
             Put_Line
               (Exchange_File,
-               Library_Label (Label) & ASCII.LF & Get_Name_String_Safe (Name));
+               Library_Label (Label) & ASCII.LF & Get_Name_String (Name));
          end if;
       end Write_Name;
 
@@ -1617,7 +1617,7 @@ package body Gprbuild.Post_Compile is
                         Put_Line
                           (Exchange_File,
                            Get_Name_String (List.Name) & ASCII.LF
-                           & Get_Name_String_Safe (Nam_Nod.Name));
+                           & Get_Name_String (Nam_Nod.Name));
                      end if;
 
                      Lib_Dirs := Nam_Nod.Next;
@@ -1823,7 +1823,7 @@ package body Gprbuild.Post_Compile is
                               Put_Line
                                 (Exchange_File,
                                  "-L"
-                                 & Get_Name_String_Safe (P.Library_Dir.Name));
+                                 & Get_Name_String (P.Library_Dir.Name));
                            end if;
 
                            loop
@@ -2230,7 +2230,7 @@ package body Gprbuild.Post_Compile is
                      Get_Name_String
                        (Library_Projs (J).Proj.Library_Dir.Display_Name)
                      & ASCII.LF
-                     & Get_Name_String_Safe
+                     & Get_Name_String
                        (Library_Projs (J).Proj.Library_Name));
                end if;
             end loop;
@@ -2338,7 +2338,7 @@ package body Gprbuild.Post_Compile is
             Put_Line
               (Exchange_File,
                Library_Label (Mapping_File) & ASCII.LF
-               & Get_Name_String_Safe (Mapping_Path));
+               & Get_Name_String (Mapping_Path));
          end if;
       end Write_Mapping_File;
 
@@ -3191,7 +3191,7 @@ package body Gprbuild.Post_Compile is
          Put_Line
            (Exchange_File,
             Library_Label (Library_Name) & ASCII.LF
-            & Get_Name_String_Safe (For_Project.Library_Name));
+            & Get_Name_String (For_Project.Library_Name));
 
          --  Library version
 
@@ -3202,12 +3202,12 @@ package body Gprbuild.Post_Compile is
          Put_Line
            (Exchange_File,
             Library_Label (Library_Directory) & ASCII.LF
-            & Get_Name_String_Safe (For_Project.Library_Dir.Display_Name)
+            & Get_Name_String (For_Project.Library_Dir.Display_Name)
             & ASCII.LF
 
             --  Project directory
             & Library_Label (Project_Directory) & ASCII.LF
-            & Get_Name_String_Safe (For_Project.Directory.Display_Name));
+            & Get_Name_String (For_Project.Directory.Display_Name));
 
          if For_Project.Library_ALI_Dir /= No_Path_Information
            and then
@@ -3216,7 +3216,7 @@ package body Gprbuild.Post_Compile is
             Put_Line
               (Exchange_File,
                Library_Label (Library_Dependency_Directory) & ASCII.LF
-               & Get_Name_String_Safe
+               & Get_Name_String
                  (For_Project.Library_ALI_Dir.Display_Name));
          end if;
 
@@ -3370,7 +3370,7 @@ package body Gprbuild.Post_Compile is
 
                Put_Line
                  (Exchange_File, Library_Label (Copy_Source_Dir) & ASCII.LF
-                  & Get_Name_String_Safe
+                  & Get_Name_String
                       (For_Project.Library_Src_Dir.Display_Name));
 
                Write_Sources;
@@ -3713,7 +3713,7 @@ package body Gprbuild.Post_Compile is
          Main_File            : Main_Info;
          Main_Id              : File_Name_Type;
          B_Data               : Binding_Data);
-      --  Do the "binding" phase for the language describeb in B_Data
+      --  Do the "binding" phase for the language described in B_Data
 
       procedure Add_Dependency_Files
         (For_Project : Project_Id;
@@ -4410,7 +4410,7 @@ package body Gprbuild.Post_Compile is
                      Put_Line
                        (Exchange_File,
                         Binding_Label (Gprexch.Mapping_File) & ASCII.LF
-                        & Get_Name_String_Safe (Mapping_Path));
+                        & Get_Name_String (Mapping_Path));
                   end if;
                end;
             end if;
@@ -4424,7 +4424,7 @@ package body Gprbuild.Post_Compile is
                Put_Line
                  (Exchange_File,
                   Binding_Label (Toolchain_Version) & ASCII.LF
-                  & Get_Name_String_Safe (B_Data.Language.Name));
+                  & Get_Name_String (B_Data.Language.Name));
 
                if B_Data.Language.Config.Runtime_Library_Version /= No_Name
                then
@@ -4458,7 +4458,7 @@ package body Gprbuild.Post_Compile is
                   Put_Line
                     (Exchange_File,
                      Get_Name_String (Lang_Index.Name) & ASCII.LF
-                     & Get_Name_String_Safe
+                     & Get_Name_String
                        (Lang_Index.Config.Object_File_Suffix));
                end if;
 
@@ -4476,7 +4476,7 @@ package body Gprbuild.Post_Compile is
             Put_Line
               (Exchange_File,
                Binding_Label (Gprexch.Main_Base_Name) & ASCII.LF
-               & Get_Name_String_Safe (Main_Base_Name_Index));
+               & Get_Name_String (Main_Base_Name_Index));
 
             --  Then, the compiler path and required switches
 
@@ -4534,7 +4534,7 @@ package body Gprbuild.Post_Compile is
                Put_Line
                  (Exchange_File,
                   Binding_Label (Main_Dependency_File) & ASCII.LF
-                  & Get_Name_String_Safe (Main_Source.Dep_Path));
+                  & Get_Name_String (Main_Source.Dep_Path));
             end if;
 
             --  Add the relevant dependency files, either those in
@@ -4760,7 +4760,7 @@ package body Gprbuild.Post_Compile is
                --  The main project file is always the first one, so that
                --  gprbind may know the main project dir.
 
-               & Get_Name_String_Safe (Main_Proj.Path.Display_Name) & ASCII.LF
+               & Get_Name_String (Main_Proj.Path.Display_Name) & ASCII.LF
                & Get_Project_Checkline (Main_Proj));
 
             Proj_List := Main_Proj.All_Imported_Projects;
@@ -5147,6 +5147,9 @@ package body Gprbuild.Post_Compile is
                                               Main_File.Source.Language.Config
                                               .Multi_Unit_Object_Separator);
 
+                  Main_Src_Lang_Config_Driver : constant File_Name_Type
+                    := Main_File.Source.Language.Config.Compiler_Driver;
+
                   Main_Proj : constant Project_Id :=
                                 Ultimate_Extending_Project_Of
                                   (Main_File.Source.Project);
@@ -5155,6 +5158,7 @@ package body Gprbuild.Post_Compile is
                begin
                   while B_Data /= null loop
                      if B_Data.Language.Config.Compiler_Driver /= Empty_File
+                       and then Main_Src_Lang_Config_Driver /= Empty_File
                      then
                         Wait_For_Slots_Less_Than (Opt.Maximum_Binders);
                         exit when Stop_Spawning;

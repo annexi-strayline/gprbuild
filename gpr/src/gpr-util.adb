@@ -4364,7 +4364,7 @@ package body GPR.Util is
 
          if Source.Object_TS = Empty_Time_Stamp then
             Source.Object_TS :=
-              File_Stamp (Get_Name_String_Safe (Source.Object_Path));
+              File_Stamp (Get_Name_String (Source.Object_Path));
          end if;
 
          if Source.Object_TS = Empty_Time_Stamp then

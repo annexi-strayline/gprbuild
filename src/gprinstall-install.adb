@@ -889,7 +889,7 @@ package body Gprinstall.Install is
       function Cat
         (Dir : Path_Name_Type; File : File_Name_Type) return String is
       begin
-         return Get_Name_String (Dir) & Get_Name_String_Safe (File);
+         return Get_Name_String (Dir) & Get_Name_String (File);
       end Cat;
 
       ---------------
@@ -1535,7 +1535,7 @@ package body Gprinstall.Install is
                   if Lib_Dir /= Exec_Dir then
                      Copy_File
                        (From          => Lib_Dir
-                        & Get_Name_String_Safe (Get_Library_Filename),
+                        & Get_Name_String (Get_Library_Filename),
                         To            => Exec_Dir,
                         File          =>
                           Get_Name_String (Get_Library_Filename),
@@ -1547,14 +1547,14 @@ package body Gprinstall.Install is
                   if On_Windows then
                      Copy_File
                        (From       => Lib_Dir
-                          & Get_Name_String_Safe (Get_Library_Filename),
+                          & Get_Name_String (Get_Library_Filename),
                         To         => Link_Lib_Dir,
                         File       => Get_Name_String (Get_Library_Filename),
                         Sym_Link   => False);
                   else
                      Copy_File
                        (From       => Link_Lib_Dir
-                          & Get_Name_String_Safe (Get_Library_Filename),
+                          & Get_Name_String (Get_Library_Filename),
                         To         => Lib_Dir,
                         File       => Get_Name_String (Get_Library_Filename),
                         Sym_Link   => True);
@@ -1912,7 +1912,7 @@ package body Gprinstall.Install is
                   V : constant Variable := Vels (Vars);
                begin
                   if V.Value.Kind in Single | List then
-                     Write_Str ("   " & Get_Name_String_Safe (V.Name));
+                     Write_Str ("   " & Get_Name_String (V.Name));
                      Write_Str
                        (To_String
                           ((Max_Len - Get_Name_String (V.Name)'Length) * ' '));
@@ -2192,8 +2192,8 @@ package body Gprinstall.Install is
             E : constant Array_Element :=
                   Tree.Shared.Array_Elements.Table (Id);
          begin
-            return "for " & Get_Name_String_Safe (Name)
-              & " ("""  & Get_Name_String_Safe (E.Index)
+            return "for " & Get_Name_String (Name)
+              & " ("""  & Get_Name_String (E.Index)
               & """) use " & Image (E.Value);
          end Image;
 
@@ -2203,7 +2203,7 @@ package body Gprinstall.Install is
             if V.Default then
                return "";
             else
-               return "for " & Get_Name_String_Safe (Vels (Id).Name) & " use "
+               return "for " & Get_Name_String (Vels (Id).Name) & " use "
                  & Image (V);
             end if;
          end Image;
@@ -2212,7 +2212,7 @@ package body Gprinstall.Install is
          begin
             case Var.Kind is
                when Single =>
-                  return '"' & Get_Name_String_Safe (Var.Value) & '"'
+                  return '"' & Get_Name_String (Var.Value) & '"'
                     & (if Var.Index = 0 then "" else " at" & Var.Index'Img)
                     & ';';
 
@@ -2382,7 +2382,7 @@ package body Gprinstall.Install is
                      Opts_Append
                        ("-L" & Get_Name_String (L.Project.Library_Dir.Name));
                      Opts_Append
-                       ("-l" & Get_Name_String_Safe (L.Project.Library_Name));
+                       ("-l" & Get_Name_String (L.Project.Library_Name));
                   end if;
 
                   L := L.Next;
@@ -2848,7 +2848,7 @@ package body Gprinstall.Install is
             end if;
 
             Line := Line & "project ";
-            Line := Line & Get_Name_String_Safe (Project.Display_Name);
+            Line := Line & Get_Name_String (Project.Display_Name);
             Line := Line & " is";
             Content.Append (-Line);
 
@@ -2890,7 +2890,7 @@ package body Gprinstall.Install is
                if Project.Library then
                   Content.Append
                     ("   for Library_Name use """
-                     & Get_Name_String_Safe (Project.Library_Name)
+                     & Get_Name_String (Project.Library_Name)
                      & """;");
 
                   --  Issue the Library_Version only if needed
@@ -2901,7 +2901,7 @@ package body Gprinstall.Install is
                   then
                      Content.Append
                        ("   for Library_Version use """
-                        & Get_Name_String_Safe (Project.Lib_Internal_Name)
+                        & Get_Name_String (Project.Lib_Internal_Name)
                         & """;");
                   end if;
                end if;
@@ -2943,7 +2943,7 @@ package body Gprinstall.Install is
             --  Close project
 
             Content.Append
-              ("end " & Get_Name_String_Safe (Project.Display_Name) & ";");
+              ("end " & Get_Name_String (Project.Display_Name) & ";");
          end if;
 
          --  Write new project if needed
