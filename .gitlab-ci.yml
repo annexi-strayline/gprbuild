@@ -19,6 +19,15 @@ build:
     paths:
       - gprbuild.tar.gz
 
+debug_build:
+  extends: .job_template
+  stage: build
+  script:
+
+    # build gprbuild in debug mode without rebuilding dependencies,
+    # so we can catch coding style errors.
+    - anod build gprbuild -Qdbg
+  
 test_gprbuild:
   extends: .test_template
   script:
