@@ -1116,9 +1116,9 @@ package body Gprbuild.Compile is
             Proj      : constant Project_Id :=
                           Ultimate_Extending_Project_Of (For_Source.Project);
             File_Path : constant String :=
-                          Get_Name_String_Safe (Proj.Object_Directory.Name)
+                          Get_Name_String (Proj.Object_Directory.Name)
                           & Directory_Separator
-                          & Get_Name_String_Safe (For_Source.File);
+                          & Get_Name_String (For_Source.File);
          begin
             Display_Content (Standard_Output, File_Path & ".stdout");
             Display_Content (Standard_Error, File_Path & ".stderr");

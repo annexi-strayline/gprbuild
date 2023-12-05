@@ -1106,7 +1106,7 @@ procedure Gprlib is
                begin
                   Tempdir.Create_Temp_File (FD, Path);
                   Record_Temp_File (null, Path);
-                  Args.Append ("@" & Get_Name_String_Safe (Path));
+                  Args.Append ("@" & Get_Name_String (Path));
 
                   for Arg of Bind_Options loop
 

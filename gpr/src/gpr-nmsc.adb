@@ -8891,7 +8891,7 @@ package body GPR.Nmsc is
                         Debug_Indent;
                         Write_Str ("removing file ");
                         Write_Line
-                          (Get_Name_String (Excluded.File)
+                          (Get_Name_String_Safe (Excluded.File)
                            & " " & Get_Name_String_Safe (Source.Project.Name));
                      end if;
 
