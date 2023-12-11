@@ -1009,7 +1009,9 @@ package body GPR.Conf is
          end if;
 
          declare
-            Obj_Dir         : constant String := Name_Buffer (1 .. Name_Len);
+            Obj_Dir         : constant String :=
+                                Normalize_Pathname
+                                  (Name_Buffer (1 .. Name_Len));
             Config_Switches : Argument_List_Access;
             Db_Switches     : Argument_List_Access;
             Args            : Argument_List (1 .. 7);
