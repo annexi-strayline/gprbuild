@@ -944,7 +944,6 @@ package body GPR.Conf is
          Name_Len := 0;
 
          if Obj_Dir.Value = No_Name or else Obj_Dir.Default then
-
             if Build_Tree_Dir /= null then
                Add_Str_To_Name_Buffer (Build_Tree_Dir.all);
 
