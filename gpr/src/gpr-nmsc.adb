@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2000-2022, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2023, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -857,8 +857,7 @@ package body GPR.Nmsc is
                   Error_Msg
                     (Data.Flags,
                      "%% is already a source of project %%",
-                     Location,
-                     Project);
+                     Location, Project);
 
                   Add_Src := False;
                else
@@ -7086,7 +7085,7 @@ package body GPR.Nmsc is
 
       declare
          Full_Path_Name : String_Access :=
-           new String'(Get_Name_String (Full_Name));
+           new String'(Normalize_Pathname (Get_Name_String (Full_Name)));
       begin
          --  We may proceed with directory creation depending on the value
          --  of Create_Dirs: if it is set to Create_All_Dirs, or if the dir

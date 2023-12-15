@@ -944,7 +944,6 @@ package body GPR.Conf is
          Name_Len := 0;
 
          if Obj_Dir.Value = No_Name or else Obj_Dir.Default then
-
             if Build_Tree_Dir /= null then
                Add_Str_To_Name_Buffer (Build_Tree_Dir.all);
 
@@ -1010,7 +1009,9 @@ package body GPR.Conf is
          end if;
 
          declare
-            Obj_Dir         : constant String := Name_Buffer (1 .. Name_Len);
+            Obj_Dir         : constant String :=
+                                Normalize_Pathname
+                                  (Name_Buffer (1 .. Name_Len));
             Config_Switches : Argument_List_Access;
             Db_Switches     : Argument_List_Access;
             Args            : Argument_List (1 .. 7);
