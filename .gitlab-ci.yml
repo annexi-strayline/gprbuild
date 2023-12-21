@@ -40,3 +40,16 @@ test_gprbuild:
       - testgprbuild_result.xml
     reports:
       junit: testgprbuild_result.xml
+
+test_gpr2ls:
+  extends: .test_template
+  script:
+    - install_packages gnatall
+    - run_testsuite gprbuild "-Qcheck-gpr2ls" test_gpr2ls
+  artifacts:
+    when:
+      always
+    paths:
+      - testgpr2ls_result.xml
+    reports:
+      junit: testgpr2ls_result.xml
