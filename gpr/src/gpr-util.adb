@@ -5465,9 +5465,7 @@ package body GPR.Util is
                            if (Opt.Minimal_Recompilation
                                and then ALI.Sdep.Table (D).Stamp
                                         /= Dep_Src.Source_TS)
-                             or else
-                             (ALI.Sdep.Table (D).Stamp = Dep_Src.Source_TS
-                              and then Opt.Checksum_Recompilation)
+                             or else Opt.Checksum_Recompilation
                            then
                               --  If minimal recompilation is in action,
                               --  replace the stamp of the source file in
@@ -5482,9 +5480,15 @@ package body GPR.Util is
                                        Put
                                          (Get_Name_String_Safe
                                             (ALI.Sdep.Table (D).Sfile));
-                                       Put (": up to date, " &
-                                              "different timestamps " &
-                                              "but same checksum");
+                                       Put (": up to date, ");
+                                       if ALI.Sdep.Table (D).Stamp
+                                         /= Dep_Src.Source_TS
+                                       then
+                                          Put ("different timestamps but ");
+                                       else
+                                          Put ("same timestamps and ");
+                                       end if;
+                                       Put ("same checksum");
                                        New_Line;
                                     end if;
 
@@ -5498,8 +5502,7 @@ package body GPR.Util is
                                          (Get_Name_String_Safe
                                             (ALI.Sdep.Table (D).Sfile));
                                        Put_Line
-                                         (": changed, same timestamp but"
-                                          & " different checksums");
+                                         (": changed, different checksums");
                                     end if;
 
                                     return True;
