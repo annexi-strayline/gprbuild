@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2017-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2017-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -23,7 +23,6 @@
 ------------------------------------------------------------------------------
 
 with Ada.Command_Line;                       use Ada.Command_Line;
-with Ada.Containers.Indefinite_Ordered_Sets;
 with Ada.Directories;
 with Ada.Environment_Variables;              use Ada.Environment_Variables;
 with Ada.Strings.Unbounded;
@@ -31,7 +30,6 @@ with Ada.Text_IO;
 
 with GNAT.Regpat;               use GNAT.Regpat;
 with GNAT.Sockets;
-with GNAT.IO_Aux;
 
 with GPR.Names; use GPR.Names;
 with GPR.Opt;   use GPR.Opt;
@@ -55,7 +53,7 @@ package body GPR.Util.Aux is
       use Ada.Text_IO;
       use type Ada.Containers.Count_Type;
 
-      package Syms_List is new Containers.Indefinite_Ordered_Sets (String);
+      package Syms_List renames String_Sets;
 
       procedure Get_Syms (Object_File : String);
       --  Read exported symbols from Object_File and add them into Syms
@@ -108,8 +106,7 @@ package body GPR.Util.Aux is
 
             while not End_Of_File (File) loop
                declare
-                  use GNAT;
-                  Buffer : constant String := IO_Aux.Get_Line (File);
+                  Buffer : constant String := Get_Line (File);
                begin
                   Match (Pattern, Buffer, Matches);
 
@@ -189,7 +186,7 @@ package body GPR.Util.Aux is
 
       Create_Export_File : declare
          File_Name : Path_Name_Type;
-         Success   : Boolean with Unreferenced;
+         Success   : Boolean;
       begin
          --  Create (Export_File, Out_File);
 
@@ -250,6 +247,14 @@ package body GPR.Util.Aux is
            (Get_Name_String (File_Name),
             Get_Name_String (Export_File_Name),
             Success);
+
+         if not Success then
+            Fail_Program
+              (null,
+               "couldn't create an export file " &
+               Get_Name_String (Export_File_Name));
+         end if;
+
       end Create_Export_File;
    end Create_Export_Symbols_File;
 
@@ -451,7 +456,7 @@ package body GPR.Util.Aux is
                      else User.all)
                     & '@' & GNAT.Sockets.Host_Name;
 
-      package S_Set is new Containers.Indefinite_Ordered_Sets (String);
+      package S_Set renames String_Sets;
 
       Set : S_Set.Set;
       Ctx : Context;
@@ -558,7 +563,8 @@ package body GPR.Util.Aux is
             else
                Fail_Program
                  (Project_Tree,
-                  "hosts distributed file " & F_Name & " not found");
+                  "hosts distributed file " & F_Name & " not found",
+                  Exit_Code => E_General);
             end if;
          end;
       end if;

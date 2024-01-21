@@ -280,7 +280,7 @@ file names or patterns for the roots of these undesirable directory subtrees.
       for Ignore_Source_Sub_Dirs use (".svn", "@*");
 
 With the declaration of attribute Ignore_Source_Sub_Dirs above, .svn subtrees
-as weel as subtrees rooted at subdirectories with a name starting with '@'
+as well as subtrees rooted at subdirectories with a name starting with '@'
 are not part of the source directories of the project.
 
 When applied to the simple example, and because we generally prefer to have
@@ -499,8 +499,10 @@ semantics of the languages to build and link only the necessary elements.
 .. index:: Main attribute
 
 The list of main files is specified via the **Main** attribute. It contains
-a list of file names (no directories). If a project defines this
-attribute, it is not necessary to identify  main files on the
+a list of file names (no directories). If a file name is specified without
+extension, it is completed using the naming convention defined in the package
+Naming. If a project defines this
+attribute, it is not necessary to identify main files on the
 command line when invoking a builder, and editors like
 *GPS* will be able to create extra menus to spawn or debug the
 corresponding executables.
@@ -991,6 +993,32 @@ The following attributes can be defined in package `Naming`:
   However, it might become useful when a project is also used to
   find the list of source files in an editor, like the GNAT Programming System
   (GPS).
+
+  .. note::
+
+    Attributes ``Body_Suffix`` and ``Spec_Suffix`` have case-insensitive values.
+    This means different languages should not share the same attribute value in a single project.
+
+    For instance :
+
+    .. code-block:: gpr
+
+      package Naming is
+        for Body_Suffix ("c") use ".c";
+        for Body_Suffix ("c++") use ".C";
+        for Spec_Suffix ("c") use ".h";
+        for Spec_Suffix ("c++") use ".H";
+      end Naming;
+
+    will result in :
+
+    .. code-block:: gpr
+
+      Body_Suffix (".c") for language c is also defined for language c++.
+      Spec_Suffix (".h") for language c is also defined for language c++.
+
+    In that case, having each language inside its own project and individually imported to a master
+    project allows such project architecture.
 
 .. index:: Separate_Suffix attribute
 
@@ -1491,7 +1519,7 @@ order of priority):
 
 **Tool mode**:
   In the special case of the ``GPR_TOOL`` variable, if its value has not been
-  specified via the commandline or as an environment variable, the various
+  specified via the command line or as an environment variable, the various
   tools set this variable to a value proper to each tool. gprbuild sets this
   value to ``gprbuild``. See the documentation of other tools to find out which
   value they set this variable to.
@@ -2652,10 +2680,12 @@ once.
 
 .. index:: -j
 
-Since there is no ambiguity as to which switches should be used, files
-can be compiled in parallel (through the usual :option:`-j` switch) and
-this can be done while maximizing the use of CPUs (compared to launching
-multiple *GPRbuild* commands in parallel).
+Since there is no ambiguity as to which switches should be used, individual
+compilations, binds and links can be performed in parallel (through the usual
+:option:`-j` switch) and this can be done while maximizing the use of CPUs
+(compared to launching multiple *GPRbuild* commands in parallel). The -j
+option can control parallelization of compilation, binding, and linking
+separately with -jc, -jb, and -jl variants accordingly.
 
 
 .. _Syntax_of_aggregate_projects:
@@ -2700,9 +2730,8 @@ attribute value is just ignored by the compilation toolchain, for which every
 artifact of interest is best associated with the leaf non aggregate projects
 and stored in the corresponding ``Object_Dir``.
 
-The only package that is allowed (and optional) is
-``Builder``. Other packages (in particular ``Compiler``, ``Binder`` and ``Linker``)
-are forbidden.
+The package ``Naming`` and packages that control the compilation process
+(``Compiler``, ``Binder``, ``Linker`` and ``Install``) are forbidden.
 
 The following three attributes can be used only in an aggregate project:
 
@@ -2897,9 +2926,8 @@ The following three attributes can be used only in an aggregate project:
 package Builder in aggregate projects
 -------------------------------------
 
-As mentioned above, only the package ``Builder`` can be specified in
-an aggregate project. In this package, only the following attributes
-are valid:
+When used in an aggregate project, only the following attributes of this
+package are valid:
 
 .. index:: Switches attribute
 
@@ -4223,7 +4251,7 @@ Project Level Attributes
 
     The path name of the project directory.
 
-  * **Main**: list, optional index
+  * **Main**: list
 
     The list of main sources for the executables.
 
@@ -4248,6 +4276,10 @@ Project Level Attributes
     Indicates if the project is externally built.
     Only case-insensitive values allowed are "true" and "false", the default.
 
+  * **Warning_Message**: single
+
+    Causes gprbuild to emit a user-defined warning message.
+
 * **Directories**
 
   * **Object_Dir**: single
@@ -4262,7 +4294,7 @@ Project Level Attributes
   * **Create_Missing_Dirs**: single
 
     Indicates if the missing object, library and executable directories should
-    be created automatically by the project-aware tool.  Taken into account
+    be created automatically by the project-aware tool. Taken into account
     only in the main project. Only authorized case-insensitive values are
     "true" and "false".
 
@@ -4742,6 +4774,7 @@ Package Clean Attributes
 
 * **Switches**: list, configuration concatenable
 
+  Taken into account only in the main project.
   Value is a list of switches to be used by the cleaning application.
 
 * **Source_Artifact_Extensions**: list, indexed, case-insensitive index
@@ -4839,12 +4872,6 @@ Package Compiler Attributes
     Index is a language name. Value is the list of switches to be used when
     compiling a source of the language when the project is a shared library
     project.
-
-  * **Path_Syntax**: single, indexed, case-insensitive index
-
-    Index is a language name. Value is the kind of path syntax to be used when
-    invoking the compiler for the language. Only authorized case-insensitive
-    values are "canonical" and "host" (the default).
 
   * **Source_File_Switches**: single, indexed, case-insensitive index
     configuration concatenable
@@ -5039,25 +5066,6 @@ Please refer to GNATdoc documentation for the list of supported attributes and
 their meaning.
 
 
-.. _Package_Eliminate_Attributes:
-
-Package Eliminate Attributes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Default_Switches**: list, indexed, case-insensitive index,
-  configuration concatenable
-
-  Index is a language name. Value is a list of switches to be used when invoking
-  `gnatelim` for a source of the language, if there is no applicable
-  attribute Switches.
-
-* **Switches**: list, optional index, indexed, case-insensitive index,
-  others allowed, configuration concatenable
-
-  Index is a source file name. Value is the list of switches to be used when
-  invoking `gnatelim` for the source.
-
-
 .. _Package_Finder_Attributes:
 
 Package Finder Attributes
@@ -5084,6 +5092,7 @@ Package Gnatls Attributes
 
 * **Switches**: list
 
+  Taken into account only in the main project.
   Value is a list of switches to be used when invoking `gnatls`.
 
 
@@ -5245,6 +5254,12 @@ Package Linker Attributes
     Value is the switch to specify the map file name that the linker needs to
     create.
 
+  * **Unconditionally_Linked**: single, indexed, case-insensitive index
+
+    Index is a language name. Indicates that all object files of this language
+    going to be linked unconditionally. Only case-insensitive values allowed
+    are "true" and "false", the default.
+
 * **Configuration - Linking**
 
   * **Driver**: single
@@ -5297,19 +5312,35 @@ Package Naming Attributes
 
   Equivalent to attribute Spec_Suffix.
 
+  .. warning::
+
+    Also has case-insensitive values in gprbuild and GNATcool.Project-based tools
+
 * **Spec_Suffix**: single, indexed, case-insensitive index
 
   Index is a language name. Value is the extension of file names for specs of
   the language.
 
+  .. warning::
+
+    Also has case-insensitive values in gprbuild and GNATcool.Project-based tools
+
 * **Implementation_Suffix**: single, indexed, case-insensitive index
 
   Equivalent to attribute Body_Suffix.
+
+  .. warning::
+
+    Also has case-insensitive values in gprbuild and GNATcool.Project-based tools
 
 * **Body_Suffix**: single, indexed, case-insensitive index
 
   Index is a language name. Value is the extension of file names for bodies of
   the language.
+
+  .. warning::
+
+    Also has case-insensitive values in gprbuild and GNATcool.Project-based tools
 
 * **Separate_Suffix**: single
 
@@ -5412,6 +5443,7 @@ Package Stack Attributes
 
 * **Switches**: list, configuration concatenable
 
+  Taken into account only in the main project.
   Value is the list of switches to be used when invoking `gnatstack`.
 
 
@@ -5429,6 +5461,78 @@ Package Synchronize Attributes
 
   Index is a source file name. Value is the list of switches to be used when
   invoking `gnatsync` for the source.
+
+
+.. index:: environment_variables
+
+.. _Environment_Variables:
+
+Environment Variables
+---------------------
+
+Project processing can be affected by environment variables.
+
+* **GPR_CONFIG**
+
+  When declared with a non empty name, use its value as the default
+  configuration project file name in native platforms, instead of
+  "default.cgpr".
+
+* **GPR_RUNTIME_PATH**
+
+  Path where to look for a non empty runtime directory.
+
+* **PATH**
+
+  The path, that may be modified to add the directories related to the
+  compilers.
+
+* **GPR_PROJECT_PATH_FILE**
+
+  The path to a file containing project directory path names
+
+* **GPR_PROJECT_PATH**
+
+  The path where to look for projects
+
+* **ADA_PROJECT_PATH**
+
+  The path where to look for projects
+
+* **TMPDIR**
+
+  Directories where to create temporary files
+
+* **TEMP**
+
+  Directories where to create temporary files
+
+* **TMP**
+
+  Directories where to create temporary files
+
+* **GPR_VERBOSITY**
+
+  Value for the quiet mode or the verbosity level.
+  Overriden with switches -q, -v and -vP?
+
+* **USER**
+
+  Used to communicate with a slave in distributed gprbuild.
+
+* **USERNAME**
+
+  Used to communicate with a slave in distributed gprbuild.
+
+* **GPRBIND_DEBUG**
+
+  When value is "TRUE", keep a copy of the binder exchange file sent to
+  gprbind as main.bexch__saved
+
+* **GPRLIB_DEBUG**
+
+  When value is "TRUE", keep a copy of the library exchange file sent to
+  gprlib as main.lexch__saved
 
 
 .. _Project_File_Glossary:

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -31,6 +31,8 @@ with GPR.Cset;   use GPR.Cset;
 with GPR.Output; use GPR.Output;
 with GPR.Debug;
 
+with GNAT.Case_Util;
+
 package body GPR.Names is
 
    --  This table stores the actual string names. Although logically there is
@@ -49,7 +51,7 @@ package body GPR.Names is
    subtype Hash_Index_Type is Int range 0 .. Hash_Max;
    --  Range of hash index values
 
-   Hash_Table : array (Hash_Index_Type) of Name_Id;
+   Hash_Table : array (Hash_Index_Type) of Name_Id := (others => No_Name);
    --  The hash table is used to locate existing entries in the names table.
    --  The entries point to the first names table entry whose hash value
    --  matches the hash code. Then subsequent names table entries with the
@@ -144,6 +146,27 @@ package body GPR.Names is
       return Character'Val (C);
    end Get_Character;
 
+   -----------------------
+   -- Get_Lower_Name_Id --
+   -----------------------
+
+   function Get_Lower_Name_Id (Name : String) return Name_Id is
+   begin
+      Set_Name_Buffer (Name);
+      GNAT.Case_Util.To_Lower (Name_Buffer (1 .. Name_Len));
+      return Name_Find;
+   end Get_Lower_Name_Id;
+
+   -----------------
+   -- Get_Name_Id --
+   -----------------
+
+   function Get_Name_Id (Name : String) return Name_Id is
+   begin
+      Set_Name_Buffer (Name);
+      return Name_Find;
+   end Get_Name_Id;
+
    -------------------
    -- Get_Char_Code --
    -------------------
@@ -227,6 +250,25 @@ package body GPR.Names is
       return Get_Name_String (Name_Id (Id));
    end Get_Name_String;
 
+   --------------------------
+   -- Get_Name_String_Safe --
+   --------------------------
+
+   --  Function version returning a string
+
+   function Get_Name_String_Safe (Id : Name_Id) return String is
+     (if Is_Valid_Name (Id) then Name_Entries (Id).Value else "<invalid_id>");
+
+   function Get_Name_String_Safe (Id : File_Name_Type) return String is
+   begin
+      return Get_Name_String_Safe (Name_Id (Id));
+   end Get_Name_String_Safe;
+
+   function Get_Name_String_Safe (Id : Path_Name_Type) return String is
+   begin
+      return Get_Name_String_Safe (Name_Id (Id));
+   end Get_Name_String_Safe;
+
    --------------------------------
    -- Get_Name_String_And_Append --
    --------------------------------
@@ -245,6 +287,16 @@ package body GPR.Names is
       if Debug.Debug_Flag_A then
          Put_Line (" Found: '" & Name_Entries (Id).Value & "' >>>>");
       end if;
+   end Get_Name_String_And_Append;
+
+   procedure Get_Name_String_And_Append (Id : File_Name_Type) is
+   begin
+      Get_Name_String_And_Append (Name_Id (Id));
+   end Get_Name_String_And_Append;
+
+   procedure Get_Name_String_And_Append (Id : Path_Name_Type) is
+   begin
+      Get_Name_String_And_Append (Name_Id (Id));
    end Get_Name_String_And_Append;
 
    -------------------------
@@ -346,7 +398,7 @@ package body GPR.Names is
         ((Name_Len  => Name_Len,
           Value     => Name_Buffer (1 .. Name_Len),
           Int_Info  => 0,
-          Hash_Link => No_Name));
+          Hash_Link => No_Name), 1);
 
       if Debug.Debug_Flag_A then
          Put_Line ("<<<< Appending: '" & Name_Buffer (1 .. Name_Len) &
@@ -409,7 +461,7 @@ package body GPR.Names is
         ((Name_Len  => Name_Len,
           Value     => Name_Buffer (1 .. Name_Len),
           Hash_Link => No_Name,
-          Int_Info  => 0));
+          Int_Info  => 0), 1);
 
       if Debug.Debug_Flag_A then
          Put_Line ("<<<< Appending: '" & Name_Buffer (1 .. Name_Len) &
@@ -448,16 +500,11 @@ package body GPR.Names is
    procedure Set_Casing (C : Casing_Type) is
       Ptr : Natural;
 
-      Actual_Casing : Casing_Type;
-      --  Set from C or D as appropriate
-
       After_Und : Boolean := True;
       --  True at start of string, and after an underline character or after
       --  any other special character that is not a normal identifier char).
 
    begin
-      Actual_Casing := C;
-
       Ptr := 1;
 
       while Ptr <= Name_Len loop
@@ -473,8 +520,8 @@ package body GPR.Names is
          --  Lower case letter
 
          elsif Is_Lower_Case_Letter (Name_Buffer (Ptr)) then
-            if Actual_Casing = All_Upper_Case
-              or else (After_Und and then Actual_Casing = Mixed_Case)
+            if C = All_Upper_Case
+              or else (After_Und and then C = Mixed_Case)
             then
                Name_Buffer (Ptr) := Fold_Upper (Name_Buffer (Ptr));
             end if;
@@ -485,8 +532,8 @@ package body GPR.Names is
          --  Upper case letter
 
          elsif Is_Upper_Case_Letter (Name_Buffer (Ptr)) then
-            if Actual_Casing = All_Lower_Case
-              or else (not After_Und and then Actual_Casing = Mixed_Case)
+            if C = All_Lower_Case
+              or else (not After_Und and then C = Mixed_Case)
             then
                Name_Buffer (Ptr) := Fold_Lower (Name_Buffer (Ptr));
             end if;
@@ -595,7 +642,8 @@ package body GPR.Names is
    begin
       pragma Assert
         (Is_Valid_Name (Id),
-         Id'Img & Name_Entries.First_Index'Img & Name_Entries.Last_Index'Img);
+         "invalid id" & Id'Img
+         & Name_Entries.First_Index'Img & Name_Entries.Last_Index'Img);
 
       Get_Name_String (Id);
       Write_Str (Name_Buffer (1 .. Name_Len));
@@ -627,12 +675,5 @@ package body GPR.Names is
          Write_Str (" (body)");
       end if;
    end Write_Unit_Name;
-
-begin
-   --  Clear hash table
-
-   for J in Hash_Index_Type loop
-      Hash_Table (J) := No_Name;
-   end loop;
 
 end GPR.Names;

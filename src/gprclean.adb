@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2020, AdaCore                     --
+--                     Copyright (C) 2006-2023, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -17,10 +17,9 @@
 ------------------------------------------------------------------------------
 
 with Ada.Directories;           use Ada.Directories;
-with Ada.Text_IO;
+with Ada.Text_IO;               use Ada.Text_IO;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with GNAT.IO;                   use GNAT.IO;
 with GNAT.Regexp;               use GNAT.Regexp;
 
 with Gprexch;        use Gprexch;
@@ -92,7 +91,8 @@ package body Gprclean is
       --  The name of the archive file for this project
 
       Archive_Dep_Name : constant String :=
-                           "lib" & Get_Name_String (Project.Name) & ".deps";
+                           "lib" & Get_Name_String (Project.Name)
+                           & ".deps";
       --  The name of the archive dependency file for this project
 
       Obj_Dir     : constant String :=
@@ -508,9 +508,8 @@ package body Gprclean is
          Node := Project_Tree.Shared.Name_Lists.Table (List);
 
          declare
-            Artifact : constant String :=
-              Object (Object'First .. Last - 1) & Get_Name_String (Node.Name);
-
+            Artifact : constant String := Object (Object'First .. Last - 1)
+                         & Get_Name_String (Node.Name);
          begin
             if Is_Regular_File (Artifact) then
                Delete (Directory, Artifact);
@@ -1120,17 +1119,16 @@ package body Gprclean is
          Success := False;
       end if;
 
-      if Verbose_Mode or else not Quiet_Output then
-         if not Success then
+      if not Success then
+         if not Quiet_Output then
             Put ("Warning: """);
             Put (Full_Name (1 .. Last));
             Put_Line (""" could not be deleted");
-
-         else
-            Put ("""");
-            Put (Full_Name (1 .. Last));
-            Put_Line (""" has been deleted");
          end if;
+      elsif Verbose_Mode then
+         Put ("""");
+         Put (Full_Name (1 .. Last));
+         Put_Line (""" has been deleted");
       end if;
    end Delete;
 

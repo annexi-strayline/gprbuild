@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,10 +22,12 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Strings.Unbounded;
 with Ada.Text_IO; use Ada.Text_IO;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.HTable;
+with GNAT.String_Split;
 
 with GPR.Opt;
 with GPR.Com;     use GPR.Com;
@@ -39,10 +41,6 @@ package body GPR.Env is
 
    Buffer_Initial : constant := 1_000;
    --  Initial arbitrary size of buffers
-
-   Uninitialized_Prefix : constant String := '#' & Path_Separator;
-   --  Prefix to indicate that the project path has not been initialized yet.
-   --  Must be two characters long
 
    No_Project_Default_Dir : constant String := "-";
    --  Indicator in the project path to indicate that the default search
@@ -101,6 +99,8 @@ package body GPR.Env is
       Object_Paths : in out Object_Path_Table.Instance);
    --  Add Object_Dir to object path table. Make sure it is not duplicate
    --  and it is the last one in the current table.
+
+   function To_Vector (Path : String) return Util.String_Vectors.Vector;
 
    ----------------------
    -- Ada_Include_Path --
@@ -1020,7 +1020,7 @@ package body GPR.Env is
       if Path_Name /= No_Path then
          if Current_Verbosity = High then
             Write_Line ("Create temp file (" & File_Use & ") "
-                        & Get_Name_String (Path_Name));
+                        & Get_Name_String_Safe (Path_Name));
          end if;
 
          Record_Temp_File (Shared, Path_Name);
@@ -1463,7 +1463,7 @@ package body GPR.Env is
    ----------------------
 
    function Get_Runtime_Path
-     (Self : Project_Search_Path;
+     (Self : in out Project_Search_Path;
       Name : String) return String_Access
    is
       function Find_Rts_In_Path is
@@ -1856,6 +1856,21 @@ package body GPR.Env is
       Free (Buffer);
    end Set_Ada_Paths;
 
+   ---------------
+   -- To_Vector --
+   ---------------
+
+   function To_Vector (Path : String) return Util.String_Vectors.Vector is
+      use GNAT.String_Split;
+      Result : Util.String_Vectors.Vector;
+   begin
+      for P of Create (Path, (1 => Path_Separator), Mode => Multiple) loop
+         Result.Append (P);
+      end loop;
+
+      return Result;
+   end To_Vector;
+
    ---------------------
    -- Add_Directories --
    ---------------------
@@ -1863,20 +1878,12 @@ package body GPR.Env is
    procedure Add_Directories
      (Self    : in out Project_Search_Path;
       Path    : String;
-      Prepend : Boolean := False)
-   is
-      Tmp : String_Access;
+      Prepend : Boolean := False) is
    begin
-      if Self.Path = null then
-         Self.Path := new String'(Uninitialized_Prefix & Path);
+      if Prepend then
+         Self.Path.Prepend_Vector (To_Vector (Path));
       else
-         Tmp := Self.Path;
-         if Prepend then
-            Self.Path := new String'(Path & Path_Separator & Tmp.all);
-         else
-            Self.Path := new String'(Tmp.all & Path_Separator & Path);
-         end if;
-         Free (Tmp);
+         Self.Path.Append_Vector (To_Vector (Path));
       end if;
 
       if Current_Verbosity = High then
@@ -1885,25 +1892,14 @@ package body GPR.Env is
       end if;
    end Add_Directories;
 
-   --------------------
-   -- Is_Initialized --
-   --------------------
-
-   function Is_Initialized (Self : Project_Search_Path) return Boolean is
-   begin
-      return Self.Path /= null
-        and then (Self.Path'Length = 0
-                   or else Self.Path (Self.Path'First) /= '#');
-   end Is_Initialized;
-
    ----------------------
    -- Initialize_Empty --
    ----------------------
 
    procedure Initialize_Empty (Self : in out Project_Search_Path) is
    begin
-      Free (Self.Path);
-      Self.Path := new String'("");
+      Self.Path.Clear;
+      Self.Initialized := True;
    end Initialize_Empty;
 
    -------------------------------------
@@ -1916,8 +1912,7 @@ package body GPR.Env is
       Runtime_Name : String := "")
    is
       Add_Default_Dir : Boolean := Target_Name /= "-";
-      First           : Positive;
-      Last            : Positive;
+      Index           : Positive;
 
       Ada_Project_Path      : constant String := "ADA_PROJECT_PATH";
       Gpr_Project_Path      : constant String := "GPR_PROJECT_PATH";
@@ -1933,28 +1928,6 @@ package body GPR.Env is
       --  The path name(s) of directories where project files may reside.
       --  May be empty.
 
-      Prefix  : String_Access;
-      Runtime : String_Access;
-
-      procedure Add_Target;
-      --  Add :<prefix>/<target> to the project path
-
-      ----------------
-      -- Add_Target --
-      ----------------
-
-      procedure Add_Target is
-      begin
-         Add_Str_To_Name_Buffer
-           (Path_Separator & Prefix.all & Target_Name);
-
-         --  Note: Target_Name has a trailing / when it comes from Sdefault
-
-         if Name_Buffer (Name_Len) /= '/' then
-            Add_Char_To_Name_Buffer (Directory_Separator);
-         end if;
-      end Add_Target;
-
    --  Start of processing for Initialize_Default_Project_Path
 
    begin
@@ -1966,11 +1939,8 @@ package body GPR.Env is
       --  Project_Path currently starts with '#:' as a sign that it isn't
       --  initialized, we simply replace '#' with '.'
 
-      if Self.Path = null then
-         Self.Path := new String'('.' & Path_Separator);
-      else
-         Self.Path (Self.Path'First) := '.';
-      end if;
+      Self.Path.Prepend (".");
+      Self.Initialized := True;
 
       --  Then the reset of the project path (if any) currently contains the
       --  directories added through Add_Search_Project_Directory
@@ -1987,8 +1957,6 @@ package body GPR.Env is
             Line : String (1 .. 10_000);
             Last : Natural;
 
-            Tmp : String_Access;
-
          begin
             Open (File, In_File, Gpr_Prj_Path_File.all);
 
@@ -1998,11 +1966,7 @@ package body GPR.Env is
                if Last /= 0
                  and then (Last = 1 or else Line (1 .. 2) /= "--")
                then
-                  Tmp := Self.Path;
-                  Self.Path :=
-                    new String'
-                      (Tmp.all & Path_Separator & Line (1 .. Last));
-                  Free (Tmp);
+                  Self.Path.Append (Line (1 .. Last));
                end if;
 
                if Current_Verbosity = High then
@@ -2019,7 +1983,6 @@ package body GPR.Env is
                Write_Str  (Gpr_Prj_Path_File.all);
                Write_Line ("""");
          end;
-
       end if;
 
       Free (Gpr_Prj_Path_File);
@@ -2036,160 +1999,121 @@ package body GPR.Env is
 
       Free (Ada_Prj_Path);
 
-      --  Copy to Name_Buffer, since we will need to manipulate the path
-
-      Name_Len := Self.Path'Length;
-      Name_Buffer (1 .. Name_Len) := Self.Path.all;
-
       --  Scan the directory path to see if "-" is one of the directories.
       --  Remove each occurrence of "-" and set Add_Default_Dir to False.
       --  Also resolve relative paths and symbolic links.
 
-      First := 3;
-      loop
-         while First <= Name_Len
-           and then (Name_Buffer (First) = Path_Separator)
-         loop
-            First := First + 1;
-         end loop;
-
-         exit when First > Name_Len;
-
-         Last := First;
-
-         while Last < Name_Len
-           and then Name_Buffer (Last + 1) /= Path_Separator
-         loop
-            Last := Last + 1;
-         end loop;
-
+      Index := 2;
+      while Index <= Self.Path.Last_Index loop
          --  If the directory is "-", set Add_Default_Dir to False and
          --  remove from path.
 
-         if Name_Buffer (First .. Last) = No_Project_Default_Dir then
+         if Self.Path (Index) = No_Project_Default_Dir then
             Add_Default_Dir := False;
 
-            for J in Last + 1 .. Name_Len loop
-               Name_Buffer (J - No_Project_Default_Dir'Length - 1) :=
-                 Name_Buffer (J);
-            end loop;
-
-            Name_Len := Name_Len - No_Project_Default_Dir'Length - 1;
-
-            --  After removing the '-', go back one character to get the next
-            --  directory correctly.
-
-            Last := Last - 1;
+            Self.Path.Delete (Index);
 
          else
             declare
                New_Dir : constant String :=
                            Normalize_Pathname
-                             (Name_Buffer (First .. Last),
+                             (Self.Path (Index),
                               Resolve_Links => Opt.Follow_Links_For_Dirs);
-               New_Len  : Positive;
-               New_Last : Positive;
-
             begin
                --  If the absolute path was resolved and is different from
                --  the original, replace original with the resolved path.
 
-               if New_Dir /= Name_Buffer (First .. Last)
-                 and then New_Dir'Length /= 0
-               then
-                  New_Len := Name_Len + New_Dir'Length - (Last - First + 1);
-                  New_Last := First + New_Dir'Length - 1;
-                  Name_Buffer (New_Last + 1 .. New_Len) :=
-                    Name_Buffer (Last + 1 .. Name_Len);
-                  Name_Buffer (First .. New_Last) := New_Dir;
-                  Name_Len := New_Len;
-                  Last := New_Last;
+               if New_Dir /= Self.Path (Index) and then New_Dir /= "" then
+                  Self.Path.Replace_Element (Index, New_Dir);
                end if;
             end;
+
+            Index := Index + 1;
          end if;
-
-         First := Last + 1;
       end loop;
-
-      Free (Self.Path);
 
       --  Set the initial value of Current_Project_Path
 
-      if Add_Default_Dir then
-         Prefix := new String'(Executable_Prefix_Path);
+      if Add_Default_Dir
+        and then Target_Name /= ""
+        and then Runtime_Name /= ""
+        and then Base_Name (Runtime_Name) /= Runtime_Name
+      then
+         declare
+            Runtime_Dir : constant String :=
+                            Normalize_Pathname (Runtime_Name)
+                            & Directory_Separator;
+         begin
+            --  $runtime_dir/lib/gnat
 
-         if Target_Name /= "" then
+            Self.Path.Append
+              (Runtime_Dir & "lib" & Directory_Separator & "gnat");
 
-            if Runtime_Name /= "" then
-               if Base_Name (Runtime_Name) = Runtime_Name then
+            --  $runtime_dir/share/gpr
 
-                  --  $prefix/$target/$runtime/lib/gnat
-                  Add_Target;
-                  Add_Str_To_Name_Buffer
-                    (Runtime_Name & Directory_Separator &
-                       "lib" & Directory_Separator & "gnat");
-
-                  --  $prefix/$target/$runtime/share/gpr
-                  Add_Target;
-                  Add_Str_To_Name_Buffer
-                    (Runtime_Name & Directory_Separator &
-                       "share" & Directory_Separator & "gpr");
-
-               else
-                  Runtime :=
-                    new String'(Normalize_Pathname (Runtime_Name));
-
-                  --  $runtime_dir/lib/gnat
-                  Add_Str_To_Name_Buffer
-                    (Path_Separator & Runtime.all & Directory_Separator &
-                       "lib" & Directory_Separator & "gnat");
-
-                  --  $runtime_dir/share/gpr
-                  Add_Str_To_Name_Buffer
-                    (Path_Separator & Runtime.all & Directory_Separator &
-                       "share" & Directory_Separator & "gpr");
-               end if;
-            end if;
-
-            --  $prefix/$target/lib/gnat
-
-            Add_Target;
-            Add_Str_To_Name_Buffer
-              ("lib" & Directory_Separator & "gnat");
-
-            --  $prefix/$target/share/gpr
-
-            Add_Target;
-            Add_Str_To_Name_Buffer
-              ("share" & Directory_Separator & "gpr");
-         end if;
-
-         --  $prefix/share/gpr
-
-         Add_Str_To_Name_Buffer
-           (Path_Separator & Prefix.all & "share"
-            & Directory_Separator & "gpr");
-
-         --  $prefix/lib/gnat
-
-         Add_Str_To_Name_Buffer
-           (Path_Separator & Prefix.all & "lib"
-            & Directory_Separator & "gnat");
-
-         Free (Prefix);
+            Self.Path.Append
+              (Runtime_Dir & "share" & Directory_Separator & "gpr");
+         end;
       end if;
-
-      Self.Path := new String'(Name_Buffer (1 .. Name_Len));
    end Initialize_Default_Project_Path;
+
+   -------------
+   -- Iterate --
+   -------------
+
+   procedure Iterate
+     (Self   : Project_Search_Path;
+      Action : not null access procedure (Path : String)) is
+
+      procedure Process (Position : Util.String_Vectors.Cursor);
+      --  Calls Action for element at Position
+
+      -------------
+      -- Process --
+      -------------
+
+      procedure Process (Position : Util.String_Vectors.Cursor) is
+      begin
+         Action (Util.String_Vectors.Element (Position));
+      end Process;
+
+   begin
+      Self.Path.Iterate (Process'Access);
+   end Iterate;
 
    --------------
    -- Get_Path --
    --------------
 
-   procedure Get_Path (Self : Project_Search_Path; Path : out String_Access) is
+   function Get_Path (Self : Project_Search_Path) return String is
+      Length : Integer := Self.Path.Last_Index - 1;
+      Index  : Positive := 1;
    begin
       pragma Assert (Is_Initialized (Self));
-      Path := Self.Path;
+
+      for P of Self.Path loop
+         Length := Length + P'Length;
+      end loop;
+
+      if Self.Path.Is_Empty then
+         return "";
+      end if;
+
+      return Path : String (1 .. Length) do
+         for Idx in Self.Path.First_Index .. Self.Path.Last_Index - 1 loop
+            declare
+               P : constant Util.String_Vectors.Constant_Reference_Type :=
+                     Self.Path (Idx);
+            begin
+               Path (Index .. Index + P.Element'Length - 1) := P;
+               Index := Index + P.Element'Length;
+               Path (Index) := Path_Separator;
+               Index := Index + 1;
+            end;
+         end loop;
+
+         Path (Index .. Path'Last) := Self.Path.Last_Element;
+      end return;
    end Get_Path;
 
    --------------
@@ -2198,8 +2122,7 @@ package body GPR.Env is
 
    procedure Set_Path (Self : in out Project_Search_Path; Path : String) is
    begin
-      Free (Self.Path);
-      Self.Path := new String'(Path);
+      Self.Path := To_Vector (Path);
       Self.Cache.Clear;
    end Set_Path;
 
@@ -2208,11 +2131,23 @@ package body GPR.Env is
    -----------------------
 
    function Find_Name_In_Path
-     (Self : Project_Search_Path;
+     (Self : in out Project_Search_Path;
       Path : String) return String_Access
    is
-      First : Natural;
-      Last  : Natural;
+      use Ada.Strings.Unbounded;
+      Current_Dir : Unbounded_String;
+      CF : Project_Path_Maps.Cursor;
+
+      function Current_Dir_Cached return String;
+
+      function Current_Dir_Cached return String is
+      begin
+         if Current_Dir = Null_Unbounded_String then
+            Current_Dir := To_Unbounded_String (Get_Current_Dir);
+         end if;
+
+         return To_String (Current_Dir);
+      end Current_Dir_Cached;
 
    begin
       if Current_Verbosity = High then
@@ -2225,49 +2160,52 @@ package body GPR.Env is
          else
             return null;
          end if;
-
-      else
-         --  Because we don't want to resolve symbolic links, we cannot use
-         --  Locate_Regular_File. So, we try each possible path successively.
-
-         First := Self.Path'First;
-         while First <= Self.Path'Last loop
-            while First <= Self.Path'Last
-              and then Self.Path (First) = Path_Separator
-            loop
-               First := First + 1;
-            end loop;
-
-            exit when First > Self.Path'Last;
-
-            Last := First;
-            while Last < Self.Path'Last
-              and then Self.Path (Last + 1) /= Path_Separator
-            loop
-               Last := Last + 1;
-            end loop;
-
-            Name_Len := 0;
-
-            if not Is_Absolute_Path (Self.Path (First .. Last)) then
-               Add_Str_To_Name_Buffer (Get_Current_Dir);  -- ??? System call
-            end if;
-
-            Add_Str_To_Name_Buffer
-              (Ensure_Directory (Self.Path (First .. Last)));
-            Add_Str_To_Name_Buffer (Path);
-
-            if Current_Verbosity = High then
-               Debug_Output ("Testing file " & Name_Buffer (1 .. Name_Len));
-            end if;
-
-            if Check_Filename (Name_Buffer (1 .. Name_Len)) then
-               return new String'(Name_Buffer (1 .. Name_Len));
-            end if;
-
-            First := Last + 1;
-         end loop;
       end if;
+
+      CF := Self.Found.Find (Path);
+
+      if Project_Path_Maps.Has_Element (CF) then
+         declare
+            P : constant String_Vectors.Constant_Reference_Type :=
+                  Self.Path (Project_Path_Maps.Element (CF));
+            Candidate : constant String :=
+                          (if Is_Absolute_Path (P) then ""
+                           else Current_Dir_Cached)
+                          & Ensure_Directory (P)
+                          & Path;
+         begin
+            if Check_Filename (Candidate) then
+               return new String'(Candidate);
+            else
+               --  Cache miss
+               Self.Found.Clear;
+            end if;
+         end;
+      end if;
+
+      --  Because we don't want to resolve symbolic links, we cannot use
+      --  Locate_Regular_File. So, we try each possible path successively.
+
+      for CP in Self.Path.Iterate loop
+         Name_Len := 0;
+
+         if not Is_Absolute_Path (Self.Path (CP)) then
+            Add_Str_To_Name_Buffer (Current_Dir_Cached);
+         end if;
+
+         Add_Str_To_Name_Buffer (Ensure_Directory (Self.Path (CP)));
+         Add_Str_To_Name_Buffer (Path);
+
+         if Current_Verbosity = High then
+            Debug_Output ("Testing file " & Name_Buffer (1 .. Name_Len));
+         end if;
+
+         if Check_Filename (Name_Buffer (1 .. Name_Len)) then
+            Self.Found.Insert (Path, String_Vectors.To_Index (CP));
+
+            return new String'(Name_Buffer (1 .. Name_Len));
+         end if;
+      end loop;
 
       return null;
    end Find_Name_In_Path;
@@ -2292,6 +2230,8 @@ package body GPR.Env is
 
       Result : String_Access;
       --  Keep temporary search results here before final conversion into Path
+
+      Normalized : Boolean := False;
 
       function Is_Regular_File_Cached (Name : String) return Boolean;
       --  Calls GNAT.OS_Lib.Is_Regular_File is Name not found in Self.Cache
@@ -2328,7 +2268,15 @@ package body GPR.Env is
       end if;
 
       if not Is_Absolute_Path (File) and then Directory /= "" then
-         Result := Try_Path_Name (Self, Ensure_Directory (Directory) & File);
+         Result :=
+           Try_Path_Name
+             (Self,
+              GNAT.OS_Lib.Normalize_Pathname
+                (File,
+                 Directory      => Directory,
+                 Resolve_Links  => Opt.Follow_Links_For_Files,
+                 Case_Sensitive => True));
+         Normalized := Result /= null;
       end if;
 
       if Result = null then
@@ -2342,14 +2290,14 @@ package body GPR.Env is
          return;
 
       else
-         Set_Name_Buffer
-           (GNAT.OS_Lib.Normalize_Pathname
+         Path := Get_Path_Name_Id
+           (if Normalized then Result.all
+            else GNAT.OS_Lib.Normalize_Pathname
               (Result.all,
                Directory      => Directory,
                Resolve_Links  => Opt.Follow_Links_For_Files,
                Case_Sensitive => True));
          Free (Result);
-         Path := Name_Find;
       end if;
 
       Debug_Decrease_Indent;
@@ -2361,7 +2309,7 @@ package body GPR.Env is
 
    procedure Free (Self : in out Project_Search_Path) is
    begin
-      Free (Self.Path);
+      Self.Path.Clear;
       Self.Cache.Clear;
    end Free;
 
@@ -2373,9 +2321,7 @@ package body GPR.Env is
    begin
       Free (To);
 
-      if From.Path /= null then
-         To.Path := new String'(From.Path.all);
-      end if;
+      To.Path := From.Path;
 
       --  No need to copy the Cache, it will be recomputed as needed
    end Copy;

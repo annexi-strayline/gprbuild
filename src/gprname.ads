@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---                      Copyright (C) 2001-2018, AdaCore                    --
+--                      Copyright (C) 2001-2023, AdaCore                    --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,10 +34,10 @@ package GPRName is
    --  The project tree
 
    procedure Initialize
-     (File_Path         : String;
-      Preproc_Switches  : String_Vectors.Vector;
-      Very_Verbose      : Boolean;
-      Flags             : Processing_Flags);
+     (File_Path        : String;
+      Preproc_Switches : String_Vectors.Vector;
+      Very_Verbose     : Boolean;
+      Flags            : Processing_Flags);
    --  Start the creation or modification of a project file, for gprname.
    --
    --  File_Path is the name of a project file to create if it does not exist

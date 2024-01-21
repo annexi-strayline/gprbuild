@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--                     Copyright (C) 2001-2023, AdaCore                     --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -34,7 +34,6 @@ with Ada.Containers.Ordered_Sets;
 with GNAT.Dynamic_HTables; use GNAT.Dynamic_HTables;
 with GNAT.Dynamic_Tables;
 
-pragma Warnings (Off);
 with GNAT.OS_Lib; use GNAT.OS_Lib;
 
 with System.Storage_Elements;
@@ -50,6 +49,16 @@ package GPR is
    --  between tokens, and as an illegal character otherwise. This makes
    --  life easier dealing with files that originated from DOS, including
    --  concatenated files with interspersed EOF characters.
+
+   Shared_Libgcc : constant String := "-shared-libgcc";
+   Static_Libgcc : constant String := "-static-libgcc";
+   Dash_Shared   : constant String := "-shared";
+   Dash_Static   : constant String := "-static";
+   Dash_Lgnat    : constant String := "-lgnat";
+   Dash_Lgnarl   : constant String := "-lgnarl";
+
+   On_Windows : constant Boolean := Directory_Separator = '\';
+   --  True when on Windows
 
    -----------
    -- Types --
@@ -328,22 +337,25 @@ package GPR is
    --  Name used to replace others as an index of an associative array
    --  attribute in situations where this is allowed.
 
-   Subdirs : String_Access := null;
+   Subdirs : String_Access;
    --  The value after the equal sign in switch --subdirs=...
    --  Contains the relative subdirectory.
 
-   Src_Subdirs : String_Access := null;
+   Src_Subdirs : String_Access;
    --  The value after the equal sign in switch --src-subdirs=...
    --  Contains the relative subdirectory.
 
-   Build_Tree_Dir : String_Access := null;
+   Build_Tree_Dir : String_Access;
    --  A root directory for building out-of-tree projects. All relative object
    --  directories will be rooted at this location.
 
-   Root_Dir : String_Access := null;
+   Root_Dir : String_Access;
    --  When using out-of-tree build we need to keep information about the root
    --  directory of artifacts to properly relocate them. Note that the root
    --  directory is not necessarily the directory of the main project.
+
+   Getrusage : String_Access;
+   --  Print getrusage call output to file
 
    type Library_Support is (None, Static_Only, Full);
    --  Support for Library Project File.
@@ -416,11 +428,11 @@ package GPR is
 
    GNAT_And_Space : constant String := "GNAT ";
 
-   function Empty_File   return File_Name_Type;
-   function Empty_String return Name_Id;
+   function Empty_File   return File_Name_Type with Inline_Always;
+   function Empty_String return Name_Id        with Inline_Always;
    --  Return the id for an empty string ""
 
-   function Dot_String return Name_Id;
+   function Dot_String return Name_Id with Inline_Always;
    --  Return the id for "."
 
    type Path_Information is record
@@ -742,12 +754,7 @@ package GPR is
       --  source file name of a body.
    end record;
 
-   No_Lang_Naming_Data : constant Lang_Naming_Data :=
-                           (Dot_Replacement => No_File,
-                            Casing          => All_Lower_Case,
-                            Separate_Suffix => No_File,
-                            Spec_Suffix     => No_File,
-                            Body_Suffix     => No_File);
+   No_Lang_Naming_Data : constant Lang_Naming_Data := (others => <>);
 
    function Is_Standard_GNAT_Naming (Naming : Lang_Naming_Data) return Boolean;
    --  True if the naming scheme is GNAT's default naming scheme. This
@@ -774,10 +781,6 @@ package GPR is
    --  for a body, returns its spec.
 
    No_Source : constant Source_Id := null;
-
-   type Path_Syntax_Kind is
-     (Canonical, -- Unix style
-      Host);     -- Host specific syntax
 
    --  The following record describes the configuration of a language
 
@@ -815,9 +818,6 @@ package GPR is
       Multi_Unit_Object_Separator : Character := ' ';
       --  The string separating the base name of a source from the index of the
       --  unit in a multi-source file, in the object file name.
-
-      Path_Syntax : Path_Syntax_Kind := Host;
-      --  Value may be Canonical (Unix style) or Host (host syntax)
 
       Source_File_Switches : Name_List_Index := No_Name_List;
       --  Optional switches to be put before the source file. The source file
@@ -942,6 +942,9 @@ package GPR is
       --  The template for a pragma Source_File_Name(_Project) for a naming
       --  spec pattern.
 
+      Config_File_Dependency_Support : Boolean := True;
+      --  True if dependency of the source files from config file is supported
+
       Config_File_Unique : Boolean := False;
       --  True if the config file specified to the compiler needs to be unique.
       --  If it is unique, then all config files are concatenated into a temp
@@ -985,62 +988,7 @@ package GPR is
 
    end record;
 
-   No_Language_Config : constant Language_Config :=
-                          (Kind                         => File_Based,
-                           Naming_Data                  => No_Lang_Naming_Data,
-                           Include_Compatible_Languages => No_Name_List,
-                           Compiler_Driver              => No_File,
-                           Compiler_Driver_Path         => null,
-                           Compiler_Leading_Required_Switches
-                                                        => No_Name_List,
-                           Compiler_Trailing_Required_Switches
-                                                        => No_Name_List,
-                           Multi_Unit_Switches          => No_Name_List,
-                           Multi_Unit_Object_Separator  => ' ',
-                           Path_Syntax                  => Canonical,
-                           Source_File_Switches         => No_Name_List,
-                           Object_File_Suffix           => No_Name,
-                           Object_File_Switches         => No_Name_List,
-                           Object_Path_Switches         => No_Name_List,
-                           Compilation_PIC_Option       => No_Name_List,
-                           Object_Generated             => True,
-                           Objects_Linked               => True,
-                           Runtime_Dir                  => No_Name,
-                           Runtime_Library_Dirs         => No_Name_List,
-                           Runtime_Source_Dirs          => No_Name_List,
-                           Runtime_Library_Version      => No_Name,
-                           Mapping_File_Switches        => No_Name_List,
-                           Mapping_Spec_Suffix          => No_File,
-                           Mapping_Body_Suffix          => No_File,
-                           Config_File_Switches         => No_Name_List,
-                           Dependency_Kind              => None,
-                           Dependency_Option            => No_Name_List,
-                           Compute_Dependency           => No_Name_List,
-                           Include_Option               => No_Name_List,
-                           Include_Path                 => No_Name,
-                           Include_Switches_Via_Spec    => No_Name_List,
-                           Include_Path_File            => No_Name,
-                           Only_Dirs_With_Sources       => False,
-                           Objects_Path                 => No_Name,
-                           Objects_Path_File            => No_Name,
-                           Config_Body                  => No_Name,
-                           Config_Body_Index            => No_Name,
-                           Config_Body_Pattern          => No_Name,
-                           Config_Spec                  => No_Name,
-                           Config_Spec_Index            => No_Name,
-                           Config_Spec_Pattern          => No_Name,
-                           Config_File_Unique           => False,
-                           Binder_Driver                => No_File,
-                           Binder_Driver_Path           => No_Path,
-                           Binder_Required_Switches     => No_Name_List,
-                           Binder_Prefix                => No_Name,
-                           Toolchain_Version            => No_Name,
-                           Required_Toolchain_Version   => No_Name,
-                           Toolchain_Description        => No_Name,
-                           Clean_Object_Artifacts       => No_Name_List,
-                           Clean_Source_Artifacts       => No_Name_List,
-                           Resp_File_Format             => None,
-                           Resp_File_Options            => No_Name_List);
+   No_Language_Config : constant Language_Config := (others => <>);
 
    type Language_Data is record
       Name : Name_Id := No_Name;
@@ -1059,18 +1007,15 @@ package GPR is
                         Mapping_Files_Htable.Nil;
       --  Hash table containing the mapping of the sources to their path names
 
+      Unconditional_Linking : Boolean := False;
+      --  All object files of this language should be linked unconditionally
+
       Next : Language_Ptr := No_Language_Index;
       --  Next language of the project
 
    end record;
 
-   No_Language_Data : constant Language_Data :=
-                        (Name          => No_Name,
-                         Display_Name  => No_Name,
-                         Config        => No_Language_Config,
-                         First_Source  => No_Source,
-                         Mapping_Files => Mapping_Files_Htable.Nil,
-                         Next          => No_Language_Index);
+   No_Language_Data : constant Language_Data := (others => <>);
 
    type Language_List_Element;
    type Language_List is access all Language_List_Element;
@@ -1137,6 +1082,9 @@ package GPR is
       In_Interfaces : Boolean := True;
       --  False when the source is not included in interfaces, when attribute
       --  Interfaces is declared.
+
+      In_Src_Subdir : Boolean := False;
+      --  If source is in the --src-subdir direcory it should be In_Interfaces
 
       Declared_In_Interfaces : Boolean := False;
       --  True when source is declared in attribute Interfaces
@@ -1217,9 +1165,6 @@ package GPR is
       Dep_Name : File_Name_Type := No_File;
       --  Dependency file simple name
 
-      Current_Dep_Path : Path_Name_Type := No_Path;
-      --  Path name of an existing dependency file
-
       Dep_Path : Path_Name_Type := No_Path;
       --  Path name of the real dependency file
 
@@ -1261,6 +1206,7 @@ package GPR is
                        Language               => No_Language_Index,
                        In_Interfaces          => True,
                        Declared_In_Interfaces => False,
+                       In_Src_Subdir          => False,
                        Alternate_Languages    => null,
                        Kind                   => Spec,
                        Unit                   => No_Unit_Index,
@@ -1282,7 +1228,6 @@ package GPR is
                        Object_Path            => No_Path,
                        Object_TS              => Empty_Time_Stamp,
                        Dep_Name               => No_File,
-                       Current_Dep_Path       => No_Path,
                        Dep_Path               => No_Path,
                        Dep_TS                 => Unknown_Attributes,
                        Switches               => No_File,
@@ -1372,9 +1317,10 @@ package GPR is
    --  Project.All_Imported_Projects for each project
 
    function Ultimate_Extending_Project_Of
-     (Proj : Project_Id) return Project_Id;
+     (Proj : Project_Id; Before : Project_Id := No_Project) return Project_Id;
    --  Returns the ultimate extending project of project Proj. If project Proj
    --  is not extended, returns Proj.
+   --  If Before is defined, returns last extending project before it.
 
    type Project_List_Element;
    type Project_List is access all Project_List_Element;
@@ -1779,6 +1725,9 @@ package GPR is
          --
          --  For N_Comment, designates the next comment, if any.
 
+         Checksum : Word := 0;
+         --  Checksum taken from parser
+
       end record;
 
       --  type Project_Node_Kind is
@@ -2101,7 +2050,6 @@ package GPR is
 
    --  The following record describes a project file representation
 
-   pragma Warnings (Off);
    type Standalone is
      (No,
 
@@ -2111,7 +2059,6 @@ package GPR is
       Standard,
 
       Encapsulated);
-   pragma Warnings (On);
 
    type Project_Data (Qualifier : Project_Qualifier := Unspecified) is record
 
@@ -2130,9 +2077,6 @@ package GPR is
       --  Manager will not modify anything in this project.
 
       Config : Project_Configuration;
-
-      Warning_Message : Name_Id := No_Name;
-      --  Message to be displayed when a project is part of the project tree
 
       Path : Path_Information := No_Path_Information;
       --  The path name of the project file. This include base name of the
@@ -2219,6 +2163,9 @@ package GPR is
 
       Was_Built : Boolean := False;
       --  The library project has been built in the current gprbuild execution
+
+      Need_Build : Boolean := False;
+      --  Library project has to be built even if no need any compilation
 
       Library_Src_Dir : Path_Information := No_Path_Information;
       --  If a Stand-Alone Library project, path name of the directory where
@@ -2325,6 +2272,9 @@ package GPR is
       --  True if there are comments in the project sources that cannot be kept
       --  in the project tree.
 
+      Checksum : Word := 0;
+      --  Checksum of the project taken from parser
+
       -----------------------------
       -- Qualifier-Specific data --
       -----------------------------
@@ -2342,7 +2292,7 @@ package GPR is
       end case;
    end record;
 
-   function Empty_Project (Qualifier : Project_Qualifier) return  Project_Data;
+   function Empty_Project (Qualifier : Project_Qualifier) return Project_Data;
    --  Return the representation of an empty project
 
    function Is_Extending
@@ -2688,15 +2638,18 @@ package GPR is
    --  behavior of the parser, and indicate how to report error messages. This
    --  structure does not allocate memory and never needs to be freed
 
-   type Error_Warning is (Silent, Warning, Error);
+   type Error_Warning is (Silent, Warning, Error, Decide_Later);
    --  Severity of some situations, such as: no Ada sources in a project where
    --  Ada is one of the language.
    --
    --  When the situation occurs, the behaviour depends on the setting:
    --
-   --    - Silent:  no action
-   --    - Warning: issue a warning, does not cause the tool to fail
-   --    - Error:   issue an error, causes the tool to fail
+   --    - Silent:       no action
+   --    - Warning:      issue a warning, does not cause the tool to fail
+   --    - Error:        issue an error, causes the tool to fail
+   --    - Decide_Later: keep the message until call to Messages_Decision
+
+   subtype Decided_Message is Error_Warning range Error_Warning'First .. Error;
 
    type Error_Handler is access procedure
      (Project    : Project_Id;
@@ -2716,6 +2669,7 @@ package GPR is
       Error_On_Unknown_Language  : Boolean       := True;
       Require_Obj_Dirs           : Error_Warning := Error;
       Allow_Invalid_External     : Error_Warning := Error;
+      Missing_Project_Files      : Error_Warning := Error;
       Missing_Source_Files       : Error_Warning := Error;
       Ignore_Missing_With        : Boolean       := False;
       Check_Configuration_Only   : Boolean       := False)
@@ -2864,13 +2818,27 @@ package GPR is
 
    function To_Hash (Item : Name_Id) return Ada.Containers.Hash_Type;
 
-   package Language_Maps is new Ada.Containers.Hashed_Maps
+   package Name_Id_Maps is new Ada.Containers.Hashed_Maps
      (Key_Type        => Name_Id,
       Element_Type    => Name_Id,
       Hash            => To_Hash,
       Equivalent_Keys => "=");
+
+   package Language_Maps renames Name_Id_Maps;
    --  Hash table to keep the languages and its required versions used in
    --  the project tree.
+
+   package Path_Name_HTable is new GNAT.Dynamic_HTables.Simple_HTable
+     (Header_Num => Header_Num,
+      Element    => Boolean,
+      No_Element => False,
+      Key        => Path_Name_Type,
+      Hash       => Hash,
+      Equal      => "=");
+
+   Shared_Libgcc_Default : Character
+     with Import, Convention => C, Size => Character'Size,
+          External_Name => "__gnat_shared_libgcc_default";
 
 private
 
@@ -2884,6 +2852,11 @@ private
    Warnings_Treated_As_Errors : Nat := 0;
 
    Info_Messages : Nat := 0;
+
+   Gprls_Mode : Boolean := False;
+   --  When True, an ALI file may be found in an extending project, even if
+   --  the corresponding object file is not found in the same project.
+   --  This is only for gprls.
 
    All_Packages : constant String_List_Access := null;
 
@@ -2929,6 +2902,12 @@ private
    --  Table used to store the path name of all the created temporary files, so
    --  that they can be deleted at the end, or when the program is interrupted.
 
+   function Distance (L, R : String) return Natural;
+   --  Damerau Levenshtein distance between L and R strings.
+   --  Calculated in minimum number of elementary operations to convert one
+   --  string to another. The operations are deletion, insertion, substitution,
+   --  and transposition (swap 2 adjacent characters).
+
    package Temp_Files_Table is new GNAT.Dynamic_Tables
      (Table_Component_Type => Path_Name_Type,
       Table_Index_Type     => Integer,
@@ -2970,6 +2949,7 @@ private
       Error_On_Unknown_Language  : Boolean;
       Require_Obj_Dirs           : Error_Warning;
       Allow_Invalid_External     : Error_Warning;
+      Missing_Project_Files      : Error_Warning;
       Missing_Source_Files       : Error_Warning;
       Ignore_Missing_With        : Boolean;
       Check_Configuration_Only   : Boolean;
@@ -2989,6 +2969,7 @@ private
                          Error_On_Unknown_Language  => True,
                          Require_Obj_Dirs           => Error,
                          Allow_Invalid_External     => Error,
+                         Missing_Project_Files      => Error,
                          Missing_Source_Files       => Error,
                          Ignore_Missing_With        => False,
                          Incomplete_Withs           => False,
@@ -3003,6 +2984,7 @@ private
                          Error_On_Unknown_Language  => True,
                          Require_Obj_Dirs           => Silent,
                          Allow_Invalid_External     => Error,
+                         Missing_Project_Files      => Error,
                          Missing_Source_Files       => Error,
                          Ignore_Missing_With        => False,
                          Incomplete_Withs           => False,
@@ -3017,6 +2999,7 @@ private
                          Error_On_Unknown_Language  => True,
                          Require_Obj_Dirs           => Warning,
                          Allow_Invalid_External     => Error,
+                         Missing_Project_Files      => Error,
                          Missing_Source_Files       => Error,
                          Ignore_Missing_With        => False,
                          Incomplete_Withs           => False,
@@ -3031,6 +3014,7 @@ private
                          Error_On_Unknown_Language  => True,
                          Require_Obj_Dirs           => Error,
                          Allow_Invalid_External     => Error,
+                         Missing_Project_Files      => Error,
                          Missing_Source_Files       => Error,
                          Ignore_Missing_With        => False,
                          Incomplete_Withs           => False,
@@ -3045,6 +3029,7 @@ private
                          Error_On_Unknown_Language  => True,
                          Require_Obj_Dirs           => Error,
                          Allow_Invalid_External     => Error,
+                         Missing_Project_Files      => Error,
                          Missing_Source_Files       => Error,
                          Ignore_Missing_With        => False,
                          Incomplete_Withs           => False,

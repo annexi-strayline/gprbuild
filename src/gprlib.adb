@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2020, AdaCore                     --
+--                     Copyright (C) 2006-2023, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -21,15 +21,16 @@
 --  through the same text file.
 
 with Ada.Command_Line;  use Ada.Command_Line;
+with Ada.Exceptions;
 with Ada.Text_IO;       use Ada.Text_IO;
 
 with GNAT.Case_Util;            use GNAT.Case_Util;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+with GNAT.Expect;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
 with Gprexch;        use Gprexch;
-with GPR;            use GPR;
-with GPR.ALI;
+with GPR.ALI;        use GPR;
 with GPR.Names;      use GPR.Names;
 with GPR.Opt;        use GPR.Opt;
 with GPR.Osint;      use GPR.Osint;
@@ -77,16 +78,10 @@ procedure Gprlib is
    S_Osinte_Ads                  : File_Name_Type := No_File;
    --  Name_Id for "s-osinte.ads"
 
-   S_Dec_Ads                     : File_Name_Type := No_File;
-   --  Name_Id for "dec.ads"
-
-   G_Trasym_Ads                  : File_Name_Type := No_File;
-   --  Name_Id for "g-trasym.ads"
-
-   Libgnat                       : String_Access := new String'("-lgnat");
+   Libgnat                       : String_Access := new String'(Dash_Lgnat);
    --  Switch to link with libgnat
 
-   Libgnarl                      : String_Access := new String'("-lgnarl");
+   Libgnarl                      : String_Access := new String'(Dash_Lgnarl);
    --  Switch to link with libgnarl
 
    Libgnarl_Needed               : Boolean := False;
@@ -187,8 +182,8 @@ procedure Gprlib is
    Auto_Init                     : Boolean := False;
    --  True when a SAL is auto initializable
 
-   Static                        : Boolean := False;
-   --  True if the library is an archive
+   Relocatable                   : Boolean := False;
+   --  True if the library is relocatable
 
    No_Create                     : Boolean := False;
    --  Should the library (static or dynamic) be built
@@ -237,8 +232,6 @@ procedure Gprlib is
 
    Bind_Options                  : String_Vectors.Vector;
 
-   Relocatable                   : Boolean := False;
-
    Library_Name                  : String_Access := null;
 
    Library_Directory             : String_Access := null;
@@ -274,7 +267,7 @@ procedure Gprlib is
 
    Objcopy_Name                  : String_Access := new String'("objcopy");
 
-   Path_Option                   : String_Access := null;
+   Path_Option                   : String_Vectors.Vector;
 
    Separate_Run_Path_Options     : Boolean := False;
 
@@ -321,14 +314,23 @@ procedure Gprlib is
    --  Copy to the Copy_Source_Directory the sources of the interfaces of
    --  a Stand-Alone Library.
 
+   function Is_Gnarl_Dependent return Boolean;
+   --  Detects from the .ali files if there is a dependency on libgnarl
+
+   procedure Process_Common;
+   --  Process common part of shared & static libraries
+
    procedure Process_Shared;
-   --  Process a shared library;
+   --  Process a shared library
 
    procedure Process_Static;
    --  Process a static library
 
    procedure Process_Standalone;
-   --  Specific processing for Sand-Alone Libraries.
+   --  Specific processing for Sand-Alone Libraries
+
+   procedure Process_Encapsulated;
+   --  Specific processing for encapsulated Sand-Alone Libraries
 
    procedure Read_Exchange_File;
    --  Read the library exchange file and initialize global variables and
@@ -549,16 +551,10 @@ procedure Gprlib is
 
                      --  Create new modified ALI file
 
-                     Name_Len := Library_Dependency_Directory'Length;
-                     Name_Buffer (1 .. Name_Len) :=
-                       Library_Dependency_Directory.all;
-                     Name_Len := Name_Len + 1;
-                     Name_Buffer (Name_Len) := Directory_Separator;
-                     Name_Buffer
-                       (Name_Len + 1 .. Name_Len + File_Name'Length) :=
-                       File_Name;
-                     Name_Len := Name_Len + File_Name'Length + 1;
-                     Name_Buffer (Name_Len) := ASCII.NUL;
+                     Set_Name_Buffer (Library_Dependency_Directory.all);
+                     Add_Char_To_Name_Buffer (Directory_Separator);
+                     Add_Str_To_Name_Buffer (File_Name);
+                     Add_Char_To_Name_Buffer (ASCII.NUL);
 
                      FD := Create_File (Name_Buffer'Address, Binary);
 
@@ -715,6 +711,106 @@ procedure Gprlib is
    end Display_Command;
 
    --------------------
+   -- Process_Common --
+   --------------------
+
+   procedure Process_Common is
+   begin
+
+      Libgnarl_Needed := Is_Gnarl_Dependent;
+
+      for Dir of Imported_Library_Directories loop
+         Library_Switches_Table.Append ("-L" & Dir);
+         if not Path_Option.Is_Empty then
+            Add_Rpath (Dir);
+         end if;
+      end loop;
+
+      for Libname of Imported_Library_Names loop
+         Library_Switches_Table.Append ("-l" & Libname);
+      end loop;
+
+   end Process_Common;
+
+   --------------------------
+   -- Process_Encapsulated --
+   --------------------------
+
+   procedure Process_Encapsulated is
+   begin
+      --  For encapsulated library we want to link against the static
+      --  GNAT runtime. For sufficiently recent compilers a static
+      --  pic version of the runtime might be present. Fallback on
+      --  the regular static libgnat otherwise.
+
+      --  For relocatable, first, look for libgnat_pic.a, then look for
+      --  libgnat.a. For static, looks only for libgnat.a.
+
+      Free (Libgnat);
+      Free (Libgnarl);
+
+      Main_Loop : for Dyn in reverse False .. Relocatable loop
+         for D of Runtime_Library_Dirs loop
+            declare
+               Dir   : constant String := Ensure_Directory (D);
+               Pic_A : constant String :=
+                         (if Dyn then "_pic" else "") & Archive_Suffix.all;
+               Lib   : constant String := Dir & "libgnat" & Pic_A;
+            begin
+               if Is_Regular_File (Lib) then
+                  Libgnat  := new String'(Lib);
+                  Libgnarl := new String'(Dir & "libgnarl" & Pic_A);
+                  exit Main_Loop;
+               end if;
+            end;
+         end loop;
+      end loop Main_Loop;
+
+      --  If libgnat.a was not found, assume it should be in the
+      --  first directory. An error message will be displayed.
+
+      if Libgnat = null and then not Runtime_Library_Dirs.Is_Empty then
+         declare
+            Dir : constant String :=
+                    Ensure_Directory
+                      (Runtime_Library_Dirs.First_Element);
+         begin
+            Libgnat  := new String'(Dir & "libgnat" & Archive_Suffix.all);
+            Libgnarl := new String'(Dir & "libgnarl" & Archive_Suffix.all);
+         end;
+      end if;
+
+      if not Is_Regular_File (Libgnat.all) then
+         Fail_Program
+           (null, "missing " & Libgnat.all & " for encapsulated library");
+      end if;
+
+      if Libgnarl_Needed and then not Is_Regular_File (Libgnarl.all) then
+         Fail_Program
+           (null, "missing " & Libgnarl.all & " for encapsulated library");
+      end if;
+
+      --  Adds options into the library options table as those static
+      --  libraries must come late in the linker command line.
+
+      if Libgnarl_Needed then
+         Library_Options_Table.Append (Libgnarl.all);
+      end if;
+
+      Library_Options_Table.Append (Libgnat.all);
+
+      --  Then adds back all libraries already on the command-line after
+      --  libgnat to fulfill dependencies on OS libraries that may be
+      --  used by the GNAT runtime. These are libraries added with a
+      --  pragma Linker_Options in sources that have already been put
+      --  in table Additional_Switches.
+
+      for Switch of Additional_Switches loop
+         Library_Options_Table.Append (Switch);
+      end loop;
+   end Process_Encapsulated;
+
+   --------------------
    -- Process_Shared --
    --------------------
 
@@ -734,199 +830,21 @@ procedure Gprlib is
 
       GPR.Initialize (GPR.No_Project_Tree);
 
-      if S_Osinte_Ads = No_File then
-         Set_Name_Buffer ("s-osinte.ads");
-         S_Osinte_Ads := Name_Find;
-      end if;
-
-      if S_Dec_Ads = No_File then
-         Set_Name_Buffer ("dec.ads");
-         S_Dec_Ads := Name_Find;
-      end if;
-
-      if G_Trasym_Ads = No_File then
-         Set_Name_Buffer ("g-trasym.ads");
-         G_Trasym_Ads := Name_Find;
-      end if;
-
-      for Dir of Imported_Library_Directories loop
-         Library_Switches_Table.Append ("-L" & Dir);
-         if Path_Option /= null then
-            Add_Rpath (Dir);
-         end if;
-      end loop;
-
-      for Libname of Imported_Library_Names loop
-         Library_Switches_Table.Append ("-l" & Libname);
-      end loop;
-
-      --  If Ada is used and we don't already know yet that libgnarl is needed,
-      --  look for s-osinte.ads in all the ALI files. If found in at least one,
-      --  then libgnarl is needed.
-
-      if Use_GNAT_Lib
-        and then not Runtime_Library_Dirs.Is_Empty
-        and then not Libgnarl_Needed
-      then
-         declare
-            Lib_File : File_Name_Type;
-            Text     : Text_Buffer_Ptr;
-            Id       : ALI.ALI_Id;
-            use ALI;
-
-         begin
-            if Verbosity_Level > Opt.Low then
-               Put_Line ("Reading ALI files to decide for -lgnarl");
-            end if;
-
-            ALI_Loop :
-            for ALI_File of ALIs loop
-               if Verbosity_Level > Opt.Low then
-                  Put_Line ("Reading " & ALI_File);
-               end if;
-
-               Set_Name_Buffer (ALI_File);
-               Lib_File := Name_Find;
-               Text := Osint.Read_Library_Info (Lib_File, True);
-
-               Id := ALI.Scan_ALI
-                 (F          => Lib_File,
-                  T          => Text,
-                  Ignore_ED  => False,
-                  Err        => True,
-                  Read_Lines => "D");
-               Free (Text);
-
-               if Id = No_ALI_Id and then Verbose_Mode then
-                  Put_Line
-                    ("warning: reading of " &
-                     ALI_File & " failed");
-
-               else
-                  --  Look for s-osinte.ads in the dependencies
-
-                  for Index in ALI.ALIs.Table (Id).First_Sdep ..
-                    ALI.ALIs.Table (Id).Last_Sdep
-                  loop
-                     if ALI.Sdep.Table (Index).Sfile = S_Osinte_Ads then
-                        Libgnarl_Needed := True;
-                        exit ALI_Loop;
-                     end if;
-                  end loop;
-               end if;
-            end loop ALI_Loop;
-
-            if Verbosity_Level > Opt.Low then
-               Put_Line ("End of ALI file reading");
-            end if;
-         end;
-      end if;
-
       if Use_GNAT_Lib and then not Runtime_Library_Dirs.Is_Empty then
          if Standalone = Encapsulated then
-            --  For encapsulated library we want to link against the static
-            --  GNAT runtime. For sufficiently recent compilers a static
-            --  pic version of the runtime might be present. Fallback on
-            --  the regular static libgnat otherwise.
-
-            --  First, look for libgnat_pic.a
-
-            Libgnat := null;
-
-            for Dir of Runtime_Library_Dirs loop
-               if Is_Regular_File
-                 (Dir & Directory_Separator & "libgnat_pic.a")
-               then
-                  Libgnat  := new String'
-                    (Dir &
-                       Directory_Separator &
-                       "libgnat_pic.a");
-                  Libgnarl := new String'
-                    (Dir &
-                       Directory_Separator &
-                       "libgnarl_pic.a");
-                  exit;
-               end if;
-            end loop;
-
-            --  If libgnat-pic.a was not found, look for libgnat.a
-
-            if Libgnat = null then
-               for Dir of Runtime_Library_Dirs loop
-                  if Is_Regular_File
-                    (Dir & Directory_Separator & "libgnat.a")
-                  then
-                     Libgnat  := new String'
-                       (Dir &
-                          Directory_Separator &
-                          "libgnat.a");
-                     Libgnarl := new String'
-                       (Dir &
-                          Directory_Separator &
-                          "libgnarl.a");
-                     exit;
-                  end if;
-               end loop;
-            end if;
-
-            --  If libgnat.a was not found, assume it should be in the
-            --  first directory. An error message will be displayed.
-
-            if Libgnat = null then
-               Libgnat := new String'
-                 (Runtime_Library_Dirs.First_Element &
-                    Directory_Separator &
-                    "libgnat.a");
-               Libgnarl := new String'
-                 (Runtime_Library_Dirs.First_Element &
-                    Directory_Separator &
-                    "libgnarl.a");
-            end if;
-
-            if not Is_Regular_File (Libgnat.all) then
-               Fail_Program
-                 (null,
-                  "missing " & Libgnat.all & " for encapsulated library");
-            end if;
-
-            if Libgnarl_Needed and then not Is_Regular_File (Libgnarl.all) then
-               Fail_Program
-                 (null,
-                  "missing " & Libgnarl.all & " for encapsulated library");
-            end if;
-
-            --  Adds options into the library options table as those static
-            --  libraries must come late in the linker command line.
-
-            if Libgnarl_Needed then
-               Library_Options_Table.Append (Libgnarl.all);
-            end if;
-
-            Library_Options_Table.Append (Libgnat.all);
-
-            --  Then adds back all libraries already on the command-line after
-            --  libgnat to fulfill dependencies on OS libraries that may be
-            --  used by the GNAT runtime. These are libraries added with a
-            --  pragma Linker_Options in sources that have already been put
-            --  in table Additional_Switches.
-
-            for Switch of Additional_Switches loop
-               Library_Options_Table.Append (Switch);
-            end loop;
+            Process_Encapsulated;
 
          else
             for Dir of Runtime_Library_Dirs loop
                Options_Table.Append ("-L" & Dir);
 
-               if Path_Option /= null then
+               if not Path_Option.Is_Empty then
                   Add_Rpath (Dir, Absolute => True);
 
                   --  Add to the Path Option the directory of the shared
                   --  version of libgcc.
 
-                  Add_Rpath
-                    (Shared_Libgcc_Dir (Dir),
-                     Absolute => True);
+                  Add_Rpath (Shared_Libgcc_Dir (Dir), Absolute => True);
                end if;
             end loop;
 
@@ -947,22 +865,23 @@ procedure Gprlib is
               Shared_Lib_Suffix.all);
       end if;
 
-      if Path_Option /= null then
+      if not Path_Option.Is_Empty then
          for Path of Library_Rpath_Options_Table loop
             Add_Rpath (Path);
          end loop;
       end if;
 
-      if Path_Option /= null and then not Rpath.Is_Empty then
+      if not Path_Option.Is_Empty and then not Rpath.Is_Empty then
          if Separate_Run_Path_Options then
             for J in 1 .. Rpath.Last_Index loop
                Options_Table.Append
-                 (Path_Option.all & Rpath (J));
+                 (Concat_Paths (Path_Option, " ") & ' ' & Rpath (J));
             end loop;
 
          else
             Options_Table.Append
-              (Path_Option.all & Concat_Paths (Rpath, ":"));
+              (Concat_Paths (Path_Option, " ")
+               & Concat_Paths (Rpath, ":"));
          end if;
       end if;
 
@@ -974,14 +893,13 @@ procedure Gprlib is
    ------------------------
 
    procedure Process_Standalone is
-      Binder_Generated_File   : String :=
-        "b__" & Library_Name.all & ".adb";
-      Binder_Generated_Spec   : String :=
-        "b__" & Library_Name.all & ".ads";
-      Binder_Generated_ALI    : String :=
-        "b__" & Library_Name.all & ".ali";
-      Binder_Generated_Object : String :=
-        "b__" & Library_Name.all & Object_Suffix;
+      Binder_Simple : constant String := "b__"
+                        & Canonical_Case_File_Name (Library_Name.all);
+      Binder_Generated_Body   : constant String := Binder_Simple & ".adb";
+      Binder_Generated_Spec   : constant String := Binder_Simple & ".ads";
+      Binder_Generated_ALI    : constant String := Binder_Simple & ".ali";
+      Binder_Generated_Object : constant String := Binder_Simple
+                                  & Canonical_Case_File_Name (Object_Suffix);
       First_ALI               : File_Name_Type;
       T                       : Text_Buffer_Ptr;
       A                       : ALI.ALI_Id;
@@ -991,11 +909,6 @@ procedure Gprlib is
       use ALI;
 
    begin
-      Osint.Canonical_Case_File_Name (Binder_Generated_File);
-      Osint.Canonical_Case_File_Name (Binder_Generated_Spec);
-      Osint.Canonical_Case_File_Name (Binder_Generated_ALI);
-      Osint.Canonical_Case_File_Name (Binder_Generated_Object);
-
       if not No_SAL_Binding then
          Linker_Option_Object_File := new String'(Binder_Generated_Object);
          --  We will add the Linker Opt section to b__<lib>.o
@@ -1011,7 +924,7 @@ procedure Gprlib is
 
          Bind_Options.Append (No_Main);
          Bind_Options.Append (Output_Switch);
-         Bind_Options.Append ("b__" & Library_Name.all & ".adb");
+         Bind_Options.Append (Binder_Generated_Body);
 
          --  Make sure that the init procedure is never "adainit"
 
@@ -1051,7 +964,7 @@ procedure Gprlib is
             end if;
          end if;
 
-         Bind_Options.Append (Binding_Options_Table);
+         Bind_Options.Append_Vector (Binding_Options_Table);
 
          --  Get an eventual --RTS from the ALI file
 
@@ -1091,7 +1004,7 @@ procedure Gprlib is
             end loop;
          end if;
 
-         Bind_Options.Append (ALIs);
+         Bind_Options.Append_Vector (ALIs);
 
          if Mapping_File_Name /= null then
             Bind_Options.Append ("-F=" & Mapping_File_Name.all);
@@ -1151,7 +1064,7 @@ procedure Gprlib is
          end if;
 
          declare
-            Size         : Natural := 0;
+            Size : Natural := 0;
          begin
             for Arg of Bind_Options loop
                Size := Size + Arg'Length + 1;
@@ -1183,8 +1096,7 @@ procedure Gprlib is
                --  Otherwise create a temporary response file
 
                declare
-                  EOL           : constant String (1 .. 1) :=
-                    (1 => ASCII.LF);
+                  EOL           : aliased constant Character := ASCII.LF;
                   FD            : File_Descriptor;
                   Path          : Path_Name_Type;
                   Args          : String_Vectors.Vector;
@@ -1254,7 +1166,7 @@ procedure Gprlib is
                         end if;
                      end if;
 
-                     Status := Write (FD, EOL (1)'Address, 1);
+                     Status := Write (FD, EOL'Address, 1);
 
                      if Status /= 1 then
                         Fail_Program (null, "disk full");
@@ -1275,9 +1187,9 @@ procedure Gprlib is
               (null, "invocation of " & Gnatbind_Name.all & " failed");
          end if;
 
-         Generated_Sources.Append ("b__" & Library_Name.all & ".ads");
-         Generated_Sources.Append ("b__" & Library_Name.all & ".adb");
-         Generated_Sources.Append ("b__" & Library_Name.all & ".ali");
+         Generated_Sources.Append (Binder_Generated_Spec);
+         Generated_Sources.Append (Binder_Generated_Body);
+         Generated_Sources.Append (Binder_Generated_ALI);
 
          Compiler_Path := Locate_Exec_On_Path (Compiler_Name.all);
 
@@ -1288,9 +1200,9 @@ procedure Gprlib is
 
          Bind_Options := String_Vectors.Empty_Vector;
 
-         Bind_Options.Append (Ada_Leading_Switches);
+         Bind_Options.Append_Vector (Ada_Leading_Switches);
          Bind_Options.Append (No_Warning);
-         Bind_Options.Append (Binder_Generated_File);
+         Bind_Options.Append (Binder_Generated_Body);
          Bind_Options.Append (Output_Switch);
          Bind_Options.Append (Binder_Generated_Object);
 
@@ -1337,7 +1249,7 @@ procedure Gprlib is
             end loop;
          end if;
 
-         Bind_Options.Append (Ada_Trailing_Switches);
+         Bind_Options.Append_Vector (Ada_Trailing_Switches);
 
          if not Quiet_Output then
             Name_Len := 0;
@@ -1349,7 +1261,7 @@ procedure Gprlib is
                Display
                  (Section  => Build_Libraries,
                   Command  => "Ada",
-                  Argument => Binder_Generated_File);
+                  Argument => Binder_Generated_Body);
             end if;
          end if;
 
@@ -1362,13 +1274,12 @@ procedure Gprlib is
          end if;
 
       else
-         if Is_Regular_File (Binder_Generated_File) then
-            Generated_Sources.Append (Binder_Generated_File);
+         if Is_Regular_File (Binder_Generated_Body) then
+            Generated_Sources.Append (Binder_Generated_Body);
          else
             Fail_Program
               (null,
-               "cannot find binder generated file " &
-                 Binder_Generated_File);
+               "cannot find binder generated file " & Binder_Generated_Body);
          end if;
 
          if Is_Regular_File (Binder_Generated_Spec) then
@@ -1410,7 +1321,7 @@ procedure Gprlib is
             Last    : Natural;
 
          begin
-            Open (BG_File, In_File, Binder_Generated_File);
+            Open (BG_File, In_File, Binder_Generated_Body);
 
             while not End_Of_File (BG_File) loop
                Get_Line (BG_File, Line, Last);
@@ -1423,7 +1334,7 @@ procedure Gprlib is
 
                if Use_GNAT_Lib
                  and then not Runtime_Library_Dirs.Is_Empty
-                 and then Line (9 .. Last) = "-lgnarl"
+                 and then Line (9 .. Last) = Dash_Lgnarl
                then
                   Libgnarl_Needed := True;
                end if;
@@ -1432,8 +1343,7 @@ procedure Gprlib is
                  and then (Partial_Linker = null
                            or else Resp_File_Format /= GPR.None)
                  and then Line (9 .. 10) = "-l"
-                 and then Line (9 .. Last) /= "-lgnarl"
-                 and then Line (9 .. Last) /= "-lgnat"
+                 and then Line (9 .. Last) not in Dash_Lgnat | Dash_Lgnarl
                then
                   Additional_Switches.Append (Line (9 .. Last));
                end if;
@@ -1446,14 +1356,14 @@ procedure Gprlib is
    -- Process_Static --
    --------------------
 
-   procedure Process_Static
-   is
+   procedure Process_Static is
       AB_Options          : String_Vectors.Vector;
       AB_Objects          : String_Vectors.Vector;
+      Archive_Files       : String_Vectors.Vector;
+      Check_Archives      : Boolean;
       First_AB_Object_Pos : Natural;
       Last_AB_Object_Pos  : Natural;
       --  Various indexes in AB_Options used when building an archive in chunks
-
    begin
       if Standalone /= No and then Partial_Linker /= null then
          Partial_Linker_Path := Locate_Exec_On_Path (Partial_Linker.all);
@@ -1462,6 +1372,8 @@ procedure Gprlib is
             Fail_Program
               (null, "unable to locate linker " & Partial_Linker.all);
          end if;
+
+         Library_Options_Table.Append (Library_Switches_Table);
       end if;
 
       if Archive_Builder = null then
@@ -1470,32 +1382,41 @@ procedure Gprlib is
 
       Library_Path_Name :=
         new String'
-          (Library_Directory.all &
-             "lib" & Library_Name.all & Archive_Suffix.all);
+          (Library_Directory.all & "lib" & Library_Name.all
+           & Archive_Suffix.all);
 
-      if not Library_Options_Table.Is_Empty then
-         --  Add the object files specified in the Library_Options.
-
-         --  If we perform a partial link, do not check that all library
-         --  options are object files: switches may also be used.
-
-         for Opt of Library_Options_Table loop
-            if Is_Regular_File (Opt) then
-               Object_Files.Append (Opt);
-            else
-               if Partial_Linker_Path = null then
-                  Fail_Program
-                    (null,
-                     "unknown object file """ & Opt & """");
-               else
-                  Trailing_PL_Options.Append (Opt);
-               end if;
-            end if;
-         end loop;
-
+      if Standalone = Encapsulated then
+         Process_Encapsulated;
       end if;
 
-      if Standalone /= No and then Partial_Linker_Path /= null then
+      Check_Archives :=
+        Base_Name (Archive_Builder.all, ".exe") = "ar"
+        and then Standalone = Encapsulated and then Partial_Linker_Path = null;
+
+      --  Add the object files specified in the Library_Options.
+
+      --  If we perform a partial link, do not check that all library
+      --  options are object files: switches may also be used.
+
+      for Opt of Library_Options_Table loop
+         if Is_Regular_File (Opt) then
+            if Check_Archives
+              and then Ends_With (Opt, Archive_Suffix.all)
+            then
+               Archive_Files.Append (Opt);
+            else
+               Object_Files.Append (Opt);
+            end if;
+
+         elsif Partial_Linker_Path = null then
+            Fail_Program (null, "unknown object file """ & Opt & """");
+         else
+            Trailing_PL_Options.Append (Opt);
+         end if;
+      end loop;
+
+      if Standalone /= No and then Partial_Linker_Path /= null
+      then
          --  If partial linker is used, do a partial link and put the resulting
          --  object file in the archive.
 
@@ -1537,23 +1458,18 @@ procedure Gprlib is
 
                   First_Object := First_Object + 1;
 
-                  exit when
-                    First_Object > Object_Files.Last_Index
+                  exit when First_Object > Object_Files.Last_Index
                     or else Size >= Maximum_Size;
                end loop;
 
-               PL_Options.Append (Trailing_PL_Options);
+               PL_Options.Append_Vector (Trailing_PL_Options);
 
-               if not Quiet_Output then
-                  if Verbose_Mode then
-                     Display_Command (Partial_Linker_Path.all, PL_Options);
-                  end if;
+               if Verbose_Mode then
+                  Display_Command (Partial_Linker_Path.all, PL_Options);
                end if;
 
                Spawn_And_Script_Write
-                 (Partial_Linker_Path.all,
-                  PL_Options,
-                  Success);
+                 (Partial_Linker_Path.all, PL_Options, Success);
 
                Set_Name_Buffer (Get_Current_Dir & Partial);
                Record_Temp_File (Shared => null, Path => Name_Find);
@@ -1561,8 +1477,8 @@ procedure Gprlib is
                if not Success then
                   Fail_Program
                     (null,
-                     "call to linker driver " &
-                       Partial_Linker.all & " failed");
+                     "call to linker driver " & Partial_Linker.all
+                     & " failed");
                end if;
 
                if First_Object > Object_Files.Last_Index then
@@ -1576,68 +1492,77 @@ procedure Gprlib is
          end loop;
 
          Linker_Option_Object_File := new String'
-           (Partial_Name (Library_Name.all, 0, Object_Suffix));
-         --  We will add the Linker Opt section to p__<lib>_0.o
+           (Partial_Name (Library_Name.all, Partial_Number, Object_Suffix));
+         --  We will add the Linker Opt section to p__<lib>_<partial_number>.o
 
       else
          --  Not a standalone library, or Partial linker is not specified.
          --  Put all objects in the archive.
 
-         AB_Objects.Append (Object_Files);
-
+         AB_Objects.Append_Vector (Object_Files);
       end if;
 
       --  Add the .GPR.linker_options section to Linker_Option_Object_File.
 
       if Linker_Option_Object_File /= null then
-
          --  Retrieve the relevant options in the binder-generated file.
          --  ??? This is a duplicated code from Process_Standalone!
          --  A refactoring would be nice.
+
          declare
             BG_File          : File_Type;
             Line             : String (1 .. 1_000);
             Last             : Natural;
             Start_Retrieving : Boolean := False;
-            Options_File     : constant String := Library_Name.all &
-              ".linker_options";
+            Options_File     : constant String :=
+                                 Library_Name.all & ".linker_options";
 
-            Objcopy_Exec : String_Access := Locate_Exec_On_Path
-              (Objcopy_Name.all);
+            Objcopy_Exec : String_Access :=
+                             Locate_Exec_On_Path (Objcopy_Name.all);
             Objcopy_Args : String_Vectors.Vector;
 
          begin
+            --  Read the linker options from the binder-generated file if we
+            --  did the standalone process.
 
-            --  Read the linker options from the binder-generated file.
-
-            Open (BG_File, In_File, "b__" & Library_Name.all & ".adb");
             Create (IO_File, Out_File, Options_File);
 
-            while not End_Of_File (BG_File) loop
-               Get_Line (BG_File, Line, Last);
-               exit when Line (1 .. Last) = Begin_Info;
-            end loop;
+            if not ALIs.Is_Empty then
+               Open (BG_File, In_File, "b__" & Library_Name.all & ".adb");
 
-            while not End_Of_File (BG_File) loop
-               Get_Line (BG_File, Line, Last);
-               exit when Line (1 .. Last) = End_Info;
+               while not End_Of_File (BG_File) loop
+                  Get_Line (BG_File, Line, Last);
+                  exit when Line (1 .. Last) = Begin_Info;
+               end loop;
 
-               if not Start_Retrieving and then Line (9 .. 10) = "-L" then
-                  Start_Retrieving := True;
-               end if;
+               while not End_Of_File (BG_File) loop
+                  Get_Line (BG_File, Line, Last);
+                  exit when Line (1 .. Last) = End_Info;
 
-               if Start_Retrieving then
-                  --  Don't store -static and -shared flags, they may cause
-                  --  issues when linking with the library.
-                  if Line (9 .. Last) /= "-static" and then
-                    Line (9 .. Last) /= "-shared"
-                  then
-                     Put_Line (IO_File, Line (9 .. Last));
+                  if not Start_Retrieving and then Line (9 .. 10) = "-L" then
+                     Start_Retrieving := True;
                   end if;
-               end if;
-            end loop;
 
-            Close (BG_File);
+                  if Start_Retrieving then
+                     --  Don't store -static and -shared flags, they may cause
+                     --  issues when linking with the library.
+                     --  Don't store -lgnat and -lgnarl for encapsulated
+                     --  because libgnat.a and libgnarl.a already encapsulated.
+
+                     if Line (9 .. Last) not in Dash_Static | Dash_Shared
+                       and then not
+                         (Standalone = Encapsulated
+                          and then Line (9 .. Last) in
+                                Dash_Lgnat | Dash_Lgnarl)
+                     then
+                        Put_Line (IO_File, Line (9 .. Last));
+                     end if;
+                  end if;
+               end loop;
+
+               Close (BG_File);
+            end if;
+
             Close (IO_File);
 
             --  Call objcopy to add a section to Linker_Option_Object_File,
@@ -1663,25 +1588,27 @@ procedure Gprlib is
 
             if Objcopy_Exec = null then
                Objcopy_Exec := Locate_Exec_On_Path ("objcopy");
-               if Objcopy_Exec = null then
-                  if Verbose_Mode then
-                     Put ("Warning: unable to locate objcopy " &
-                            Objcopy_Name.all & ".");
-                  end if;
-                  Success := False;
+            end if;
+
+            if Objcopy_Exec = null then
+               if Verbose_Mode then
+                  Put ("Warning: unable to locate objcopy " &
+                         Objcopy_Name.all & ".");
                end if;
+               Success := False;
 
             else
                declare
                   Arg_List : String_List_Access :=
                     new String_List'(To_Argument_List (Objcopy_Args));
-                  FD             : File_Descriptor;
-                  Tmp_File       : Path_Name_Type;
-                  Status         : aliased Integer;
+                  FD       : File_Descriptor;
+                  Tmp_File : Path_Name_Type;
+                  Status   : aliased Integer;
 
                begin
                   --  Create the temporary file to receive (and
                   --  discard) the output from spawned processes.
+
                   Tempdir.Create_Temp_File (FD, Tmp_File);
 
                   if FD = Invalid_FD then
@@ -1691,7 +1618,7 @@ procedure Gprlib is
 
                   Record_Temp_File (null, Tmp_File);
 
-                  Spawn (Objcopy_Name.all, Arg_List.all, FD, Status);
+                  Spawn (Objcopy_Exec.all, Arg_List.all, FD, Status);
 
                   Success := Status = 0;
                   Free (Arg_List);
@@ -1699,8 +1626,9 @@ procedure Gprlib is
                end;
 
                if not Success and then Verbose_Mode then
-                  Put ("Warning: invocation of " &
-                         Objcopy_Name.all & " failed.");
+                  Put_Line
+                    ("Warning: invocation of " &  Objcopy_Exec.all
+                     & " failed.");
                end if;
             end if;
 
@@ -1729,13 +1657,14 @@ procedure Gprlib is
             --  archive in one chunk.
 
             AB_Options := AB_Create_Options;
-            AB_Options.Append (AB_Objects);
+            AB_Options.Append_Vector (AB_Objects);
             First_AB_Object_Pos := AB_Objects.Last_Index + 1;
 
          else
             --  If Archive_Builder_Append_Option is specified, for the creation
             --  of the archive, only put on the command line a number of
             --  character lower that Maximum_Size.
+
             if First_AB_Object_Pos > AB_Objects.First_Index then
                AB_Options := AB_Append_Options;
             else
@@ -1758,7 +1687,7 @@ procedure Gprlib is
                Last_AB_Object_Pos := J;
             end loop;
 
-            AB_Options.Append
+            AB_Options.Append_Vector
               (Slice (AB_Objects, First_AB_Object_Pos, Last_AB_Object_Pos));
 
             --  Display the invocation of the archive builder for the creation
@@ -1771,7 +1700,8 @@ procedure Gprlib is
                   Display_Command (Archive_Builder.all, AB_Options);
 
                elsif First_AB_Object_Pos = AB_Objects.First_Index then
-                  --  Only display this once.
+                  --  Only display this once
+
                   Display
                     (Section  => Build_Libraries,
                      Command  => "archive",
@@ -1794,6 +1724,122 @@ procedure Gprlib is
                "call to archive builder " & Archive_Builder.all & " failed");
          end if;
       end loop;
+
+      if not Archive_Files.Is_Empty then
+         declare
+            Dash_M : aliased String := "-M";
+            Status : aliased Integer;
+
+            Rel_Path : constant String :=
+                         Relative_Path
+                           (Library_Path_Name.all,
+                            To        => Get_Current_Dir,
+                            Directory => False);
+            --  We need relative path here because ar -M script does not accept
+            --  Linux legal absolute pathname with '+' character. Relative path
+            --  gives much less probability to get that.
+
+            Lib_Path : constant String :=
+                         (if Rel_Path'Length < Library_Path_Name'Length
+                          then Rel_Path
+                          else Library_Path_Name.all);
+
+            function Add_Libraries (First : Positive) return String is
+              ("ADDLIB " & Archive_Files (First) & ASCII.LF
+               & (if First = Archive_Files.Last_Index
+                  then "" else Add_Libraries (First + 1)));
+
+            function Input return String;
+
+            -----------
+            -- Input --
+            -----------
+
+            function Input return String is
+               Version : Long_Float;
+               End_Of  : constant String :=
+                           "SAVE" & ASCII.LF & "END" & ASCII.LF;
+               Success : Boolean;
+
+               function Simple return String is
+                 ("OPEN " & Lib_Path & ASCII.LF & Add_Libraries (1) & End_Of);
+
+            begin
+               if not On_Windows then
+                  return Simple;
+               end if;
+
+               if not GNAT_Version_Set or else GNAT_Version = null then
+                  Fail_Program
+                    (null,
+                     "No GNAT version to detect possibility to build"
+                     & " encapsulated static SAL without partial linker");
+               end if;
+
+               begin
+                  Version := Long_Float'Value (GNAT_Version.all);
+               exception
+                  when E : others =>
+                     Fail_Program
+                       (null,
+                        "Unable to get number of GNAT version """
+                        & GNAT_Version.all
+                        & """ to detect possibility to build encapsulated"
+                        & " static SAL without partial linker. "
+                        & Ada.Exceptions.Exception_Message (E));
+               end;
+
+               if Version > 8.0 then
+                  --  I do not know exactly, but GNAT 7.3 should be procedded
+                  --  another way.
+
+                  return Simple;
+
+               elsif Ends_With (Lib_Path, ".a") then
+                  declare
+                     Tmp : constant String :=
+                             Lib_Path (Lib_Path'First .. Lib_Path'Last - 1)
+                             & "tmp";
+                  begin
+                     Rename_File (Lib_Path, Tmp, Success);
+
+                     if not Success then
+                        Fail_Program
+                          (null,
+                           "Unable to rename """ & Lib_Path & """ to """ & Tmp
+                           & '"');
+                     end if;
+
+                     Record_Temp_File (null, Get_Path_Name_Id (Tmp));
+
+                     return "CREATE " & Lib_Path & ASCII.LF
+                       & "ADDLIB " & Tmp & ASCII.LF
+                       & Add_Libraries (1) & End_Of;
+                  end;
+
+               else
+                  Fail_Program
+                    (null,
+                     "Unexpected suffix for library file name """ & Lib_Path
+                     & '"');
+               end if;
+
+            end Input;
+
+            Output : constant String := GNAT.Expect.Get_Command_Output
+              (Command    => Archive_Builder.all,
+               Arguments  => (1 => Dash_M'Unchecked_Access),
+               Input      => Input,
+               Status     => Status'Unchecked_Access,
+               Err_To_Out => True);
+         begin
+            if Status /= 0 then
+               Fail_Program (null, "ar -M falure: " & Output);
+            elsif Output /= "" and then Verbose_Mode then
+               Put_Line ("ar -M output: " & Output);
+            end if;
+         end;
+      end if;
 
       --  If there is an Archive Indexer, invoke it
 
@@ -1824,6 +1870,77 @@ procedure Gprlib is
          end if;
       end if;
    end Process_Static;
+
+   ------------------------
+   -- Is_Gnarl_Dependent --
+   ------------------------
+
+   function Is_Gnarl_Dependent return Boolean
+   is
+      Gnarl_Dependent : Boolean := Libgnarl_Needed;
+   begin
+      --  If Ada is used and we don't already know that libgnarl is needed,
+      --  look for s-osinte.ads in all the ALI files. If found in at least one,
+      --  then libgnarl is needed.
+
+      if Use_GNAT_Lib
+        and then not Runtime_Library_Dirs.Is_Empty
+        and then not Libgnarl_Needed
+      then
+         declare
+            Lib_File : File_Name_Type;
+            Text     : Text_Buffer_Ptr;
+            Id       : ALI.ALI_Id;
+            use ALI;
+
+         begin
+            if Verbosity_Level > Opt.Low then
+               Put_Line ("Reading ALI files to decide for -lgnarl");
+            end if;
+
+            ALI_Loop :
+            for ALI_File of ALIs loop
+               if Verbosity_Level > Opt.Low then
+                  Put_Line ("Reading " & ALI_File);
+               end if;
+
+               Set_Name_Buffer (ALI_File);
+               Lib_File := Name_Find;
+               Text := Osint.Read_Library_Info (Lib_File, True);
+
+               Id := ALI.Scan_ALI
+                 (F          => Lib_File,
+                  T          => Text,
+                  Ignore_ED  => False,
+                  Err        => True,
+                  Read_Lines => "D");
+               Free (Text);
+
+               if Id = No_ALI_Id and then Verbose_Mode then
+                  Put_Line ("warning: reading of " & ALI_File & " failed");
+
+               else
+                  --  Look for s-osinte.ads in the dependencies
+
+                  for Index in ALI.ALIs.Table (Id).First_Sdep ..
+                    ALI.ALIs.Table (Id).Last_Sdep
+                  loop
+                     if ALI.Sdep.Table (Index).Sfile = S_Osinte_Ads then
+                        Gnarl_Dependent := True;
+                        exit ALI_Loop;
+                     end if;
+                  end loop;
+               end if;
+            end loop ALI_Loop;
+
+            if Verbosity_Level > Opt.Low then
+               Put_Line ("End of ALI file reading");
+            end if;
+         end;
+      end if;
+
+      return Gnarl_Dependent;
+   end Is_Gnarl_Dependent;
 
    ------------------------
    -- Read_Exchange_File --
@@ -1865,10 +1982,8 @@ procedure Gprlib is
 
             when Gprexch.Relocatable =>
                Relocatable := True;
-               Static      := False;
 
             when Gprexch.Static =>
-               Static      := True;
                Relocatable := False;
 
             when Gprexch.Archive_Builder =>
@@ -2133,12 +2248,10 @@ procedure Gprlib is
                      GNAT_Version := new String'(Line (6 .. Last));
                      GNAT_Version_Set := True;
 
-                     Libgnat :=
-                       new String'
-                         ("-lgnat-" & Line (6 .. Last));
-                     Libgnarl :=
-                       new String'
-                         ("-lgnarl-" & Line (6 .. Last));
+                     Free (Libgnat);
+                     Free (Libgnarl);
+                     Libgnat  := new String'("-lgnat-" & Line (6 .. Last));
+                     Libgnarl := new String'("-lgnarl-" & Line (6 .. Last));
                   end if;
 
                else
@@ -2188,11 +2301,7 @@ procedure Gprlib is
                Archive_Suffix := new String'(Line (1 .. Last));
 
             when Gprexch.Run_Path_Option =>
-               if Path_Option /= null then
-                  Fail_Program (null, "multiple run path options");
-               end if;
-
-               Path_Option := new String'(Line (1 .. Last));
+               Path_Option.Append (Line (1 .. Last));
 
             when Gprexch.Run_Path_Origin =>
                if Rpath_Origin /= null then
@@ -2410,17 +2519,27 @@ begin
       Library_Dependency_Directory := Library_Directory;
    end if;
 
-   if Standalone /= No then
+   if Standalone /= No
+     and then not ALIs.Is_Empty
+   then
       Process_Standalone;
    end if;
 
    --  Archives
 
-   if Static and then not No_Create then
-      Process_Static;
+   if not No_Create then
+      if S_Osinte_Ads = No_File then
+         Set_Name_Buffer ("s-osinte.ads");
+         S_Osinte_Ads := Name_Find;
+      end if;
 
-   elsif not No_Create then
-      Process_Shared;
+      Process_Common;
+
+      if Relocatable then
+         Process_Shared;
+      else
+         Process_Static;
+      end if;
    end if;
 
    if not ALIs.Is_Empty then
@@ -2450,11 +2569,7 @@ begin
 
    for Index in 1 .. Last_Object_File_Index loop
       Put_Line (IO_File, Object_Files (Index));
-
-      Name_Len := Object_Files.Element (Index)'Length;
-      Name_Buffer (1 .. Name_Len) := Object_Files (Index);
-      Put_Line
-        (IO_File, String (Osint.File_Stamp (Path_Name_Type'(Name_Find))));
+      Put_Line (IO_File, String (Osint.File_Stamp (Object_Files (Index))));
    end loop;
 
    if not Generated_Sources.Is_Empty then
@@ -2473,9 +2588,9 @@ begin
       end loop;
    end if;
 
-   if Relocatable and then
-     Library_Version.all /= "" and then
-     Symbolic_Link_Supported
+   if Relocatable
+     and then Library_Version.all /= ""
+     and then Symbolic_Link_Supported
    then
       Put_Line (IO_File, Library_Label (Gprexch.Library_Version));
       Put_Line (IO_File, Library_Version.all);

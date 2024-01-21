@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---            Copyright (C) 2006-2019, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2021, Free Software Foundation, Inc.       --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -114,7 +114,7 @@ package GPR.Conf is
    --  in another directory.
    --
    --  If specified, On_New_Tree_Loaded is called after each aggregated project
-   --  has been processed succesfully.
+   --  has been processed successfully.
 
    procedure Process_Project_And_Apply_Config
      (Main_Project               : out Project_Id;

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -179,7 +179,7 @@ package body GPR.Proc is
 
    procedure Add (To_Exp : in out Name_Id; Str : Name_Id) is
    begin
-      if To_Exp = No_Name or else To_Exp = Empty_String then
+      if To_Exp in No_Name | Empty_String then
 
          --  To_Exp is nil or empty. The result is Str
 
@@ -187,14 +187,10 @@ package body GPR.Proc is
 
       --  If Str is nil, then do not change To_Ext
 
-      elsif Str /= No_Name and then Str /= Empty_String then
-         declare
-            S : constant String := Get_Name_String (Str);
-         begin
-            Get_Name_String (To_Exp);
-            Add_Str_To_Name_Buffer (S);
-            To_Exp := Name_Find;
-         end;
+      elsif Str not in No_Name | Empty_String then
+         Get_Name_String (To_Exp);
+         Get_Name_String_And_Append (Str);
+         To_Exp := Name_Find;
       end if;
    end Add;
 
@@ -665,6 +661,13 @@ package body GPR.Proc is
                end case;
 
             when N_Literal_String_List =>
+               if Kind = Single then
+                  --  Expected value does not correspond to actual. Error check
+                  --  will be later, in Parse_Attribute_Declaration.
+
+                  return Result;
+               end if;
+
                declare
                   String_Node : Project_Node_Id :=
                                   First_Expression_In_List
@@ -788,8 +791,9 @@ package body GPR.Proc is
 
                      The_Name :=
                        Name_Of (Term_Project, From_Project_Node_Tree);
+
                      The_Project := Imported_Or_Extended_Project_From
-                                      (Project      => Project,
+                                      (Project,
                                        With_Name    => The_Name,
                                        No_Extending => True);
                   end if;
@@ -810,8 +814,17 @@ package body GPR.Proc is
                           Shared.Packages.Table (The_Package).Next;
                      end loop;
 
-                     pragma Assert
-                       (The_Package /= No_Package, "package not found.");
+                     if The_Package = No_Package then
+                        Get_Name_String (The_Name);
+                        Error_Msg
+                          (Env.Flags,
+                           "unknown package `" &
+                           Name_Buffer (1 .. Name_Len) & "`",
+                           Location_Of
+                             (The_Current_Term, From_Project_Node_Tree),
+                           Project);
+                        goto Process_Next_Term;
+                     end if;
 
                   elsif Kind_Of (The_Current_Term, From_Project_Node_Tree) =
                         N_Attribute_Reference
@@ -1033,15 +1046,14 @@ package body GPR.Proc is
                         if The_Default = Target_Value
                           and then Opt.Target_Origin = Specified
                         then
-                           Set_Name_Buffer (Opt.Target_Value.all);
-                           The_Variable.Value := Name_Find;
+                           The_Variable.Value := Get_Name_Id
+                             (Opt.Target_Value.all);
 
                         elsif The_Default = Canonical_Target_Value
                           and then Opt.Target_Value_Canonical /= null
                         then
-                           Set_Name_Buffer
+                           The_Variable.Value := Get_Name_Id
                              (Opt.Target_Value_Canonical.all);
-                           The_Variable.Value := Name_Find;
 
                         --  Check special value for Runtime (<lang>): --RTS=
                         --  overrides declaration of Runtime (<lang>).
@@ -1088,9 +1100,8 @@ package body GPR.Proc is
                                        The_Variable.Value := Empty_String;
 
                                     else
-                                       Set_Name_Buffer
+                                       The_Variable.Value := Get_Name_Id
                                          (Opt.Target_Value.all);
-                                       The_Variable.Value := Name_Find;
                                        The_Variable.From_Implicit_Target :=
                                          True;
                                     end if;
@@ -1100,9 +1111,8 @@ package body GPR.Proc is
                                        The_Variable.Value := Empty_String;
 
                                     else
-                                       Set_Name_Buffer
+                                       The_Variable.Value := Get_Name_Id
                                          (Opt.Target_Value_Canonical.all);
-                                       The_Variable.Value := Name_Find;
                                     end if;
 
                                  when Runtime_Value =>
@@ -1244,6 +1254,8 @@ package body GPR.Proc is
                                                               (The_List).Next;
                                  end loop;
                               end;
+
+                              Result.Concat := The_Variable.Concat;
                         end case;
                   end case;
                end;
@@ -1297,6 +1309,7 @@ package body GPR.Proc is
                   if Ext_List then
                      Value :=
                        GPR.Ext.Value_Of (Env.External, Name, No_Name);
+                     GPR.Ext.Add_Name_To_Context (Env.External, Name, Value);
 
                      if Value /= No_Name then
                         declare
@@ -1403,6 +1416,7 @@ package body GPR.Proc is
 
                      Value :=
                        GPR.Ext.Value_Of (Env.External, Name, Default);
+                     GPR.Ext.Add_Name_To_Context (Env.External, Name, Value);
 
                      --  It is an error if an external reference is not found
                      --  and there is no default.
@@ -1467,8 +1481,7 @@ package body GPR.Proc is
 
                            if Ext_List then
                               for Ind in Str_List'Range loop
-                                 Set_Name_Buffer (Str_List (Ind).all);
-                                 Value := Name_Find;
+                                 Value := Get_Name_Id (Str_List (Ind).all);
                                  Shared.String_Elements.Table (Last) :=
                                    (Value         => Value,
                                     Display_Value => No_Name,
@@ -1528,6 +1541,7 @@ package body GPR.Proc is
             end case;
          end if;
 
+         <<Process_Next_Term>>
          The_Term := Next_Term (The_Term, From_Project_Node_Tree);
       end loop;
 
@@ -1546,7 +1560,6 @@ package body GPR.Proc is
       List        : Project_List;
       Result      : Project_Id;
       Temp_Result : Project_Id;
-
    begin
       --  First check if it is the name of an extended project
 
@@ -1577,10 +1590,8 @@ package body GPR.Proc is
          --  if the project is not imported directly.
 
          declare
-            Proj : Project_Id;
-
+            Proj : Project_Id := Result.Extends;
          begin
-            Proj := Result.Extends;
             while Proj /= No_Project loop
                if Proj.Name = With_Name then
                   if No_Extending then
@@ -1599,7 +1610,69 @@ package body GPR.Proc is
          List := List.Next;
       end loop;
 
-      pragma Assert (Temp_Result /= No_Project, "project not found");
+      if Temp_Result = No_Project then
+         --  Check is it grand parent case
+
+         declare
+            Grand : constant String := Get_Name_String (With_Name);
+            Child : constant String := Get_Name_String (Project.Name);
+
+            function Error_Message return String is
+              ("Name " & Grand & " not found for project " & Child);
+
+            function Recursive_Parent_Search
+              (Proj : Project_Id) return Project_Id;
+
+            -----------------------------
+            -- Recursive_Parent_Search --
+            -----------------------------
+
+            function Recursive_Parent_Search
+              (Proj : Project_Id) return Project_Id
+            is
+               List   : Project_List := Proj.Imported_Projects;
+               Result : Project_Id;
+            begin
+               while List /= null loop
+                  Result := List.Project;
+
+                  if Result.Name = With_Name then
+                     return Result;
+
+                  elsif Util.Starts_With
+                          (Get_Name_String (Result.Name), Grand & '.')
+                  then
+                     Result := Recursive_Parent_Search (Result);
+
+                     if Result /= No_Project then
+                        return Result;
+                     end if;
+                  end if;
+
+                  List := List.Next;
+               end loop;
+
+               if Proj.Extends /= No_Project then
+                  return Recursive_Parent_Search (Proj.Extends);
+               end if;
+
+               return No_Project;
+            end Recursive_Parent_Search;
+
+         begin
+            if not Util.Starts_With (Child, Grand & '.') then
+               pragma Assert (False, Error_Message);
+            end if;
+
+            --  If search of grand parent then look at import or extended of
+            --  parents recursively.
+
+            Temp_Result := Recursive_Parent_Search (Project);
+
+            pragma Assert (Temp_Result /= No_Project, Error_Message);
+         end;
+      end if;
+
       return Temp_Result;
    end Imported_Or_Extended_Project_From;
 
@@ -1624,15 +1697,15 @@ package body GPR.Proc is
       end loop;
 
       if Result = No_Package then
-         GPR.Osint.Fail
-           ("no package " &
-            Get_Name_String (With_Name) &
-            " in project " &
-            Get_Name_String (Project.Display_Name));
+         Error_Msg
+           ("no package " & Get_Name_String_Safe (With_Name) & " in project "
+            & Get_Name_String_Safe (Project.Display_Name),
+            Project.Location);
 
-      else
-         return Result;
+         raise Project_Error;
       end if;
+
+      return Result;
    end Package_From;
 
    -------------
@@ -1744,7 +1817,7 @@ package body GPR.Proc is
                   Reset_Value := True;
                   Error_Msg
                     (Env.Flags, "?no value defined for %%", Loc, Project);
-               when Silent =>
+               when Silent | Decide_Later =>
                   Reset_Value := True;
             end case;
 
@@ -1789,7 +1862,7 @@ package body GPR.Proc is
                         Loc, Project);
                      Reset_Value := True;
 
-                  when Silent =>
+                  when Silent | Decide_Later =>
                      Reset_Value := True;
                   end case;
 
@@ -1867,8 +1940,10 @@ package body GPR.Proc is
                                                Node_Tree);
 
                      Renamed_Project : constant Project_Id :=
-                                         Imported_Or_Extended_Project_From
-                                           (Project, Project_Name);
+                                         Ultimate_Extending_Project_Of
+                                           (Imported_Or_Extended_Project_From
+                                              (Project, Project_Name),
+                                            Before => Project);
 
                      Renamed_Package : constant Package_Id :=
                                          Package_From
@@ -1908,15 +1983,15 @@ package body GPR.Proc is
                --  renaming, as the first declarative item is null).
 
                Process_Declarative_Items
-                 (Project                => Project,
-                  In_Tree                => In_Tree,
-                  From_Project_Node      => From_Project_Node,
-                  Node_Tree              => Node_Tree,
-                  Env                    => Env,
-                  Pkg                    => New_Pkg,
-                  Item                   =>
-                    First_Declarative_Item_Of (Current_Item, Node_Tree),
-                  Child_Env              => Child_Env);
+                 (Project           => Project,
+                  In_Tree           => In_Tree,
+                  From_Project_Node => From_Project_Node,
+                  Node_Tree         => Node_Tree,
+                  Env               => Env,
+                  Pkg               => New_Pkg,
+                  Item              => First_Declarative_Item_Of
+                    (Current_Item, Node_Tree),
+                  Child_Env         => Child_Env);
             end;
          end if;
       end Process_Package_Declaration;
@@ -2281,7 +2356,8 @@ package body GPR.Proc is
                if Current_Verbosity = High then
                   Debug_Output
                     ("'for External' has no effect except in root aggregate ("
-                     & Get_Name_String (Index_Name) & ")", New_Value.Value);
+                     & Get_Name_String_Safe (Index_Name)
+                     & ")", New_Value.Value);
                end if;
             end if;
          end if;
@@ -2338,7 +2414,8 @@ package body GPR.Proc is
 
             pragma Assert
               (not Is_Attribute,
-               "illegal attribute declaration for " & Get_Name_String (Name));
+               "illegal attribute declaration for "
+               & Get_Name_String_Safe (Name));
 
             Variable_Element_Table.Increment_Last (Shared.Variable_Elements);
             Var := Variable_Element_Table.Last (Shared.Variable_Elements);
@@ -2548,22 +2625,30 @@ package body GPR.Proc is
 
                else
                   Write_Line
-                    ("variable """ & Get_Name_String (Name) & """ not found");
+                    ("variable """ & Get_Name_String_Safe (Name)
+                     & """ not found");
                   raise Program_Error;
                end if;
             end if;
 
             --  Get the case variable
 
-            The_Variable := Shared.Variable_Elements. Table (Var_Id).Value;
+            The_Variable := Shared.Variable_Elements.Table (Var_Id).Value;
 
             if The_Variable.Kind /= Single then
+               if Node_Tree.Incomplete_With
+                 and then The_Variable.Kind = Undefined
+               then
+                  return;
+               end if;
 
                --  Should never happen, because this has already been checked
                --  during parsing.
 
-               Write_Line ("variable""" & Get_Name_String (Name) &
-                           """ is not a single string variable");
+               Write_Line
+                 ("variable """ & Get_Name_String_Safe (Name)
+                  & """ is not a single string variable");
+
                raise Program_Error;
             end if;
 
@@ -2608,14 +2693,14 @@ package body GPR.Proc is
 
          if Present (Decl_Item) then
             Process_Declarative_Items
-              (Project                => Project,
-               In_Tree                => In_Tree,
-               From_Project_Node      => From_Project_Node,
-               Node_Tree              => Node_Tree,
-               Env                    => Env,
-               Pkg                    => Pkg,
-               Item                   => Decl_Item,
-               Child_Env              => Child_Env);
+              (Project           => Project,
+               In_Tree           => In_Tree,
+               From_Project_Node => From_Project_Node,
+               Node_Tree         => Node_Tree,
+               Env               => Env,
+               Pkg               => Pkg,
+               Item              => Decl_Item,
+               Child_Env         => Child_Env);
          end if;
       end Process_Case_Construction;
 
@@ -2836,7 +2921,7 @@ package body GPR.Proc is
    is
       Shared : constant Shared_Project_Tree_Data_Access := In_Tree.Shared;
 
-      Child_Env              : GPR.Tree.Environment;
+      Child_Env : GPR.Tree.Environment;
       --  Only used for the root aggregate project (if any). This is left
       --  uninitialized otherwise.
 
@@ -2894,6 +2979,17 @@ package body GPR.Proc is
                   Extended_By            => No_Project,
                   From_Encapsulated_Lib  => From_Encapsulated_Lib,
                   On_New_Tree_Loaded     => On_New_Tree_Loaded);
+
+               while New_Project.Extended_By /= null
+                 and then New_Project.Extended_By.Virtual
+               loop
+                  --  Use extending instead of extended wherever possible.
+                  --  Non-virtual projects processed at
+                  --  GPR.Part.Parse_Single_Project.
+                  --  We have to do the same for virtual projects here.
+
+                  New_Project := New_Project.Extended_By;
+               end loop;
 
                if Imported = null then
                   Project.Imported_Projects := new Project_List_Element'
@@ -3120,7 +3216,7 @@ package body GPR.Proc is
       else
          declare
             Imported, Mark   : Project_List;
-            Declaration_Node : Project_Node_Id  := Empty_Project_Node;
+            Declaration_Node : Project_Node_Id := Empty_Project_Node;
 
             Name : constant Name_Id :=
                      Name_Of (From_Project_Node, From_Project_Node_Tree);
@@ -3205,15 +3301,10 @@ package body GPR.Proc is
             Project.Name := Name;
             Project.Display_Name := Display_Name;
 
-            Get_Name_String (Name);
-
             --  If name starts with the virtual prefix, flag the project as
             --  being a virtual extending project.
 
-            if Name_Len > Virtual_Prefix'Length
-              and then
-                Name_Buffer (1 .. Virtual_Prefix'Length) = Virtual_Prefix
-            then
+            if Util.Starts_With (Get_Name_String (Name), Virtual_Prefix) then
                Project.Virtual := True;
             end if;
 
@@ -3234,6 +3325,9 @@ package body GPR.Proc is
 
             Project.Extended_By := Extended_By;
 
+            Project.Checksum := From_Project_Node_Tree.Project_Nodes.Table
+              (From_Project_Node).Checksum;
+
             Add_Attributes
               (Project,
                Name,
@@ -3249,7 +3343,6 @@ package body GPR.Proc is
                Initialize_And_Copy (Child_Env, Copy_From => Env);
 
             elsif Project.Qualifier = Aggregate_Library then
-
                --  The child environment is the same as the current one.
                --  Copy the Project_Path, so that if it is freed, the project
                --  path of the parent is not modified.
@@ -3273,9 +3366,8 @@ package body GPR.Proc is
               (In_Tree                => In_Tree,
                Project                => Project.Extends,
                Packages_To_Check      => Packages_To_Check,
-               From_Project_Node      =>
-                 Extended_Project_Of
-                   (Declaration_Node, From_Project_Node_Tree),
+               From_Project_Node      => Extended_Project_Of
+                 (Declaration_Node, From_Project_Node_Tree),
                From_Project_Node_Tree => From_Project_Node_Tree,
                Env                    => Env,
                Extended_By            => Project,
@@ -3283,15 +3375,15 @@ package body GPR.Proc is
                On_New_Tree_Loaded     => On_New_Tree_Loaded);
 
             Process_Declarative_Items
-              (Project                => Project,
-               In_Tree                => In_Tree,
-               From_Project_Node      => From_Project_Node,
-               Node_Tree              => From_Project_Node_Tree,
-               Env                    => Env,
-               Pkg                    => No_Package,
-               Item                   => First_Declarative_Item_Of
+              (Project           => Project,
+               In_Tree           => In_Tree,
+               From_Project_Node => From_Project_Node,
+               Node_Tree         => From_Project_Node_Tree,
+               Env               => Env,
+               Pkg               => No_Package,
+               Item              => First_Declarative_Item_Of
                  (Declaration_Node, From_Project_Node_Tree),
-               Child_Env              => Child_Env);
+               Child_Env         => Child_Env);
 
             if Project.Extends /= No_Project then
                Process_Extended_Project;

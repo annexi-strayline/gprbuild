@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2004-2020, AdaCore                     --
+--                     Copyright (C) 2004-2023, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -26,8 +26,12 @@ library project GPR is
    Bld : Build_Type := external ("GPR_BUILD",
                                  external ("BUILD", "production"));
 
+   type Target_type is ("Windows_NT", "UNIX");
+   Target : Target_Type := external ("OS", "UNIX");
+
    type Library_Type_Type is ("relocatable", "static", "static-pic");
-   Gnat_Lib_Type : Library_Type_Type := external ("LIBRARY_TYPE", "static");
+   Gnat_Lib_Type : Library_Type_Type := external
+     ("GPR_LIBRARY_TYPE", external ("LIBRARY_TYPE", "static"));
    Root_Obj_Dir := external ("OBJDIR", ".");
 
    for Library_Kind use Gnat_Lib_Type;
@@ -43,12 +47,13 @@ library project GPR is
    --------------
 
    package Compiler is
-      Common_Switches := ("-gnat12", "-gnaty", "-gnatQ", "-gnata");
+      Common_Switches := ("-gnat2020", "-gnaty", "-gnatQ", "-gnata");
 
       case Bld is
          when "debug" =>
             for Default_Switches ("Ada") use Common_Switches &
-              ("-g", "-gnata", "-gnatVa", "-gnatwaCJI", "-gnatwe", "-gnatyg");
+              ("-g", "-gnata", "-gnatVa", "-gnatwaCJI", "-gnatwe", "-gnatyg",
+               "-fstack-check");
 
             for Local_Configuration_Pragmas use "debug.adc";
 
@@ -69,5 +74,21 @@ library project GPR is
               Compiler'Default_Switches ("Ada") & ("-g1");
       end case;
    end Compiler;
+
+   ------------
+   -- Naming --
+   ------------
+
+   package Naming is
+      case Target is
+         when "Windows_NT" =>
+             for Body ("GPR.Util.Put_Resource_Usage")
+               use "gpr-util-put_resource_usage__null.adb";
+             for Body ("GPR.Jobserver") use "gpr-jobserver__win.adb";
+         when "UNIX" =>
+             for Body ("GPR.Util.Put_Resource_Usage")
+               use "gpr-util-put_resource_usage__unix.adb";
+      end case;
+   end Naming;
 
 end GPR;

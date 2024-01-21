@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -153,9 +153,21 @@ package GPR.Opt is
    --  Set to True to skip compile and bind steps (except when Bind_Only is
    --  set to True).
 
-   Maximum_Processes : Positive := 1;
+   Maximum_Compilers : aliased Positive := 1;
    --  Maximum number of processes that should be spawned to carry out
    --  compilations.
+
+   Maximum_Binders : aliased Positive := 1;
+   --  Maximum number of processes that should be spawned to carry out
+   --  bindings.
+
+   Maximum_Linkers : aliased Positive := 1;
+   --  Maximum number of processes that should be spawned to carry out
+   --  linkings.
+
+   Use_GNU_Make_Jobserver : Boolean := False;
+   --  Set to True if GPRbuild should use GNU make Jobserver for sharing job
+   --  slots.
 
    Minimal_Recompilation : Boolean := False;
    --  Set to True if minimal recompilation mode requested
@@ -188,9 +200,24 @@ package GPR.Opt is
    Run_Path_Option : Boolean := True;
    --  Set to False when no run_path_option should be issued to the linker
 
-   Setup_Projects : Boolean := False;
-   --  Set to True to indicate that the Project Manager needs to creates
-   --  non existing object, library and exec directories.
+   type Dir_Creation_Mode is
+     (Create_All_Dirs,
+      --  Indicate that the Project Manager needs to creates
+      --  non existing object, library and exec directories.
+      --  (Command line option "-p")
+
+      Create_Relative_Dirs_Only,
+      --  The Project Manager should create only directories that are
+      --  relative to the project directory. This is the desirable value
+      --  for tools whose primary vocation is to generate artefacts in these
+      --  directories.
+
+      Never_Create_Dirs
+      --  Never create directories.
+     );
+
+   Create_Dirs : Dir_Creation_Mode := Never_Create_Dirs;
+   --  Which directories we can create
 
    type Origin_Of_Target is (Unknown, Default, Specified);
 
@@ -207,13 +234,6 @@ package GPR.Opt is
    --  Set to True when shared library projects are allowed to import projects
    --  that are not shared library projects. Set on by use of the switch
    --  --unchecked-shared-lib-imports.
-
-   Upper_Half_Encoding : Boolean := False;
-   --  Normally set False, indicating that upper half ISO 8859-1 characters are
-   --  used in the normal way to represent themselves. If the wide character
-   --  encoding method uses the upper bit for this encoding, then this flag is
-   --  set True, and upper half characters in the source indicate the start of
-   --  a wide character sequence. Set by -gnatW or -W switches.
 
    Use_Include_Path_File : Boolean := False;
    --  When True, create a source search path file, even when a mapping file

@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2004-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -51,9 +51,6 @@ package Gpr_Build_Util is
    --  environment (with additional external values and project path) to parse
    --  the aggregated projects.
 
-   On_Windows : constant Boolean := Directory_Separator = '\';
-   --  True when on Windows
-
    Source_Info_Option : constant String := "--source-info=";
    --  Switch to indicate the source info file
 
@@ -80,6 +77,10 @@ package Gpr_Build_Util is
    --  option is not specificed the default value is the directory of the
    --  main project.
 
+   Getrusage_Option : constant String := "--getrusage=";
+   --  Option to set the file where the getrusage call results will be printed.
+   --  Working only in Linux.
+
    Unchecked_Shared_Lib_Imports : constant String :=
                                     "--unchecked-shared-lib-imports";
    --  Command line switch to allow shared library projects to import projects
@@ -102,6 +103,10 @@ package Gpr_Build_Util is
    Keep_Temp_Files_Option : constant String := "--keep-temp-files";
    --  Switch to suppress deletion of temp files created by the builder.
    --  Note that debug switch -gnatdn also has this effect.
+
+   Use_GNU_Make_Jobserver_Option : constant String := "--gnu-make-jobserver";
+   --  Switch to activate the sharing of job slots between GPRbuild and
+   --  GNU make.
 
    package Project_Vectors is new Ada.Containers.Vectors
      (Positive, Project_Id);
@@ -207,13 +212,13 @@ package Gpr_Build_Util is
    function Path_Or_File_Name (Path : Path_Name_Type) return String;
    --  Returns a file name if -df is used, otherwise return a path name
 
-   function Is_Static (Project : Project_Id) return Boolean
-       is (Project.Library_Kind = Static or else Project.Library_Kind =
-             Static_Pic);
+   function Is_Static (Project : Project_Id) return Boolean is
+     (Project.Library_Kind in Static | Static_Pic);
    --  Return True if the library project correspond to a static library.
 
    function Unescape (Path : String) return String;
-   --  On platforms other than Windows, remove the characters '\'.
+   --  Remove the character '\' if it is before ' ', '#', ':', or '\'.
+   --  Remove the character '$' if it is before '$'.
 
    function Escape_Path (Path : String) return String;
    --  Escapes the characters '\', ' ' and '"' with character '\' before them
@@ -241,7 +246,7 @@ package Gpr_Build_Util is
 
    procedure Compute_Builder_Switches
      (Project_Tree     : Project_Tree_Ref;
-      Env              : in out GPR.Tree.Environment;
+      Env              : GPR.Tree.Environment;
       Main_Project     : Project_Id;
       Only_For_Lang    : Name_Id := No_Name);
    --  Compute the builder switches and global compilation switches. Every time
@@ -437,7 +442,7 @@ package Gpr_Build_Util is
       --  Returns True if queue is empty or if all object directories are busy
 
       procedure Insert
-        (Source  : Source_Info;
+        (Source     : Source_Info;
          With_Roots : Boolean := False;
          Repeat     : Boolean := False);
       function Insert
@@ -445,13 +450,12 @@ package Gpr_Build_Util is
          With_Roots : Boolean := False;
          Repeat     : Boolean := False) return Boolean;
       --  Insert source in the queue. The second version returns False if the
-      --  Source was already marked in the queue. If With_Roots is True and the
-      --  source is in Format_Gprbuild mode (ie with a project), this procedure
-      --  also includes the "Roots" for this main, ie all the other files that
-      --  must be included in the library or binary (in particular to combine
-      --  Ada and C files connected through pragma Export/Import). When the
-      --  roots are computed, they are also stored in the corresponding
-      --  Source_Id for later reuse by the binder.
+      --  Source was already marked in the queue. If With_Roots is True, this
+      --  procedure also includes the "Roots" for this Source, ie all the other
+      --  files that must be included in the library or binary (in particular
+      --  to combine Ada and C files connected through pragma Export/Import).
+      --  When the roots are computed, they are also stored in the
+      --  corresponding Source_Id for later reuse by the binder.
       --  If Repeat is True source inserted into the queue even if it was
       --  alredy processed.
 
@@ -484,12 +488,23 @@ package Gpr_Build_Util is
       --  source may be compiled, sets Found to False. In this case, the value
       --  for Source is undefined.
 
+      procedure Get
+        (Found  : out Boolean;
+         Source : out Source_Info);
+      --  Get the first source that can be compiled from the queue. If no
+      --  source may be compiled, sets Found to False. In this case, the value
+      --  for Source is undefined.
+      --  The queue first index does not move until Next is called.
+
+      procedure Next;
+      --  Move the first index of the queue to the next source
+
       function Size return Natural;
       --  Return the total size of the queue, including the sources already
       --  extracted.
 
       function Processed return Natural;
-      --  Return the number of source in the queue that have aready been
+      --  Return the number of sources in the queue that have already been
       --  processed.
 
       procedure Set_Obj_Dir_Busy (Obj_Dir : Path_Name_Type);

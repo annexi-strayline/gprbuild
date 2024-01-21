@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -43,9 +43,29 @@ package GPR.Names is
    --  This functional form returns the result as a string without affecting
    --  the contents of either Name_Buffer or Name_Len. The lower bound is 1.
 
+   function Get_Name_String_Safe (Id : Name_Id) return String;
+   function Get_Name_String_Safe (Id : File_Name_Type) return String;
+   function Get_Name_String_Safe (Id : Path_Name_Type) return String;
+   --  This functional form returns the result as a string without affecting
+   --  the contents of either Name_Buffer or Name_Len. The lower bound is 1.
+
+   function Get_Name_Id (Name : String) return Name_Id;
+   --  Returns Name_Id associated with Name
+
+   function Get_Lower_Name_Id (Name : String) return Name_Id;
+   --  Returns Name_Id associated with To_Lower (Name)
+
+   function Get_Path_Name_Id (Name : String) return Path_Name_Type;
+   --  Returns Path_Name_Type associated with Name
+
+   function Get_File_Name_Id (Name : String) return File_Name_Type;
+   --  Returns File_Name_Type associated with Name
+
    function Get_Name_String_Or_Null (Id : Name_Id) return String;
    --  Same as above, except that on No_Name return Empty string
 
+   procedure Get_Name_String_And_Append (Id : File_Name_Type) with Inline;
+   procedure Get_Name_String_And_Append (Id : Path_Name_Type) with Inline;
    procedure Get_Name_String_And_Append (Id : Name_Id);
    --  Like Get_Name_String but the resulting characters are appended to the
    --  current contents of the entry stored in Name_Buffer, and Name_Len is
@@ -183,5 +203,11 @@ private
 
    function Get_Name_String_Or_Null (Id : Name_Id) return String
    is (if Id = No_Name then "" else Get_Name_String (Id));
+
+   function Get_Path_Name_Id (Name : String) return Path_Name_Type
+   is (Path_Name_Type (Get_Name_Id (Name)));
+
+   function Get_File_Name_Id (Name : String) return File_Name_Type
+   is (File_Name_Type (Get_Name_Id (Name)));
 
 end GPR.Names;

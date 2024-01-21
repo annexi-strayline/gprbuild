@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2006-2019, Free Software Foundation, Inc.         --
+--          Copyright (C) 2006-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -26,7 +26,6 @@
 
 with Ada.Containers.Doubly_Linked_Lists;
 with Ada.Containers.Indefinite_Doubly_Linked_Lists;
-with Ada.Containers.Indefinite_Hashed_Maps;
 with Ada.Containers.Hashed_Maps;
 with Ada.Containers.Vectors;
 with Ada.Strings.Unbounded;
@@ -46,9 +45,9 @@ package GPR.Knowledge is
    --------------------
    -- Knowledge base --
    --------------------
-   --  The following types and subprograms manipulate the knowldge base. This
+   --  The following types and subprograms manipulate the knowledge base. This
    --  base is a set of XML files that describe how to find compilers that are
-   --  installed on the system and that match specific criterias.
+   --  installed on the system and that match specific criteria.
 
    type Knowledge_Base is private;
 
@@ -144,7 +143,7 @@ package GPR.Knowledge is
    --  No_Name if Comp is null.
 
    package Compiler_Lists
-     is new Ada.Containers.Indefinite_Doubly_Linked_Lists (Compiler_Access);
+     is new Ada.Containers.Doubly_Linked_Lists (Compiler_Access);
    --  A list of compilers
 
    function Is_Selected (Comp : Compiler) return Boolean;
@@ -258,17 +257,7 @@ package GPR.Knowledge is
    -- knowledge base contents --
    -----------------------------
 
-   function Hash_Name_Id
-     (Name : Name_Id) return Ada.Containers.Hash_Type
-   is
-     (Ada.Containers.Hash_Type (Name));
-
-   package Variables_Maps is new Ada.Containers.Hashed_Maps
-     (Key_Type        => Name_Id,
-      Element_Type    => Name_Id,
-      Hash            => Hash_Name_Id,
-      Equivalent_Keys => "=",
-      "="             => "=");
+   package Variables_Maps renames Name_Id_Maps;
 
    No_Compiler : constant Compiler;
    --  Describes one of the compilers found on the PATH.
@@ -341,7 +330,7 @@ package GPR.Knowledge is
    end record;
 
    package Double_String_Lists is
-     new Ada.Containers.Indefinite_Doubly_Linked_Lists (Double_String);
+     new Ada.Containers.Doubly_Linked_Lists (Double_String);
    use Double_String_Lists;
 
    procedure Put_Verbose (Str : String; Indent_Delta : Integer := 0);
@@ -489,8 +478,7 @@ private
    --  taken as a regular expression.
 
    package Compiler_Description_Maps is new
-     Ada.Containers.Indefinite_Hashed_Maps
-       (Name_Id, Compiler_Description, Hash_Name_Id, "=");
+     Ada.Containers.Hashed_Maps (Name_Id, Compiler_Description, To_Hash, "=");
 
    type Compiler_Filter is record
       Name        : Name_Id;

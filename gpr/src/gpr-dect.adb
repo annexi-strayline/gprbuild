@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -24,7 +24,6 @@
 
 with GNAT;                  use GNAT;
 with GNAT.Case_Util;        use GNAT.Case_Util;
-with GNAT.Spelling_Checker; use GNAT.Spelling_Checker;
 with GNAT.Strings;
 
 with GPR.Opt;     use GPR.Opt;
@@ -33,6 +32,9 @@ with GPR.Attr.PM; use GPR.Attr.PM;
 with GPR.Err;     use GPR.Err;
 with GPR.Erroutc; use GPR.Erroutc;
 with GPR.Names;   use GPR.Names;
+with GPR.Output;  use GPR.Output;
+with GPR.Osint;   use GPR.Osint;
+with GPR.Sinput;  use GPR.Sinput;
 with GPR.Strt;    use GPR.Strt;
 with GPR.Tree;    use GPR.Tree;
 with GPR.Scans;   use GPR.Scans;
@@ -242,17 +244,11 @@ package body GPR.Dect is
       then
          Error_Msg_Name_1 := Name;
 
-         if Qualif = Aggregate then
-            Error_Msg
-              (Flags,
-               "package %% cannot be used in aggregate projects",
-               Location_Of (Current_Package, In_Tree));
-         else
-            Error_Msg
+         Error_Msg
            (Flags,
-            "package %% cannot be used in aggregate library projects",
+            "package %% cannot be used in aggregate"
+            & (if Qualif = Aggregate then "" else " library") & " projects",
             Location_Of (Current_Package, In_Tree));
-         end if;
       end if;
    end Check_Package_Allowed;
 
@@ -463,11 +459,12 @@ package body GPR.Dect is
          if Current_Attribute /= Empty_Attribute
            and then Attribute_Kind_Of (Current_Attribute) = Single
          then
-            Error_Msg (Flags,
-                       "the attribute """ &
-                       Get_Name_String (Attribute_Name_Of (Current_Attribute))
-                       & """ cannot be an associative array",
-                       Location_Of (Attribute, In_Tree));
+            Error_Msg
+              (Flags,
+               "the attribute """
+               & Get_Name_String_Safe (Attribute_Name_Of (Current_Attribute))
+               & """ cannot be an associative array",
+               Location_Of (Attribute, In_Tree));
 
          elsif Attribute_Kind_Of (Current_Attribute) = Unknown then
             Set_Attribute_Kind_Of (Current_Attribute, To => Associative_Array);
@@ -483,11 +480,11 @@ package body GPR.Dect is
             Scan (In_Tree); --  past others
 
          else
-            if Others_Allowed_For (Current_Attribute) then
-               Expect (Tok_String_Literal, "literal string or others");
-            else
-               Expect (Tok_String_Literal, "literal string");
-            end if;
+            Expect
+              (Tok_String_Literal,
+               "literal string"
+               & (if Others_Allowed_For (Current_Attribute) then " or others"
+                  else ""));
 
             if Token = Tok_String_Literal then
                Get_Name_String (Token_Name);
@@ -647,19 +644,13 @@ package body GPR.Dect is
 
                         Find_Variable (Var, Token_Name, In_Tree);
 
-                        if Present (Var) then
-                           Error_Msg
-                             (Flags,
-                              "found variable name, expected project name " &
-                              "in full associative array expression",
-                              Location);
-                        else
-                           Error_Msg
-                             (Flags,
-                              "unknown project in full " &
-                              "associative array expression",
-                              Location);
-                        end if;
+                        Error_Msg
+                          (Flags,
+                           (if Present (Var)
+                            then "found variable name, expected project name"
+                            else "unknown project")
+                           & " in full associative array expression",
+                           Location);
                      end;
 
                      Scan (In_Tree); --  past the project name
@@ -681,8 +672,8 @@ package body GPR.Dect is
                            Scan (In_Tree); --  past the dot
                            Expect
                              (Tok_Identifier,
-                              "identifier in full " &
-                              "associative array expression");
+                              "identifier in full associative array"
+                              & " expression");
 
                            if Token /= Tok_Identifier then
                               The_Project := Empty_Project_Node;
@@ -694,9 +685,10 @@ package body GPR.Dect is
                            then
                               The_Project := Empty_Project_Node;
                               Error_Msg
-                                (Flags, "not the same package as " &
-                                 Get_Name_String
-                                   (Name_Of (Current_Package, In_Tree)),
+                                (Flags,
+                                 "not the same package as "
+                                 & Get_Name_String_Safe
+                                     (Name_Of (Current_Package, In_Tree)),
                                  Token_Ptr);
                               Scan (In_Tree); --  past the package name
 
@@ -823,10 +815,11 @@ package body GPR.Dect is
 
                   else
                      Error_Msg
-                       (Flags, "wrong expression kind for attribute """ &
-                        Get_Name_String
-                          (Attribute_Name_Of (Current_Attribute)) &
-                        """",
+                       (Flags,
+                        "wrong expression kind for attribute """
+                        & Get_Name_String_Safe
+                            (Attribute_Name_Of (Current_Attribute))
+                        & '"',
                         Expression_Location);
                   end if;
                end if;
@@ -916,11 +909,12 @@ package body GPR.Dect is
          String_Type := String_Type_Of (Case_Variable, In_Tree);
 
          if Expression_Kind_Of (Case_Variable, In_Tree) /= Single then
-            Error_Msg (Flags,
-                       "variable """ &
-                       Get_Name_String (Name_Of (Case_Variable, In_Tree)) &
-                       """ is not a single string",
-                       Variable_Location);
+            Error_Msg
+              (Flags,
+               "variable """
+               & Get_Name_String_Safe (Name_Of (Case_Variable, In_Tree))
+               & """ is not a single string",
+               Variable_Location);
          end if;
       end if;
 
@@ -934,13 +928,14 @@ package body GPR.Dect is
          --  Scan past "is"
 
          Scan (In_Tree);
+
+      else
+         return;
       end if;
 
       Start_New_Case_Construction (In_Tree, String_Type);
 
-      When_Loop :
-
-      while Token = Tok_When loop
+      When_Loop : while Token = Tok_When loop
 
          if First_Case_Item then
             Current_Item :=
@@ -1126,8 +1121,8 @@ package body GPR.Dect is
                      if No (The_Variable) then
                         Error_Msg
                           (Flags,
-                           "a variable cannot be declared " &
-                           "for the first time here",
+                           "a variable cannot be declared for the first time"
+                           & " here",
                            Token_Ptr);
                      end if;
                   end;
@@ -1185,9 +1180,10 @@ package body GPR.Dect is
                --  Type String Declaration
 
                if In_Zone /= In_Project then
-                  Error_Msg (Flags,
-                             "a string type cannot be declared here",
-                             Token_Ptr);
+                  Error_Msg
+                    (Flags,
+                     "a string type cannot be declared here",
+                     Token_Ptr);
                end if;
 
                Parse_String_Type_Declaration
@@ -1295,44 +1291,67 @@ package body GPR.Dect is
             if not Quiet_Output then
                declare
                   List  : constant Strings.String_List := Package_Name_List;
-                  Index : Natural;
                   Name  : constant String := Get_Name_String (Token_Name);
+                  Pack  : String_Access;
+                  Test  : Natural;
+                  Dist  : Natural := Natural'Last;
+
+                  function Close_Enough return Boolean is (Dist < 3);
 
                begin
                   --  Check for possible misspelling of a known package name
 
-                  Index := 0;
-                  loop
-                     if Index >= List'Last then
-                        Index := 0;
-                        exit;
-                     end if;
+                  for P of List loop
+                     Test := Distance (Name, P.all);
 
-                     Index := Index + 1;
-                     exit when
-                       GNAT.Spelling_Checker.Is_Bad_Spelling_Of
-                         (Name, List (Index).all);
+                     if Dist > Test then
+                        Dist := Test;
+                        Pack := P;
+                     end if;
                   end loop;
 
-                  --  Issue warning(s) in verbose mode or when a possible
-                  --  misspelling has been found.
+                  --  Issue warnings when a possible misspelling has been found
+                  --  otherwise simply inform in verbose mode
 
-                  if (Verbose_Mode and then Opt.Verbosity_Level > Opt.Low)
-                    or else Index /= 0
-                  then
-                     Error_Msg (Flags,
-                                "?""" &
-                                Get_Name_String
-                                 (Name_Of (Package_Declaration, In_Tree)) &
-                                """ is not a known package name",
-                                Token_Ptr);
-                  end if;
-
-                  if Index /= 0 then
+                  if Close_Enough then
+                     Error_Msg
+                       (Flags,
+                        "?""" & Name & """ is not a known package name",
+                        Token_Ptr);
                      Error_Msg -- CODEFIX
                        (Flags,
-                        "\?possible misspelling of """ &
-                        List (Index).all & """", Token_Ptr);
+                        "\?possible misspelling of """ & Pack.all & '"',
+                        Token_Ptr);
+                  else
+                     if Verbose_Mode and then Opt.Verbosity_Level > Opt.Low
+                     then
+                        declare
+                           Sfile : Source_File_Index;
+                           Line  : Line_Number;
+                           Col   : Column_Number;
+                           FNT   : File_Name_Type;
+                        begin
+
+                           Sfile    := Get_Source_File_Index (Token_Ptr);
+
+                           if Full_Path_Name_For_Brief_Errors then
+                              FNT := Full_Ref_Name (Sfile);
+                           else
+                              FNT := Reference_Name (Sfile);
+                           end if;
+
+                           Line     := Get_Line_Number (Token_Ptr);
+                           Col      := Get_Column_Number (Token_Ptr);
+                           Write_Line (Get_Name_String (FNT) & ":"
+                                       & Line'Img
+                                         (Line'Img'First + 1 .. Line'Img'Last)
+                                       & ":"
+                                       & Col'Img
+                                         (Col'Img'First + 1 .. Col'Img'Last)
+                                       & ": """ & Name
+                                       & """ is not a known package name");
+                        end;
+                     end if;
                   end if;
                end;
             end if;
@@ -1374,9 +1393,10 @@ package body GPR.Dect is
             if Present (Current) then
                Error_Msg
                  (Flags,
-                  "package """ &
-                  Get_Name_String (Name_Of (Package_Declaration, In_Tree)) &
-                  """ is declared twice in the same project",
+                  "package """
+                  & Get_Name_String_Safe
+                    (Name_Of (Package_Declaration, In_Tree))
+                  & """ is declared twice in the same project",
                   Token_Ptr);
 
             else
@@ -1489,12 +1509,10 @@ package body GPR.Dect is
             end if;
 
             if Success then
-
                --  The project name is the idenfier or group of identifiers
                --  that prefixes the package name (last dot excluded).
 
-               Set_Name_Buffer (Buffer (1 .. Last_Dot_Index - 1));
-               Project_Name := Name_Find;
+               Project_Name := Get_Name_Id (Buffer (1 .. Last_Dot_Index - 1));
 
                --  Now check the project and package
 
@@ -1523,8 +1541,9 @@ package body GPR.Dect is
                   Error_Msg
                     (Flags, "not the same package name", Package_Source_Ptr);
                elsif
-                 Present (Project_Of_Renamed_Package_Of
-                          (Package_Declaration, In_Tree))
+                 Present
+                   (Project_Of_Renamed_Package_Of
+                      (Package_Declaration, In_Tree))
                then
                   declare
                      Current : Project_Node_Id :=
@@ -1543,10 +1562,9 @@ package body GPR.Dect is
 
                      if No (Current) then
                         Error_Msg
-                          (Flags, """" &
-                             Get_Name_String (Package_Name) &
-                             """ is not a package declared " &
-                             "by the project",
+                          (Flags,
+                           '"' & Get_Name_String_Safe (Package_Name)
+                           & """ is not a package declared by the project",
                            Package_Source_Ptr);
                      end if;
                   end;
@@ -1655,11 +1673,11 @@ package body GPR.Dect is
          end loop;
 
          if Present (Current) then
-            Error_Msg (Flags,
-                       "duplicate string type name """ &
-                       Get_Name_String (Token_Name) &
-                       """",
-                       Token_Ptr);
+            Error_Msg
+              (Flags,
+               "duplicate string type name """
+               & Get_Name_String_Safe (Token_Name) & '"',
+               Token_Ptr);
          else
             Current := First_Variable_Of (Current_Project, In_Tree);
             while Present (Current)
@@ -1669,10 +1687,11 @@ package body GPR.Dect is
             end loop;
 
             if Present (Current) then
-               Error_Msg (Flags,
-                          """" &
-                          Get_Name_String (Token_Name) &
-                          """ is already a variable name", Token_Ptr);
+               Error_Msg
+                 (Flags,
+                  '"' & Get_Name_String_Safe (Token_Name)
+                  & """ is already a variable name",
+                  Token_Ptr);
             else
                Set_Next_String_Type
                  (String_Type, In_Tree,
@@ -1794,13 +1813,14 @@ package body GPR.Dect is
                         if The_Project_Name_And_Node =
                              Tree_Private_Part.No_Project_Name_And_Node
                         then
-                           Error_Msg (Flags,
-                                      "unknown project """ &
-                                      Get_Name_String
-                                         (Project_String_Type_Name) &
-                                      """",
-                                      Project_Location);
+                           Error_Msg
+                             (Flags,
+                              "unknown project """
+                              & Get_Name_String_Safe (Project_String_Type_Name)
+                              & '"',
+                              Project_Location);
                            Current := Empty_Project_Node;
+
                         else
                            Current :=
                              First_String_Type_Of
@@ -1838,11 +1858,11 @@ package body GPR.Dect is
                   end if;
 
                   if No (Current) then
-                     Error_Msg (Flags,
-                                "unknown string type """ &
-                                Get_Name_String (String_Type_Name) &
-                                """",
-                                Type_Location);
+                     Error_Msg
+                       (Flags,
+                        "unknown string type """
+                        & Get_Name_String_Safe (String_Type_Name) & '"',
+                        Type_Location);
                      OK := False;
 
                   else
@@ -1933,12 +1953,13 @@ package body GPR.Dect is
                      if Expression_Kind_Of (The_Variable, In_Tree) /=
                        Expression_Kind_Of (Variable, In_Tree)
                      then
-                        Error_Msg (Flags,
-                                   "wrong expression kind for variable """ &
-                                   Get_Name_String
-                                     (Name_Of (The_Variable, In_Tree)) &
-                                     """",
-                                   Expression_Location);
+                        Error_Msg
+                          (Flags,
+                           "wrong expression kind for variable """
+                           & Get_Name_String_Safe
+                             (Name_Of (The_Variable, In_Tree))
+                           & '"',
+                           Expression_Location);
                      end if;
                   end if;
                end if;

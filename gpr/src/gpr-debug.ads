@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2015, Free Software Foundation, Inc.              --
+--          Copyright (C) 2015-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -40,32 +40,35 @@ package GPR.Debug is
    --  is contained in the body of Debug rather than the spec, so that we don't
    --  have to recompile the world when a new debug flag is added.
 
-   Debug_Flag_A : Boolean := False;
-   Debug_Flag_B : Boolean := False;
-   Debug_Flag_C : Boolean := False;
-   Debug_Flag_D : Boolean := False;
-   Debug_Flag_E : Boolean := False;
-   Debug_Flag_F : Boolean := False;
-   Debug_Flag_G : Boolean := False;
-   Debug_Flag_H : Boolean := False;
-   Debug_Flag_I : Boolean := False;
-   Debug_Flag_J : Boolean := False;
-   Debug_Flag_K : Boolean := False;
-   Debug_Flag_L : Boolean := False;
-   Debug_Flag_M : Boolean := False;
-   Debug_Flag_N : Boolean := False;
-   Debug_Flag_O : Boolean := False;
-   Debug_Flag_P : Boolean := False;
-   Debug_Flag_Q : Boolean := False;
-   Debug_Flag_R : Boolean := False;
-   Debug_Flag_S : Boolean := False;
-   Debug_Flag_T : Boolean := False;
-   Debug_Flag_U : Boolean := False;
-   Debug_Flag_V : Boolean := False;
-   Debug_Flag_W : Boolean := False;
-   Debug_Flag_X : Boolean := False;
-   Debug_Flag_Y : Boolean := False;
-   Debug_Flag_Z : Boolean := False;
+   Debug_Flags : array (Character range 'a' .. 'z') of Boolean :=
+                   (others => False);
+
+   Debug_Flag_A : Boolean renames Debug_Flags ('a');
+   Debug_Flag_B : Boolean renames Debug_Flags ('b');
+   Debug_Flag_C : Boolean renames Debug_Flags ('c');
+   Debug_Flag_D : Boolean renames Debug_Flags ('d');
+   Debug_Flag_E : Boolean renames Debug_Flags ('e');
+   Debug_Flag_F : Boolean renames Debug_Flags ('f');
+   Debug_Flag_G : Boolean renames Debug_Flags ('g');
+   Debug_Flag_H : Boolean renames Debug_Flags ('h');
+   Debug_Flag_I : Boolean renames Debug_Flags ('i');
+   Debug_Flag_J : Boolean renames Debug_Flags ('j');
+   Debug_Flag_K : Boolean renames Debug_Flags ('k');
+   Debug_Flag_L : Boolean renames Debug_Flags ('l');
+   Debug_Flag_M : Boolean renames Debug_Flags ('m');
+   Debug_Flag_N : Boolean renames Debug_Flags ('n');
+   Debug_Flag_O : Boolean renames Debug_Flags ('o');
+   Debug_Flag_P : Boolean renames Debug_Flags ('p');
+   Debug_Flag_Q : Boolean renames Debug_Flags ('q');
+   Debug_Flag_R : Boolean renames Debug_Flags ('r');
+   Debug_Flag_S : Boolean renames Debug_Flags ('s');
+   Debug_Flag_T : Boolean renames Debug_Flags ('t');
+   Debug_Flag_U : Boolean renames Debug_Flags ('u');
+   Debug_Flag_V : Boolean renames Debug_Flags ('v');
+   Debug_Flag_W : Boolean renames Debug_Flags ('w');
+   Debug_Flag_X : Boolean renames Debug_Flags ('x');
+   Debug_Flag_Y : Boolean renames Debug_Flags ('y');
+   Debug_Flag_Z : Boolean renames Debug_Flags ('z');
 
    procedure Set_Debug_Flag (C : Character; Val : Boolean := True);
    --  Where C is a-z, sets the corresponding debug flag to

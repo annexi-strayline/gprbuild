@@ -1,17 +1,18 @@
 all: default.cgpr
-	gprbuild -p animals.gpr
-	gprbuild -p except.gpr
+	gprbuild -Panimals $(GPRBUILDFLAGS)
+	gprbuild -Pexcept $(GPRBUILDFLAGS)
 
 default.cgpr:
-	gprconfig --batch --config Ada  --config C++ -o $@
+	gprconfig --batch --config Ada --config C++
 
-clean: force
-	gprclean -r -Panimals
-	gprclean -r -Pexcept
+clean: default.cgpr
+	gprclean -Panimals
+	gprclean -Pexcept
 	$(RM) default.cgpr
 
 run: all
 	./ada_main
 	./cpp_main
 	./main
-force:
+
+.PHONY: all clean run

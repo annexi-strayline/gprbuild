@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2006-2020, AdaCore                     --
+--                     Copyright (C) 2006-2023, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -31,7 +31,6 @@ with GPR.Names;           use GPR.Names;
 with GPR.Opt;
 with GPR.Sdefault;
 with GPR.Util;
-with GPR.Version;
 
 procedure GprConfig.Main is
 
@@ -345,10 +344,7 @@ begin
 
    --  First, check if --version or --help is used
 
-   Check_Version_And_Help
-     ("GPRCONFIG",
-      "2006",
-      Version_String => Version.Gpr_Version_String);
+   Check_Version_And_Help ("GPRCONFIG", "2006");
 
    --  Now check whether we should parse the default knownledge base.
    --  This needs to be done first, since that influences --config and -h
@@ -614,7 +610,7 @@ begin
                   if Last - RTS'First > 6 and then
                     RTS (Last - 5 .. Last) = "adalib" and then
                     (RTS (Last - 6) = Directory_Separator or else
-                     (RTS (Last - 6) = '/'))
+                     RTS (Last - 6) = '/')
 
                   then
                      Last := Last - 6;

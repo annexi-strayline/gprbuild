@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,416 +22,14 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GNAT.Case_Util; use GNAT.Case_Util;
-
-with GPR.Names; use GPR.Names;
-with GPR.Osint; use GPR.Osint;
+with GPR.Names;  use GPR.Names;
+with GPR.Osint;  use GPR.Osint;
+with GPR.Snames; use GPR.Snames;
+with GPR.Err;    use GPR.Err;
 
 package body GPR.Attr is
 
    use GNAT;
-
-   --  Data for predefined attributes and packages
-
-   --  Names are in lower case and end with '#' or 'D'
-
-   --  Package names are preceded by 'P'
-
-   --  Attribute names are preceded by two or three letters:
-
-   --  The first letter is one of
-   --    'S' for Single
-   --    's' for Single with optional index
-   --    'L' for List
-   --    'l' for List of strings with optional indexes
-
-   --  The second letter is one of
-   --    'V' for single variable
-   --    'A' for associative array
-   --    'a' for case insensitive associative array
-   --    'b' for associative array, case insensitive if file names are case
-   --        insensitive
-   --    'c' same as 'b', with optional index
-
-   --  The third optional letter is
-   --     'R' the attribute is read-only
-   --     'O' others is allowed as an index for an associative array
-   --     'C' if values of the list attribute are not empty in both the user
-   --         project and the configuration project, the final value is
-   --         the concatenation of the configuration project value with
-   --         the user project value.
-
-   --  If the character after the name in lower case letter is a 'D' (for
-   --  default), then 'D' must be followed by an enumeration value of type
-   --  Attribute_Default_Value, followed by a '#'.
-
-   --  Example:
-   --    "SVobject_dirDdot_value#"
-
-   --  End is indicated by two consecutive '#'.
-
-   Initialization_Data : constant String :=
-
-   --  project level attributes
-
-   --  General
-
-   "SVRname#" &
-   "SVRproject_dir#" &
-   "lVmain#" &
-   "LVlanguages#" &
-   "Lbroots#" &
-   "SVexternally_built#" &
-   "SVorigin_project#" &
-   "SVcreate_missing_dirs#" &
-   "SVwarning_message#" &
-
-   --  Directories
-
-   "SVobject_dirDdot_value#" &
-   "SVexec_dirDobject_dir_value#" &
-   "LVsource_dirsDdot_value#" &
-   "Lainherit_source_path#" &
-   "LVexcluded_source_dirs#" &
-   "LVignore_source_sub_dirs#" &
-   "Saonly_dirs_with_sources#" &
-
-   --  Source files
-
-   "LVsource_files#" &
-   "LVlocally_removed_files#" &
-   "LVexcluded_source_files#" &
-   "SVsource_list_file#" &
-   "SVexcluded_source_list_file#" &
-   "LVinterfaces#" &
-
-   --  Projects (in aggregate projects)
-
-   "LVproject_files#" &
-   "LVproject_path#" &
-   "SAexternal#" &
-
-   --  Libraries
-
-   "SVlibrary_dir#" &
-   "SVlibrary_name#" &
-   "SVlibrary_kind#" &
-   "SVlibrary_version#" &
-   "LVlibrary_interface#" &
-   "SVlibrary_standalone#" &
-   "LVClibrary_encapsulated_options#" &
-   "SVlibrary_encapsulated_supported#" &
-   "SVlibrary_auto_init#" &
-   "LVCleading_library_options#" &
-   "LVClibrary_options#" &
-   "LaClibrary_rpath_options#" &
-   "SVlibrary_src_dir#" &
-   "SVlibrary_ali_dir#" &
-   "SVlibrary_gcc#" &
-   "SVlibrary_symbol_file#" &
-   "SVlibrary_symbol_policy#" &
-   "SVlibrary_reference_symbol_file#" &
-
-   --  Configuration - General
-
-   "SVdefault_language#" &
-   "LVrun_path_option#" &
-   "SVrun_path_origin#" &
-   "SVseparate_run_path_options#" &
-   "Satoolchain_version#" &
-   "Satoolchain_description#" &
-   "Satoolchain_name#" &
-   "Saobject_generated#" &
-   "Saobjects_linked#" &
-   "SVtargetDtarget_value#" &
-   "SVcanonical_targetDcanonical_target_value#" &
-   "SaruntimeDruntime_value#" &
-   "Saruntime_library_dir#" &
-   "Laruntime_library_dirs#" &
-   "Saruntime_source_dir#" &
-   "Laruntime_source_dirs#" &
-   "Saruntime_dir#" &
-   "Saruntime_library_version#" &
-   "Sarequired_toolchain_version#" &
-
-   --  Configuration - Libraries
-
-   "SVlibrary_builder#" &
-   "SVlibrary_support#" &
-
-   --  Configuration - Archives
-
-   "LVarchive_builder#" &
-   "LVarchive_builder_append_option#" &
-   "LVarchive_indexer#" &
-   "SVarchive_suffix#" &
-   "LVlibrary_partial_linker#" &
-
-   --  Configuration - Object Lister
-
-   "LVobject_lister#" &
-   "SVobject_lister_matcher#" &
-
-   --  Configuration - Shared libraries
-
-   "SVshared_library_prefix#" &
-   "SVshared_library_suffix#" &
-   "SVsymbolic_link_supported#" &
-   "SVlibrary_major_minor_id_supported#" &
-   "SVlibrary_auto_init_supported#" &
-   "LVCshared_library_minimum_switches#" &
-   "LVClibrary_version_switches#" &
-   "SVlibrary_install_name_option#" &
-
-   --  package Naming
-   --  Some attributes are obsolescent, and renamed in the tree (see
-   --  Prj.Dect.Rename_Obsolescent_Attributes).
-
-   "Pnaming#" &
-   "Saspecification_suffix#" &  --  Always renamed to "spec_suffix" in tree
-   "Saspec_suffix#" &
-   "Saimplementation_suffix#" & --  Always renamed to "body_suffix" in tree
-   "Sabody_suffix#" &
-   "SVseparate_suffix#" &
-   "SVcasing#" &
-   "SVdot_replacement#" &
-   "saspecification#" &  --  Always renamed to "spec" in project tree
-   "saspec#" &
-   "saimplementation#" & --  Always renamed to "body" in project tree
-   "sabody#" &
-   "Laspecification_exceptions#" &
-   "Laimplementation_exceptions#" &
-
-   --  package Compiler
-
-   "Pcompiler#" &
-   "LaCdefault_switches#" &
-   "LcOCswitches#" &
-   "SVlocal_configuration_pragmas#" &
-   "Salocal_config_file#" &
-
-   --  Configuration - Compiling
-
-   "Sadriver#" &
-   "Salanguage_kind#" &
-   "Sadependency_kind#" &
-   "LaCrequired_switches#" &
-   "LaCleading_required_switches#" &
-   "LaCtrailing_required_switches#" &
-   "Lapic_option#" &
-   "Sapath_syntax#" &
-   "LaCsource_file_switches#" &
-   "Saobject_file_suffix#" &
-   "LaCobject_file_switches#" &
-   "LaCmulti_unit_switches#" &
-   "Samulti_unit_object_separator#" &
-
-   --  Configuration - Mapping files
-
-   "LaCmapping_file_switches#" &
-   "Samapping_spec_suffix#" &
-   "Samapping_body_suffix#" &
-
-   --  Configuration - Config files
-
-   "LaCconfig_file_switches#" &
-   "Saconfig_body_file_name#" &
-   "Saconfig_body_file_name_index#" &
-   "Saconfig_body_file_name_pattern#" &
-   "Saconfig_spec_file_name#" &
-   "Saconfig_spec_file_name_index#" &
-   "Saconfig_spec_file_name_pattern#" &
-   "Saconfig_file_unique#" &
-
-   --  Configuration - Dependencies
-
-   "LaCdependency_switches#" &
-   "Ladependency_driver#" &
-
-   --  Configuration - Search paths
-
-   "LaCinclude_switches#" &
-   "Lainclude_switches_via_spec#" &
-   "Sainclude_path#" &
-   "Sainclude_path_file#" &
-   "LaCobject_path_switches#" &
-
-   --  Configuration - Response Files
-   "SVmax_command_line_length#" &
-   "Saresponse_file_format#" &
-   "LaCresponse_file_switches#" &
-
-   --  package Builder
-
-   "Pbuilder#" &
-   "LaCdefault_switches#" &
-   "LcOCswitches#" &
-   "LaCglobal_compilation_switches#" &
-   "Scexecutable#" &
-   "SVexecutable_suffix#" &
-   "SVglobal_configuration_pragmas#" &
-   "Saglobal_config_file#" &
-
-   --  package gnatls
-
-   "Pgnatls#" &
-   "LVswitches#" &
-
-   --  package Binder
-
-   "Pbinder#" &
-   "LaCdefault_switches#" &
-   "LcOCswitches#" &
-
-   --  Configuration - Binding
-
-   "Sadriver#" &
-   "LaCrequired_switches#" &
-   "Saprefix#" &
-   "Saobjects_path#" &
-   "Saobjects_path_file#" &
-
-   --  package Linker
-
-   "Plinker#" &
-   "LVCrequired_switches#" &
-   "LaCdefault_switches#" &
-   "LcOCleading_switches#" &
-   "LcOCswitches#" &
-   "LcOCtrailing_switches#" &
-   "LVClinker_options#" &
-   "SVmap_file_option#" &
-
-   --  Configuration - Linking
-
-   "SVdriver#" &
-
-   --  Configuration - Response files
-
-   "SVmax_command_line_length#" &
-   "SVresponse_file_format#" &
-   "LVCresponse_file_switches#" &
-
-   --  Configuration - Export file
-
-   "SVexport_file_format#" &
-   "SVexport_file_switch#" &
-
-   --  package Clean
-
-   "Pclean#" &
-   "LVCswitches#" &
-   "Lasource_artifact_extensions#" &
-   "Laobject_artifact_extensions#" &
-   "LVartifacts_in_exec_dir#" &
-   "LVartifacts_in_object_dir#" &
-
-   --  package Cross_Reference
-
-   "Pcross_reference#" &
-   "LaCdefault_switches#" &
-   "LbOCswitches#" &
-
-   --  package Finder
-
-   "Pfinder#" &
-   "LaCdefault_switches#" &
-   "LbOCswitches#" &
-
-   --  package Pretty_Printer
-
-   "Ppretty_printer#" &
-   "LaCdefault_switches#" &
-   "LbOCswitches#" &
-
-   --  package gnatstub
-
-   "Pgnatstub#" &
-   "LaCdefault_switches#" &
-   "LbOCswitches#" &
-
-   --  package Check
-
-   "Pcheck#" &
-   "LaCdefault_switches#" &
-   "LbOCswitches#" &
-
-   --  package Eliminate
-
-   "Peliminate#" &
-   "LaCdefault_switches#" &
-   "LbOCswitches#" &
-
-   --  package Metrics
-
-   "Pmetrics#" &
-   "LaCdefault_switches#" &
-   "LbOCswitches#" &
-
-   --  package Ide
-
-   "Pide#" &
-   "LaCdefault_switches#" &
-   "SVremote_host#" &
-   "SVprogram_host#" &
-   "SVcommunication_protocol#" &
-   "Sacompiler_command#" &
-   "SVdebugger_command#" &
-   "SVgnatlist#" &
-   "SVvcs_kind#" &
-   "SVvcs_file_check#" &
-   "SVvcs_log_check#" &
-   "SVdocumentation_dir#" &
-
-   --  package Install
-
-   "Pinstall#" &
-   "SVprefix#" &
-   "SVsources_subdir#" &
-   "SVexec_subdir#" &
-   "SVali_subdir#" &
-   "SVlib_subdir#" &
-   "SVproject_subdir#" &
-   "SVactive#" &
-   "SVinstall_project#" &
-   "LAartifacts#" &
-   "LArequired_artifacts#" &
-   "SVmode#" &
-   "SVinstall_name#" &
-   "SVside_debug#" &
-
-   --  package Remote
-
-   "Premote#" &
-   "SVroot_dir#" &
-   "LVexcluded_patterns#" &
-   "LVincluded_patterns#" &
-   "LVincluded_artifact_patterns#" &
-
-   --  package Stack
-
-   "Pstack#" &
-   "LVCswitches#" &
-
-   --  package Codepeer
-
-   "Pcodepeer#" &
-   "SVoutput_directory#" &
-   "SVdatabase_directory#" &
-   "SVmessage_patterns#" &
-   "SVadditional_patterns#" &
-   "LVCswitches#" &
-   "LVexcluded_source_files#" &
-
-   --  package Prove
-
-   "Pprove#" &
-
-   --  package GnatTest
-
-   "Pgnattest#" &
-
-   "#";
 
    Initialized : Boolean := False;
    --  A flag to avoid multiple initialization
@@ -445,7 +43,8 @@ package body GPR.Attr is
    procedure Add_Package_Name (Name : String);
    --  Add a package name in the Package_Name list, extending it, if necessary
 
-   function Name_Id_Of (Name : String) return Name_Id;
+   function Name_Id_Of (Name : String) return Name_Id
+                        renames Get_Lower_Name_Id;
    --  Returns the Name_Id for Name in lower case
 
    ----------------------
@@ -536,25 +135,77 @@ package body GPR.Attr is
    ----------------
 
    procedure Initialize is
-      Start             : Positive          := Initialization_Data'First;
-      Finish            : Positive          := Start;
-      Current_Package   : Pkg_Node_Id       := Empty_Pkg;
-      Current_Attribute : Attr_Node_Id      := Empty_Attr;
-      Is_An_Attribute   : Boolean           := False;
-      Var_Kind          : Variable_Kind     := Undefined;
-      Optional_Index    : Boolean           := False;
-      Attr_Kind         : Attribute_Kind    := Single;
-      Package_Name      : Name_Id           := No_Name;
-      Attribute_Name    : Name_Id           := No_Name;
-      First_Attribute   : Attr_Node_Id      := Attr.First_Attribute;
-      Read_Only         : Boolean;
-      Others_Allowed    : Boolean;
-      Config_Concat     : Boolean;
-      Default           : Attribute_Default_Value;
+      Current_Package : Pkg_Node_Id := Empty_Pkg;
+
+      Pack_Set : Name_Id_Set.Set;
+      Attr_Set : Name_Id_Set.Set;
+      Position : Name_Id_Set.Cursor;
+      Inserted : Boolean;
 
       function Attribute_Location return String;
       --  Returns a string depending if we are in the project level attributes
       --  or in the attributes of a package.
+
+      procedure Add_Package (Name : Name_Id);
+
+      procedure Add_Attribute
+        (Name       : Name_Id;
+         Var_Kind   : Variable_Kind;
+         Opt_Index  : Boolean                 := False;
+         Attr_Kind  : Attribute_Kind;
+         Read_Only  : Boolean                 := False;
+         Others_Can : Boolean                 := False;
+         Default    : Attribute_Default_Value := Empty_Value;
+         Conf_Conc  : Boolean);
+
+      -------------------
+      -- Add_Attribute --
+      -------------------
+
+      procedure Add_Attribute
+        (Name       : Name_Id;
+         Var_Kind   : Variable_Kind;
+         Opt_Index  : Boolean                 := False;
+         Attr_Kind  : Attribute_Kind;
+         Read_Only  : Boolean                 := False;
+         Others_Can : Boolean                 := False;
+         Default    : Attribute_Default_Value := Empty_Value;
+         Conf_Conc  : Boolean)
+      is
+         Tab : constant Package_Attributes.Table_Ptr :=
+                 Package_Attributes.Table;
+      begin
+         Attr_Set.Insert (Name, Position, Inserted);
+
+         if not Inserted then
+            Error_Msg
+              ("duplicate attribute """ & Get_Name_String_Safe (Name)
+               & """ in " & Attribute_Location, No_Location);
+            return;
+         end if;
+
+         Attrs.Increment_Last;
+
+         if Current_Package /= Empty_Pkg
+           and then Tab (Current_Package).First_Attribute = Empty_Attr
+         then
+            Tab (Current_Package).First_Attribute := Attrs.Last;
+
+         elsif Attrs.Last > Attrs.First then
+            Attrs.Table (Attrs.Last - 1).Next := Attrs.Last;
+         end if;
+
+         Attrs.Table (Attrs.Last) :=
+           (Name           => Name,
+            Var_Kind       => Var_Kind,
+            Optional_Index => Opt_Index,
+            Attr_Kind      => Attr_Kind,
+            Read_Only      => Read_Only,
+            Others_Allowed => Others_Can,
+            Default        => Default,
+            Config_Concat  => Conf_Conc,
+            Next           => Empty_Attr);
+      end Add_Attribute;
 
       ------------------------
       -- Attribute_Location --
@@ -562,14 +213,51 @@ package body GPR.Attr is
 
       function Attribute_Location return String is
       begin
-         if Package_Name = No_Name then
+         if Current_Package = Empty_Pkg then
             return "project level attributes";
 
          else
-            return "attribute of package """ &
-            Get_Name_String (Package_Name) & """";
+            return "attribute of package """
+              & Get_Name_String_Safe
+                  (Package_Attributes.Table (Current_Package).Name) & '"';
          end if;
       end Attribute_Location;
+
+      -----------------
+      -- Add_Package --
+      -----------------
+
+      procedure Add_Package (Name : Name_Id) is
+         Name_Str : constant String := Get_Name_String (Name);
+      begin
+         Attr_Set.Clear;
+         Pack_Set.Insert (Name, Position, Inserted);
+
+         if not Inserted then
+            Error_Msg
+              ("duplicate name """  & Name_Str & """ in predefined packages.",
+               No_Location);
+            return;
+         end if;
+
+         Package_Attributes.Increment_Last;
+         Current_Package := Package_Attributes.Last;
+         Package_Attributes.Table (Current_Package) :=
+           (Name             => Name,
+            Known            => True,
+            First_Attribute  => Empty_Attr);
+         Add_Package_Name (Name_Str);
+      end Add_Package;
+
+      Opt_Idx_AA : constant Attribute_Kind :=
+                     (if Osint.File_Names_Case_Sensitive
+                      then Optional_Index_Associative_Array
+                      else Optional_Index_Case_Insensitive_Associative_Array);
+
+      Assoc_Array : constant Attribute_Kind :=
+                      (if Osint.File_Names_Case_Sensitive
+                       then Associative_Array
+                       else Case_Insensitive_Associative_Array);
 
    --  Start of processing for Initialize
 
@@ -585,194 +273,1152 @@ package body GPR.Attr is
       Attrs.Init;
       Package_Attributes.Init;
 
-      while Initialization_Data (Start) /= '#' loop
-         Is_An_Attribute := True;
-         case Initialization_Data (Start) is
-            when 'P' =>
+      Add_Attribute
+        (Name_Name,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Read_Only  => True,
+         Default    => Read_Only_Value,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Project_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Read_Only  => True,
+         Default    => Read_Only_Value,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Main,
+         Var_Kind   => List,
+         Opt_Index  => True,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Languages,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Roots,
+         Var_Kind   => List,
+         Attr_Kind  => Assoc_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Externally_Built,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Origin_Project,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Create_Missing_Dirs,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Warning_Message,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Object_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Default    => Dot_Value,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Exec_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Default    => Object_Dir_Value,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Source_Dirs,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Default    => Dot_Value,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Inherit_Source_Path,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Excluded_Source_Dirs,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Ignore_Source_Sub_Dirs,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Only_Dirs_With_Sources,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Source_Files,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Locally_Removed_Files,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Excluded_Source_Files,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Source_List_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Excluded_Source_List_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Interfaces,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Project_Files,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Project_Path,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_External,
+         Var_Kind   => Single,
+         Attr_Kind  => Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Name,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Kind,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Version,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Interface,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Standalone,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Encapsulated_Options,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Library_Encapsulated_Supported,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Auto_Init,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Leading_Library_Options,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Library_Options,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Library_Rpath_Options,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Library_Src_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Ali_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_GCC,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Symbol_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Symbol_Policy,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Reference_Symbol_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Default_Language,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Run_Path_Option,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Run_Path_Origin,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Separate_Run_Path_Options,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Toolchain_Version,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Toolchain_Description,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Toolchain_Name,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Toolchain_Path,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Object_Generated,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Objects_Linked,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Target,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Default    => Target_Value,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Canonical_Target,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Default    => Canonical_Target_Value,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Runtime,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Default    => Runtime_Value,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Runtime_Library_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Runtime_Library_Dirs,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Runtime_Source_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Runtime_Source_Dirs,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Runtime_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Runtime_Library_Version,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Required_Toolchain_Version,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Builder,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Support,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Archive_Builder,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Archive_Builder_Append_Option,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Archive_Indexer,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Archive_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Partial_Linker,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Object_Lister,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Object_Lister_Matcher,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Shared_Library_Prefix,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Shared_Library_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Symbolic_Link_Supported,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Major_Minor_Id_Supported,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Library_Auto_Init_Supported,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Shared_Library_Minimum_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Library_Version_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Library_Install_Name_Option,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_Prj_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
 
-               --  New allowed package
+      Add_Package (Name_Naming);
+      Add_Attribute
+        (Name_Specification_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Spec_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Implementation_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Body_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Separate_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Casing,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Dot_Replacement,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Specification,
+         Var_Kind   => Single,
+         Opt_Index  => True,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Spec,
+         Var_Kind   => Single,
+         Opt_Index  => True,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Implementation,
+         Var_Kind   => Single,
+         Opt_Index  => True,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Body,
+         Var_Kind   => Single,
+         Opt_Index  => True,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Specification_Exceptions,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Implementation_Exceptions,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
 
-               Start := Start + 1;
+      Add_Package (Name_Compiler);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Opt_Idx_AA,
+         Others_Can => True,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Local_Configuration_Pragmas,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Local_Config_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Driver,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Language_Kind,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Dependency_Kind,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Required_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Leading_Required_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Trailing_Required_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Pic_Option,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Source_File_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Object_File_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Object_File_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Multi_Unit_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Multi_Unit_Object_Separator,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Mapping_File_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Mapping_Spec_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Mapping_Body_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_File_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Config_Body_File_Name,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_Body_File_Name_Index,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_Body_File_Name_Pattern,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_Spec_File_Name,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_Spec_File_Name_Index,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_Spec_File_Name_Pattern,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_File_Unique,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Config_File_Dependency_Support,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Dependency_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Dependency_Driver,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Include_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Include_Switches_Via_Spec,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Include_Path,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Include_Path_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Object_Path_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Max_Command_Line_Length,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Response_File_Format,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Response_File_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
 
-               Finish := Start;
-               while Initialization_Data (Finish) /= '#' loop
-                  Finish := Finish + 1;
-               end loop;
+      Add_Package (Name_Builder);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Opt_Idx_AA,
+         Others_Can => True,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Global_Compilation_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Executable,
+         Var_Kind   => Single,
+         Attr_Kind  => Opt_Idx_AA,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Executable_Suffix,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Global_Configuration_Pragmas,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Global_Config_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
 
-               Package_Name :=
-                 Name_Id_Of (Initialization_Data (Start .. Finish - 1));
+      Add_Package (Name_Gnatls);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
 
-               for Index in First_Package .. Package_Attributes.Last loop
-                  if Package_Name = Package_Attributes.Table (Index).Name then
-                     Osint.Fail ("duplicate name """
-                                 & Initialization_Data (Start .. Finish - 1)
-                                 & """ in predefined packages.");
-                  end if;
-               end loop;
+      Add_Package (Name_Binder);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Opt_Idx_AA,
+         Others_Can => True,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Driver,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Required_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Prefix,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Objects_Path,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Objects_Path_File,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Bindfile_Option_Substitution,
+         Var_Kind   => List,
+         Attr_Kind  => Associative_Array,
+         Conf_Conc  => False);
 
-               Is_An_Attribute := False;
-               Current_Attribute := Empty_Attr;
-               Package_Attributes.Increment_Last;
-               Current_Package := Package_Attributes.Last;
-               Package_Attributes.Table (Current_Package) :=
-                 (Name             => Package_Name,
-                  Known            => True,
-                  First_Attribute  => Empty_Attr);
-               Start := Finish + 1;
+      Add_Package (Name_Linker);
+      Add_Attribute
+        (Name_Required_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Leading_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Opt_Idx_AA,
+         Others_Can => True,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Opt_Idx_AA,
+         Others_Can => True,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Trailing_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Opt_Idx_AA,
+         Others_Can => True,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Linker_Options,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Map_File_Option,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Driver,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Max_Command_Line_Length,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Response_File_Format,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Response_File_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Export_File_Format,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Export_File_Switch,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Unconditional_Linking,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
 
-               Add_Package_Name (Get_Name_String (Package_Name));
+      Add_Package (Name_Clean);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Source_Artifact_Extensions,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Object_Artifact_Extensions,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Artifacts_In_Exec_Dir,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Artifacts_In_Object_Dir,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
 
-            when 'S' =>
-               Var_Kind       := Single;
-               Optional_Index := False;
+      Add_Package (Name_Cross_Reference);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Assoc_Array,
+         Others_Can => True,
+         Conf_Conc  => True);
 
-            when 's' =>
-               Var_Kind       := Single;
-               Optional_Index := True;
+      Add_Package (Name_Finder);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Assoc_Array,
+         Others_Can => True,
+         Conf_Conc  => True);
 
-            when 'L' =>
-               Var_Kind       := List;
-               Optional_Index := False;
+      Add_Package (Name_Pretty_Printer);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Assoc_Array,
+         Others_Can => True,
+         Conf_Conc  => True);
 
-            when 'l' =>
-               Var_Kind         := List;
-               Optional_Index := True;
+      Add_Package (Name_Gnatstub);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Assoc_Array,
+         Others_Can => True,
+         Conf_Conc  => True);
 
-            when others =>
-               raise Program_Error;
-         end case;
+      Add_Package (Name_Check);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Assoc_Array,
+         Others_Can => True,
+         Conf_Conc  => True);
 
-         if Is_An_Attribute then
+      Add_Package (Name_Eliminate);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Assoc_Array,
+         Others_Can => True,
+         Conf_Conc  => True);
 
-            --  New attribute
+      Add_Package (Name_Metrics);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Assoc_Array,
+         Others_Can => True,
+         Conf_Conc  => True);
 
-            Start := Start + 1;
-            case Initialization_Data (Start) is
-               when 'V' =>
-                  Attr_Kind := Single;
+      Add_Package (Name_Ide);
+      Add_Attribute
+        (Name_Default_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Remote_Host,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Program_Host,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Communication_Protocol,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Compiler_Command,
+         Var_Kind   => Single,
+         Attr_Kind  => Case_Insensitive_Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Debugger_Command,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Gnatlist,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Vcs_Kind,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Vcs_File_Check,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Vcs_Log_Check,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Documentation_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
 
-               when 'A' =>
-                  Attr_Kind := Associative_Array;
+      Add_Package (Name_Install);
+      Add_Attribute
+        (Name_Prefix,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Sources_Subdir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Exec_Subdir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_ALI_Subdir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Lib_Subdir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Project_Subdir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Active,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Install_Project,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Artifacts,
+         Var_Kind   => List,
+         Attr_Kind  => Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Required_Artifacts,
+         Var_Kind   => List,
+         Attr_Kind  => Associative_Array,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Mode,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Install_Name,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Side_Debug,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
 
-               when 'a' =>
-                  Attr_Kind := Case_Insensitive_Associative_Array;
+      Add_Package (Name_Remote);
+      Add_Attribute
+        (Name_Root_Dir,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Excluded_Patterns,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Included_Patterns,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Included_Artifact_Patterns,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
 
-               when 'b' =>
-                  if File_Names_Case_Sensitive then
-                     Attr_Kind := Associative_Array;
-                  else
-                     Attr_Kind := Case_Insensitive_Associative_Array;
-                  end if;
+      Add_Package (Name_Stack);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
 
-               when 'c' =>
-                  if Osint.File_Names_Case_Sensitive then
-                     Attr_Kind := Optional_Index_Associative_Array;
-                  else
-                     Attr_Kind :=
-                       Optional_Index_Case_Insensitive_Associative_Array;
-                  end if;
-
-               when others =>
-                  raise Program_Error;
-            end case;
-
-            Start := Start + 1;
-
-            Read_Only := False;
-            Others_Allowed := False;
-            Default := Empty_Value;
-            Config_Concat := False;
-
-            if Initialization_Data (Start) = 'R' then
-               Read_Only := True;
-               Default := Read_Only_Value;
-               Start := Start + 1;
-
-            elsif Initialization_Data (Start) = 'O' then
-               Others_Allowed := True;
-               Start := Start + 1;
-            end if;
-
-            if Initialization_Data (Start) = 'C' then
-               Config_Concat := True;
-               Start := Start + 1;
-            end if;
-
-            Finish := Start;
-
-            while Initialization_Data (Finish) /= '#'
-                    and then
-                  Initialization_Data (Finish) /= 'D'
-            loop
-               Finish := Finish + 1;
-            end loop;
-
-            Attribute_Name :=
-              Name_Id_Of (Initialization_Data (Start .. Finish - 1));
-
-            if Initialization_Data (Finish) = 'D' then
-               Start := Finish + 1;
-
-               Finish := Start;
-               while Initialization_Data (Finish) /= '#' loop
-                  Finish := Finish + 1;
-               end loop;
-
-               declare
-                  Default_Name : constant String :=
-                                   Initialization_Data (Start .. Finish - 1);
-                  pragma Unsuppress (All_Checks);
-               begin
-                  Default := Attribute_Default_Value'Value (Default_Name);
-               exception
-                  when Constraint_Error =>
-                     Osint.Fail
-                       ("illegal default value """ &
-                        Default_Name &
-                        """ for attribute " &
-                        Get_Name_String (Attribute_Name));
-               end;
-            end if;
-
-            Attrs.Increment_Last;
-
-            if Current_Attribute = Empty_Attr then
-               First_Attribute := Attrs.Last;
-
-               if Current_Package /= Empty_Pkg then
-                  Package_Attributes.Table (Current_Package).First_Attribute
-                    := Attrs.Last;
-               end if;
-
-            else
-               --  Check that there are no duplicate attributes
-
-               for Index in First_Attribute .. Attrs.Last - 1 loop
-                  if Attribute_Name = Attrs.Table (Index).Name then
-                     Osint.Fail ("duplicate attribute """
-                                 & Initialization_Data (Start .. Finish - 1)
-                                 & """ in " & Attribute_Location);
-                  end if;
-               end loop;
-
-               Attrs.Table (Current_Attribute).Next :=
-                 Attrs.Last;
-            end if;
-
-            Current_Attribute := Attrs.Last;
-            Attrs.Table (Current_Attribute) :=
-              (Name           => Attribute_Name,
-               Var_Kind       => Var_Kind,
-               Optional_Index => Optional_Index,
-               Attr_Kind      => Attr_Kind,
-               Read_Only      => Read_Only,
-               Others_Allowed => Others_Allowed,
-               Default        => Default,
-               Config_Concat  => Config_Concat,
-               Next           => Empty_Attr);
-            Start := Finish + 1;
-         end if;
-      end loop;
+      Add_Package (Name_Codepeer);
+      Add_Attribute
+        (Name_Output_Directory,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Database_Directory,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Message_Patterns,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Additional_Patterns,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
+        (Name_Switches,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => True);
+      Add_Attribute
+        (Name_Excluded_Source_Files,
+         Var_Kind   => List,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
 
       Initialized := True;
    end Initialize;
@@ -801,17 +1447,6 @@ package body GPR.Attr is
    begin
       return Attrs.Table (Attribute.Value).Read_Only;
    end Is_Read_Only;
-
-   ----------------
-   -- Name_Id_Of --
-   ----------------
-
-   function Name_Id_Of (Name : String) return Name_Id is
-   begin
-      Set_Name_Buffer (Name);
-      To_Lower (Name_Buffer (1 .. Name_Len));
-      return Name_Find;
-   end Name_Id_Of;
 
    --------------------
    -- Next_Attribute --
@@ -887,24 +1522,23 @@ package body GPR.Attr is
    --------------------------
 
    function Attribute_Registered
-     (Name               : String;
-      In_Package         : Package_Node_Id) return Boolean
+     (Name       : String;
+      In_Package : Package_Node_Id) return Boolean
    is
-      Attr_Name       : Name_Id;
-      First_Attr      : Attr_Node_Id := Empty_Attr;
-      Curr_Attr       : Attr_Node_Id;
+      Attr_Name  : Name_Id;
+      First_Attr : Attr_Node_Id := Empty_Attr;
+      Curr_Attr  : Attr_Node_Id;
    begin
       if Name'Length = 0 then
-         GPR.Osint.Fail ("cannot check an attribute with no name");
-         raise Project_Error;
+         Error_Msg ("cannot check an attribute with no name", No_Location);
+         return False;
       end if;
 
       if In_Package = Empty_Package then
-         GPR.Osint.Fail
-           ("cannot check an attribute """
-            & Name
-            & """ from an undefined package");
-         raise Project_Error;
+         Error_Msg
+           ("cannot check an attribute """ & Name
+            & """ from an undefined package", No_Location);
+         return False;
       end if;
 
       Attr_Name := Name_Id_Of (Name);
@@ -947,16 +1581,15 @@ package body GPR.Attr is
 
    begin
       if Name'Length = 0 then
-         GPR.Osint.Fail ("cannot register an attribute with no name");
-         raise Project_Error;
+         Error_Msg ("cannot register an attribute with no name", No_Location);
+         return;
       end if;
 
       if In_Package = Empty_Package then
-         GPR.Osint.Fail
-           ("attempt to add attribute """
-            & Name
-            & """ to an undefined package");
-         raise Project_Error;
+         Error_Msg
+           ("attempt to add attribute """ & Name
+            & """ to an undefined package", No_Location);
+         return;
       end if;
 
       Attr_Name := Name_Id_Of (Name);
@@ -969,14 +1602,12 @@ package body GPR.Attr is
       Curr_Attr := First_Attr;
       while Curr_Attr /= Empty_Attr loop
          if Attrs.Table (Curr_Attr).Name = Attr_Name then
-            GPR.Osint.Fail
-              ("duplicate attribute name """
-               & Name
-               & """ in package """
-               & Get_Name_String
-                 (Package_Attributes.Table (In_Package.Value).Name)
-               & """");
-            raise Project_Error;
+            Error_Msg
+              ("duplicate attribute name """ & Name & """ in package """
+               & Get_Name_String_Safe
+                   (Package_Attributes.Table (In_Package.Value).Name)
+               & """", No_Location);
+            return;
          end if;
 
          Curr_Attr := Attrs.Table (Curr_Attr).Next;
@@ -1028,7 +1659,7 @@ package body GPR.Attr is
 
    begin
       if Name'Length = 0 then
-         GPR.Osint.Fail ("cannot register a package with no name");
+         Error_Msg ("cannot register a package with no name", No_Location);
          Id := Empty_Package;
          return;
       end if;
@@ -1038,10 +1669,9 @@ package body GPR.Attr is
       for Index in Package_Attributes.First .. Package_Attributes.Last loop
          if Package_Attributes.Table (Index).Name = Pkg_Name then
             if Package_Attributes.Table (Index).Known then
-               GPR.Osint.Fail
-                 ("cannot register a package with a non unique name """
-                  & Name
-                  & """");
+               Error_Msg
+                 ("cannot register a package with a non unique name """ & Name
+                  & """", No_Location);
                Id := Empty_Package;
                return;
 
@@ -1078,19 +1708,18 @@ package body GPR.Attr is
 
    begin
       if Name'Length = 0 then
-         GPR.Osint.Fail ("cannot register a package with no name");
-         raise Project_Error;
+         Error_Msg ("cannot register a package with no name", No_Location);
+         return;
       end if;
 
       Pkg_Name := Name_Id_Of (Name);
 
       for Index in Package_Attributes.First .. Package_Attributes.Last loop
          if Package_Attributes.Table (Index).Name = Pkg_Name then
-            GPR.Osint.Fail
-              ("cannot register a package with a non unique name """
-               & Name
-               & """");
-            raise Project_Error;
+            Error_Msg
+              ("cannot register a package with a non unique name """ & Name
+               & '"', No_Location);
+            return;
          end if;
       end loop;
 
@@ -1100,13 +1729,10 @@ package body GPR.Attr is
          Curr_Attr := First_Attr;
          while Curr_Attr /= Empty_Attr loop
             if Attrs.Table (Curr_Attr).Name = Attr_Name then
-               GPR.Osint.Fail
-                 ("duplicate attribute name """
-                  & Attributes (Index).Name
-                  & """ in new package """
-                  & Name
-                  & """");
-               raise Project_Error;
+               Error_Msg
+                 ("duplicate attribute name """ & Attributes (Index).Name
+                  & """ in new package """ & Name & '"', No_Location);
+               return;
             end if;
 
             Curr_Attr := Attrs.Table (Curr_Attr).Next;
@@ -1211,5 +1837,18 @@ package body GPR.Attr is
            (Value => Package_Attributes.Table (Pkg.Value).First_Attribute);
       end if;
    end First_Attribute_Of;
+
+   ----------------------
+   -- Is_Package_Known --
+   ----------------------
+
+   function Is_Package_Known (Pkg : Package_Node_Id) return Boolean is
+   begin
+      if Pkg = Empty_Package or else Pkg = Unknown_Package then
+         return False;
+      else
+         return Package_Attributes.Table (Pkg.Value).Known;
+      end if;
+   end Is_Package_Known;
 
 end GPR.Attr;

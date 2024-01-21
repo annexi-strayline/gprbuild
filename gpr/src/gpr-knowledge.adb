@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2006-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2006-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -23,36 +23,35 @@
 ------------------------------------------------------------------------------
 
 with Ada.Unchecked_Deallocation;
-with Ada.Characters.Handling;   use Ada.Characters.Handling;
-with Ada.Command_Line;          use Ada.Command_Line;
-with Ada.Containers;            use Ada.Containers;
+with Ada.Characters.Handling;               use Ada.Characters.Handling;
+with Ada.Command_Line;                      use Ada.Command_Line;
+with Ada.Containers.Indefinite_Hashed_Maps; use Ada.Containers;
 with Ada.Strings.Hash;
-with Ada.Directories;           use Ada.Directories;
-with Ada.Environment_Variables; use Ada.Environment_Variables;
-with Ada.Exceptions;            use Ada.Exceptions;
+with Ada.Directories;                       use Ada.Directories;
+with Ada.Environment_Variables;             use Ada.Environment_Variables;
+with Ada.Exceptions;                        use Ada.Exceptions;
 with Ada.IO_Exceptions;
-with Ada.Strings.Fixed;         use Ada.Strings.Fixed;
+with Ada.Strings.Fixed;                     use Ada.Strings.Fixed;
 with Ada.Strings.Hash_Case_Insensitive;
-with Ada.Text_IO;               use Ada.Text_IO;
+with Ada.Text_IO;                           use Ada.Text_IO;
 
-with GNAT.Case_Util;            use GNAT.Case_Util;
-with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with GNAT.Expect;               use GNAT.Expect;
-with GNAT.Regpat;               use GNAT.Regpat;
-with GNAT.Strings;              use GNAT.Strings;
+with GNAT.Directory_Operations;             use GNAT.Directory_Operations;
+with GNAT.Expect;                           use GNAT.Expect;
+with GNAT.Regpat;                           use GNAT.Regpat;
+with GNAT.Strings;                          use GNAT.Strings;
 
-with DOM.Core.Nodes;        use DOM.Core, DOM.Core.Nodes;
-with DOM.Core.Documents;
-with Input_Sources.File;    use Input_Sources.File;
-with Sax.Readers;           use Sax.Readers;
-with Schema.Dom_Readers;    use Schema.Dom_Readers;
-with Schema.Schema_Readers; use Schema.Schema_Readers;
-with Schema.Validators;     use Schema.Validators;
+with DOM.Core.Documents;                    use DOM.Core;
+with DOM.Core.Nodes;                        use DOM.Core.Nodes;
+with Input_Sources.File;                    use Input_Sources.File;
+with Sax.Readers;                           use Sax.Readers;
+with Schema.Dom_Readers;                    use Schema.Dom_Readers;
+with Schema.Schema_Readers;                 use Schema.Schema_Readers;
+with Schema.Validators;                     use Schema.Validators;
 
-with GPR.Sdefault;       use GPR.Sdefault;
-with GPR.Names;          use GPR.Names;
+with GPR.Sdefault;                          use GPR.Sdefault;
+with GPR.Names;                             use GPR.Names;
 with GPR.Opt;
-with GPR.Util;           use GPR.Util;
+with GPR.Util;                              use GPR.Util;
 
 package body GPR.Knowledge is
 
@@ -136,10 +135,6 @@ package body GPR.Knowledge is
 
    function Node_Value_As_String (N : Node) return String;
    --  Return the value of the node, concatenating all Text children
-
-   function Ends_With (Str, Suffix : String) return Boolean;
-   --  Whether the string ends with Suffix. Always True if Suffix is the empty
-   --  string.
 
    procedure Foreach_Compiler_In_Dir
      (Iterator       : in out Compiler_Iterator'Class;
@@ -394,18 +389,6 @@ package body GPR.Knowledge is
       end loop;
       return Str2 (Str2'First .. Index - 1);
    end Unquote;
-
-   ---------------
-   -- Ends_With --
-   ---------------
-
-   function Ends_With (Str, Suffix : String) return Boolean is
-   begin
-      return Suffix = ""
-        or else
-          (Str'Length >= Suffix'Length
-           and then Str (Str'Last - Suffix'Length + 1 .. Str'Last) = Suffix);
-   end Ends_With;
 
    ---------------------------
    -- Is_Windows_Executable --
@@ -860,33 +843,30 @@ package body GPR.Knowledge is
             --  Include the language name in the Languages_Known hashed map,
             --  if it is not already there.
 
-            declare
-               Languages : External_Value_Nodes.Cursor :=
-                 Compiler.Languages.First;
-               Lang : External_Value_Node;
-               Lang_Name : Name_Id;
-            begin
-               while Languages /= External_Value_Nodes.No_Element loop
-                  Lang := External_Value_Nodes.Element (Languages);
-                  if Lang.Typ = Value_Constant then
-                     Get_Name_String (Lang.Value);
-                     To_Lower (Name_Buffer (1 .. Name_Len));
-                     Lang_Name := Name_Find;
-
-                     if not Known_Languages.Contains
-                       (Container => Languages_Known,
-                        Key       => Name_Find)
-                     then
-                        Known_Languages.Include
-                          (Container => Languages_Known,
-                           Key       => Lang_Name,
-                           New_Item  => Lang_Name);
-                     end if;
-                  end if;
-
-                  Next (Languages);
-               end loop;
-            end;
+            Get_External_Value
+              (Attribute        => "languages",
+               Value            => Compiler.Languages,
+               Comp             => No_Compiler,
+               Split_Into_Words => True,
+               Processed_Value  => Lang);
+            C := First (Lang);
+            while Has_Element (C) loop
+               declare
+                  Lang_Name : constant Name_Id :=
+                                Get_Lower_Name_Id
+                                  (Get_Name_String
+                                     (External_Value_Lists.Element (C).Value));
+                  Position : Known_Languages.Cursor;
+                  Inserted : Boolean;
+               begin
+                  Languages_Known.Insert
+                    (Key      => Lang_Name,
+                     New_Item => Lang_Name,
+                     Position => Position,
+                     Inserted => Inserted);
+               end;
+               Next (C);
+            end loop;
          end if;
       end Parse_Compiler_Description;
 
@@ -1190,7 +1170,7 @@ package body GPR.Knowledge is
          end loop;
 
          if not Target_Lists.Is_Empty (Set) then
-            Targets_Set_Vectors.Append (Append_To, (Name, Set));
+            Targets_Set_Vectors.Append (Append_To, (Name, Set), 1);
          end if;
       end Parse_Targets_Set;
 
@@ -1675,7 +1655,7 @@ package body GPR.Knowledge is
             begin
                if Visited.Contains (Normalized) then
                   Put_Verbose ("<dir>: ALREADY FOUND ("
-                               & Get_Name_String (Val) & ") "
+                               & Get_Name_String_Safe (Val) & ") "
                                & Current_Dir);
 
                   Prev := Visited.Element (Normalized);
@@ -1687,7 +1667,7 @@ package body GPR.Knowledge is
                      New_Item  => Rec);
 
                else
-                  Put_Verbose ("<dir>: SAVE (" & Get_Name_String (Val)
+                  Put_Verbose ("<dir>: SAVE (" & Get_Name_String_Safe (Val)
                                & ") " & Current_Dir);
                   Append
                     (Processed_Value,
@@ -1816,12 +1796,13 @@ package body GPR.Knowledge is
          --  Else we have a regexp, check all files
          else
             declare
-               File_Re     : constant String :=
-                               Path_To_Check (First .. Last - 1);
-               File_Regexp : constant Pattern_Matcher := Compile (File_Re);
-               Search      : Search_Type;
-               File        : Directory_Entry_Type;
-               Filter      : Ada.Directories.Filter_Type;
+               File_Re         : constant String :=
+                                   Path_To_Check (First .. Last - 1);
+               File_Regexp     : constant Pattern_Matcher := Compile (File_Re);
+               Search          : Search_Type;
+               File            : Directory_Entry_Type;
+               Filter          : Ada.Directories.Filter_Type;
+               Continue_Search : Boolean := True;
             begin
                if Current_Verbosity /= Default and then File_Re = ".." then
                   Put_Verbose
@@ -1847,68 +1828,80 @@ package body GPR.Knowledge is
                   Filter    => Filter,
                   Pattern   => "");
 
-               while More_Entries (Search) loop
-                  Get_Next_Entry (Search, File);
-                  if Simple_Name (File) /= "."
-                    and then Simple_Name (File) /= ".."
-                  then
-                     declare
-                        Matched : Match_Array (0 .. Integer'Max (Group, 0));
-                        Simple  : constant String := Simple_Name (File);
-                        Count   : constant Natural :=
-                                    Paren_Count (File_Regexp);
-                     begin
-                        Match (File_Regexp, Simple, Matched);
-                        if Matched (0) /= No_Match then
-                           Put_Verbose
-                             ("<dir>: Matched " & Simple_Name (File));
-
-                           if Group_Count < Group
-                             and then Group_Count + Count >= Group
-                           then
+               while Continue_Search loop begin
+                  while More_Entries (Search) loop
+                     Get_Next_Entry (Search, File);
+                     if Simple_Name (File) /= "."
+                       and then Simple_Name (File) /= ".."
+                     then
+                        declare
+                           Matched : Match_Array (0 .. Integer'Max (Group, 0));
+                           Simple  : constant String := Simple_Name (File);
+                           Count   : constant Natural :=
+                                       Paren_Count (File_Regexp);
+                        begin
+                           Match (File_Regexp, Simple, Matched);
+                           if Matched (0) /= No_Match then
                               Put_Verbose
-                                ("<dir>: Found matched group: "
-                                 & Simple (Matched (Group - Group_Count).First
-                                   .. Matched (Group - Group_Count).Last));
-                              Parse_All_Dirs
-                                (Processed_Value => Processed_Value,
-                                 Visited         => Visited,
-                                 Current_Dir     =>
-                                   Full_Name (File) & Directory_Separator,
-                                 Path_To_Check   => Path_To_Check
-                                   (Last + 1 .. Path_To_Check'Last),
-                                 Regexp          => Regexp,
-                                 Regexp_Str      => Regexp_Str,
-                                 Value_If_Match  => Value_If_Match,
-                                 Group           => Group,
-                                 Group_Match     =>
-                                   Simple (Matched (Group - Group_Count).First
-                                       .. Matched (Group - Group_Count).Last),
-                                 Group_Count     => Group_Count + Count,
-                                 Contents        => Contents,
-                                 Merge_Same_Dirs => Merge_Same_Dirs);
+                                ("<dir>: Matched " & Simple_Name (File));
 
-                           else
-                              Parse_All_Dirs
-                                (Processed_Value => Processed_Value,
-                                 Visited         => Visited,
-                                 Current_Dir     =>
-                                   Full_Name (File) & Directory_Separator,
-                                 Path_To_Check   => Path_To_Check
-                                   (Last + 1 .. Path_To_Check'Last),
-                                 Regexp          => Regexp,
-                                 Regexp_Str      => Regexp_Str,
-                                 Value_If_Match  => Value_If_Match,
-                                 Group           => Group,
-                                 Group_Match     => Group_Match,
-                                 Group_Count     => Group_Count + Count,
-                                 Contents        => Contents,
-                                 Merge_Same_Dirs => Merge_Same_Dirs);
+                              if Group_Count < Group
+                                and then Group_Count + Count >= Group
+                              then
+                                 Put_Verbose
+                                   ("<dir>: Found matched group: "
+                                    & Simple
+                                       (Matched (Group - Group_Count).First
+                                       .. Matched (Group - Group_Count).Last));
+                                 Parse_All_Dirs
+                                   (Processed_Value => Processed_Value,
+                                    Visited         => Visited,
+                                    Current_Dir     =>
+                                      Full_Name (File) & Directory_Separator,
+                                    Path_To_Check   => Path_To_Check
+                                      (Last + 1 .. Path_To_Check'Last),
+                                    Regexp          => Regexp,
+                                    Regexp_Str      => Regexp_Str,
+                                    Value_If_Match  => Value_If_Match,
+                                    Group           => Group,
+                                    Group_Match     =>
+                                      Simple
+                                       (Matched (Group - Group_Count).First
+                                       .. Matched (Group - Group_Count).Last),
+                                    Group_Count     => Group_Count + Count,
+                                    Contents        => Contents,
+                                    Merge_Same_Dirs => Merge_Same_Dirs);
+
+                              else
+                                 Parse_All_Dirs
+                                   (Processed_Value => Processed_Value,
+                                    Visited         => Visited,
+                                    Current_Dir     =>
+                                      Full_Name (File) & Directory_Separator,
+                                    Path_To_Check   => Path_To_Check
+                                      (Last + 1 .. Path_To_Check'Last),
+                                    Regexp          => Regexp,
+                                    Regexp_Str      => Regexp_Str,
+                                    Value_If_Match  => Value_If_Match,
+                                    Group           => Group,
+                                    Group_Match     => Group_Match,
+                                    Group_Count     => Group_Count + Count,
+                                    Contents        => Contents,
+                                    Merge_Same_Dirs => Merge_Same_Dirs);
+                              end if;
                            end if;
-                        end if;
-                     end;
-                  end if;
+                        end;
+                     end if;
+                  end loop;
+                  Continue_Search := False;
+               exception
+                  when Ada.Directories.Name_Error =>
+                     null;
+                  when Ada.Directories.Use_Error =>
+                     null;
+               end;
                end loop;
+               End_Search (Search);
             end;
          end if;
       end if;
@@ -2055,7 +2048,7 @@ package body GPR.Knowledge is
                            Put_Verbose
                              (Attribute & ": search directories matching "
                               & Search & ", starting from "
-                              & Get_Name_String (Comp.Path), 1);
+                              & Get_Name_String_Safe (Comp.Path), 1);
                         end if;
                         Parse_All_Dirs
                           (Processed_Value => Processed_Value,
@@ -2115,7 +2108,7 @@ package body GPR.Knowledge is
                         Put_Verbose
                           ("Ignore compiler since external value """
                            & To_String (Tmp_Result) & """ must match "
-                           & Get_Name_String (Node.Must_Match));
+                           & Get_Name_String_Safe (Node.Must_Match));
                      end if;
                      Tmp_Result := Null_Unbounded_String;
                      raise Ignore_Compiler;
@@ -2421,7 +2414,8 @@ package body GPR.Knowledge is
                   if Current_Verbosity /= Default then
                      Put_Verbose
                        ("Ignore compiler since variable '"
-                        & Get_Name_String (Ext.Extracted_From) & "' is empty");
+                        & Get_Name_String_Safe (Ext.Extracted_From)
+                        & "' is empty");
                   end if;
                   Continue := True;
                   return;
@@ -2432,7 +2426,7 @@ package body GPR.Knowledge is
                then
                   Put_Line
                     (Standard_Error, "Variable '"
-                     & Get_Name_String (Ext.Extracted_From)
+                     & Get_Name_String_Safe (Ext.Extracted_From)
                      & "' is already defined");
                else
                   Variables_Maps.Insert
@@ -2524,7 +2518,7 @@ package body GPR.Knowledge is
             if Is_Empty (Runtimes) then
                if Descr.Runtimes /= Null_External_Value then
                   Put_Verbose ("No runtime found where one is required for: "
-                               & Get_Name_String (Comp.Path));
+                               & Get_Name_String_Safe (Comp.Path));
                else
                   Callback
                     (Iterator          => Iterator,
@@ -2611,11 +2605,11 @@ package body GPR.Knowledge is
       begin
          if Comp.Runtime /= No_Name then
             if Comp.Alt_Runtime = No_Name then
-               return " (" & Get_Name_String (Comp.Runtime) & " runtime)";
+               return " (" & Get_Name_String_Safe (Comp.Runtime) & " runtime)";
             else
                return
-                 " (" & Get_Name_String (Comp.Runtime) &
-                 " [" & Get_Name_String (Comp.Alt_Runtime) &
+                 " (" & Get_Name_String_Safe (Comp.Runtime) &
+                 " [" & Get_Name_String_Safe (Comp.Alt_Runtime) &
                  "] runtime)";
             end if;
          else
@@ -2649,7 +2643,7 @@ package body GPR.Knowledge is
       function Target return String is
       begin
          if Show_Target then
-            return " on " & Get_Name_String (Comp.Target);
+            return " on " & Get_Name_String_Safe (Comp.Target);
          else
             return "";
          end if;
@@ -2925,7 +2919,8 @@ package body GPR.Knowledge is
                   Put_Verbose ("--------------------------------------");
                   Put_Verbose
                     ("Processing "
-                     & Get_Name_String (Config.Name) & " in " & Directory);
+                     & Get_Name_String_Safe (Config.Name) & " in "
+                     & Directory);
                   Foreach_Language_Runtime
                     (Iterator       => Iterator,
                      Base           => Base,
@@ -3580,7 +3575,7 @@ package body GPR.Knowledge is
       Packages          : String_Maps.Map;
       Selected_Compiler : Compiler_Access;
       M                 : Boolean;
-      Project_Name      : String := "Default";
+      Project_Name      : constant String := "Default";
 
       procedure Gen (C : String_Maps.Cursor);
       --  C is a cursor of the map "Packages"
@@ -3621,8 +3616,6 @@ package body GPR.Knowledge is
       end Gen_And_Remove;
 
    begin
-      To_Mixed (Project_Name);
-
       while Has_Element (Config) loop
          Match (Configuration_Lists.Element (Config).Compilers_Filters,
                 Compilers, Selected_Compiler, M);
@@ -3770,7 +3763,7 @@ package body GPR.Knowledge is
          Put_Verbose ("create a new target set for " & Target);
          Set.Append
            (new Pattern_Matcher'(Compile ("^" & Quote (Target) & "$")));
-         Base.Targets_Sets.Append ((Get_String (Target), Set));
+         Base.Targets_Sets.Append ((Get_String (Target), Set), 1);
          Id := Base.Targets_Sets.Last_Index;
       end;
    end Get_Targets_Set;
@@ -4274,7 +4267,7 @@ package body GPR.Knowledge is
                         Put
                           (Standard_Error,
                            ", runtime '"
-                           & Get_Name_String (Comp.Runtime) & "'");
+                           & Get_Name_String_Safe (Comp.Runtime) & "'");
                      end if;
                   else
                      Put
@@ -4291,7 +4284,7 @@ package body GPR.Knowledge is
                         Put
                           (Standard_Error,
                            ", runtime '"
-                           & Get_Name_String (Comp.Runtime) & "'");
+                           & Get_Name_String_Safe (Comp.Runtime) & "'");
                      end if;
                   end if;
 

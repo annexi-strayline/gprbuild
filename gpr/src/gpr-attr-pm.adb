@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2004-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -33,25 +33,22 @@ package body GPR.Attr.PM is
    procedure Add_Attribute
      (To_Package     : Package_Node_Id;
       Attribute_Name : Name_Id;
-      Attribute_Node : out Attribute_Node_Id)
-   is
+      Attribute_Node : out Attribute_Node_Id) is
    begin
       --  Only add attribute if package is already defined and is not unknown
 
-      if To_Package /= Empty_Package   and then
-         To_Package /= Unknown_Package
-      then
-         Attrs.Append (
-           (Name           => Attribute_Name,
-            Var_Kind       => Undefined,
-            Optional_Index => False,
-            Attr_Kind      => Unknown,
-            Read_Only      => False,
-            Others_Allowed => False,
-            Default        => Empty_Value,
-            Config_Concat  => False,
-            Next           =>
-              Package_Attributes.Table (To_Package.Value).First_Attribute));
+      if To_Package not in Empty_Package | Unknown_Package then
+         Attrs.Append
+           ((Name           => Attribute_Name,
+             Var_Kind       => Undefined,
+             Optional_Index => False,
+             Attr_Kind      => Unknown,
+             Read_Only      => False,
+             Others_Allowed => False,
+             Default        => Empty_Value,
+             Config_Concat  => False,
+             Next           =>
+               Package_Attributes.Table (To_Package.Value).First_Attribute));
 
          Package_Attributes.Table (To_Package.Value).First_Attribute :=
            Attrs.Last;

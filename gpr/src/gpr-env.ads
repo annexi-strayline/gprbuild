@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -27,6 +27,8 @@
 
 with Ada.Containers.Indefinite_Hashed_Maps;
 with Ada.Strings.Hash;
+
+with GPR.Util;
 
 package GPR.Env is
 
@@ -201,12 +203,16 @@ package GPR.Env is
    --  Calls to this subprogram must be performed before the first call to
    --  Find_Project below, or PATH will be added at the end of the search path.
 
-   procedure Get_Path (Self : Project_Search_Path; Path : out String_Access);
+   function Get_Path (Self : Project_Search_Path) return String;
    --  Return the current value of the project path, either the value set
    --  during elaboration of the package or, if procedure Set_Project_Path has
-   --  been called, the value set by the last call to Set_Project_Path. The
-   --  returned value must not be modified.
+   --  been called, the value set by the last call to Set_Project_Path.
    --  Self must have been initialized first.
+
+   procedure Iterate
+     (Self   : Project_Search_Path;
+      Action : not null access procedure (Path : String));
+   --  Calls Process for each path in Self
 
    procedure Set_Path (Self : in out Project_Search_Path; Path : String);
    --  Override the value of the project path. This also removes the implicit
@@ -218,7 +224,7 @@ package GPR.Env is
    generic
       with function Check_Filename (Name : String) return Boolean;
    function Find_Name_In_Path
-     (Self : Project_Search_Path;
+     (Self : in out Project_Search_Path;
       Path : String) return String_Access;
    --  Find a name in the project search path of Self. Check_Filename is
    --  the predicate to valid the search.  If Path is an absolute filename,
@@ -242,7 +248,7 @@ package GPR.Env is
    --  Returns No_Name if no such project was found
 
    function Get_Runtime_Path
-     (Self : Project_Search_Path;
+     (Self : in out Project_Search_Path;
       Name : String) return String_Access;
    --  Compute the full path for the project-based runtime name.
    --  Name is simply searched on the project path.
@@ -255,15 +261,27 @@ private
       Hash            => Ada.Strings.Hash,
       Equivalent_Keys => "=");
 
+   package Project_Path_Maps is new Ada.Containers.Indefinite_Hashed_Maps
+     (Key_Type        => String,
+      Element_Type    => Positive,
+      Hash            => Ada.Strings.Hash,
+      Equivalent_Keys => "=");
+
    type Project_Search_Path is record
-      Path : GNAT.OS_Lib.String_Access;
+      Path : Util.String_Vectors.Vector;
       --  As a special case, if the first character is '#:" or this variable
       --  is unset, this means that the PATH has not been fully initialized
       --  yet (although subprograms above will properly take care of that).
 
       Cache : Projects_Paths.Map;
+      Found : Project_Path_Maps.Map;
+
+      Initialized : Boolean := False;
    end record;
 
    No_Project_Search_Path : constant Project_Search_Path := (others => <>);
+
+   function Is_Initialized (Self : Project_Search_Path) return Boolean is
+     (Self.Initialized);
 
 end GPR.Env;

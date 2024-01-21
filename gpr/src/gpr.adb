@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -29,7 +29,6 @@ with Ada.Environment_Variables;   use Ada.Environment_Variables;
 with Ada.Text_IO;                 use Ada.Text_IO;
 with Ada.Unchecked_Deallocation;
 
-with GNAT.Case_Util;            use GNAT.Case_Util;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
 with GPR.Opt;
@@ -37,6 +36,7 @@ with GPR.Attr;
 with GPR.Names;  use GPR.Names;
 with GPR.Output; use GPR.Output;
 with GPR.Snames; use GPR.Snames;
+with GPR.Tempdir;
 
 package body GPR is
 
@@ -47,6 +47,9 @@ package body GPR is
       Next : Restricted_Lang_Access;
    end record;
 
+   Initialized : Boolean := False;
+   --  A flag to avoid multiple initialization
+
    Restricted_Languages : Restricted_Lang_Access := null;
    --  When null, all languages are allowed, otherwise only the languages in
    --  the list are allowed.
@@ -56,9 +59,6 @@ package body GPR is
 
    Initial_Buffer_Size : constant := 100;
    --  Initial size for extensible buffer used in Add_To_Buffer
-
-   The_Empty_String : Name_Id := No_Name;
-   The_Dot_String   : Name_Id := No_Name;
 
    Debug_Level : Integer := 0;
    --  Current indentation level for debug traces
@@ -113,12 +113,10 @@ package body GPR is
    -----------------------------
 
    procedure Add_Restricted_Language (Name : String) is
-      N : String (1 .. Name'Length) := Name;
    begin
-      To_Lower (N);
-      Set_Name_Buffer (N);
       Restricted_Languages :=
-        new Restricted_Lang'(Name => Name_Find, Next => Restricted_Languages);
+        new Restricted_Lang'
+          (Name => Get_Lower_Name_Id (Name), Next => Restricted_Languages);
    end Add_Restricted_Language;
 
    -----------------
@@ -239,7 +237,7 @@ package body GPR is
    begin
       if not Opt.Keep_Temporary_Files then
          if Current_Verbosity = High then
-            Write_Line ("Removing temp file: " & Get_Name_String (Path));
+            Write_Line ("Removing temp file: " & Get_Name_String_Safe (Path));
          end if;
 
          Delete_File (Get_Name_String (Path), Dont_Care);
@@ -262,18 +260,16 @@ package body GPR is
                end if;
             end loop;
          end if;
+
+         GPR.Tempdir.Delete_Temp_Dir;
       end if;
    end Delete_Temporary_File;
 
    procedure Delete_Temporary_File
      (Shared : Shared_Project_Tree_Data_Access := null;
-      Path   : String)
-   is
-      Path_Name : Path_Name_Type;
+      Path   : String) is
    begin
-      Set_Name_Buffer (Path);
-      Path_Name := Name_Find;
-      Delete_Temporary_File (Shared, Path_Name);
+      Delete_Temporary_File (Shared, Get_Path_Name_Id (Path));
    end Delete_Temporary_File;
 
    ---------------------------
@@ -324,6 +320,8 @@ package body GPR is
                end;
             end if;
          end loop;
+
+         GPR.Tempdir.Delete_Temp_Dir;
 
          if Shared = null then
             Temp_Files_Table.Init (Temp_Files);
@@ -703,6 +701,8 @@ package body GPR is
          In_Aggregate_Lib      : Boolean;
          From_Encapsulated_Lib : Boolean)
       is
+         Position  : Name_Id_Set.Cursor;
+         Inserted  : Boolean;
          Seen_Name : Name_Id_Set.Set;
          --  This set is needed to ensure that we do not handle the same
          --  project twice in the context of aggregate libraries.
@@ -796,12 +796,12 @@ package body GPR is
                   In_Aggregate_Lib, From_Encapsulated_Lib);
             end if;
 
-            if not Seen_Name.Contains (Project.Name) then
+            Seen_Name.Insert (Project.Name, Position, Inserted);
+
+            if Inserted then
 
                --  Even if a project is aggregated multiple times in an
                --  aggregated library, we will only return it once.
-
-               Seen_Name.Include (Project.Name);
 
                if not Imported_First then
                   if Project.Qualifier /= Abstract_Project or else
@@ -1235,13 +1235,8 @@ package body GPR is
 
    procedure Initialize (Tree : Project_Tree_Ref) is
    begin
-      if The_Empty_String = No_Name then
-         Name_Len := 0;
-         The_Empty_String := Name_Find;
-
-         Name_Len := 1;
-         Name_Buffer (1) := '.';
-         The_Dot_String := Name_Find;
+      if not Initialized then
+         Initialized := True;
 
          GPR.Attr.Initialize;
 
@@ -1342,7 +1337,7 @@ package body GPR is
       if Object_File_Suffix = No_Name then
          Add_Str_To_Name_Buffer (Object_Suffix);
       else
-         Add_Str_To_Name_Buffer (Get_Name_String (Object_File_Suffix));
+         Get_Name_String_And_Append (Object_File_Suffix);
       end if;
 
       return Name_Find;
@@ -1894,15 +1889,15 @@ package body GPR is
    -----------------------------------
 
    function Ultimate_Extending_Project_Of
-     (Proj : Project_Id) return Project_Id
+     (Proj : Project_Id; Before : Project_Id := No_Project) return Project_Id
    is
-      Prj : Project_Id;
-
+      Prj : Project_Id := Proj;
    begin
-      Prj := Proj;
-      while Prj /= null and then Prj.Extended_By /= No_Project loop
-         Prj := Prj.Extended_By;
-      end loop;
+      if Prj /= No_Project then
+         while Prj.Extended_By not in No_Project | Before loop
+            Prj := Prj.Extended_By;
+         end loop;
+      end if;
 
       return Prj;
    end Ultimate_Extending_Project_Of;
@@ -2025,9 +2020,9 @@ package body GPR is
    begin
       case Source.Compilable is
          when Unknown =>
-            if Source.Language.Config.Compiler_Driver /= No_File
-              and then
-                Length_Of_Name (Source.Language.Config.Compiler_Driver) /= 0
+            if (Source.Language.Config.Compiler_Driver not in
+                  No_File | Empty_File
+                or else Gprls_Mode)
               and then not Source.Locally_Removed
               and then (Source.Language.Config.Kind /= File_Based
                          or else Source.Kind /= Spec)
@@ -2082,10 +2077,7 @@ package body GPR is
       Result : Language_Ptr;
 
    begin
-      Name_Len := Name'Length;
-      Name_Buffer (1 .. Name_Len) := Name;
-      To_Lower (Name_Buffer (1 .. Name_Len));
-      N := Name_Find;
+      N := Get_Lower_Name_Id (Name);
 
       Result := Project.Languages;
       while Result /= No_Language_Index loop
@@ -2132,6 +2124,7 @@ package body GPR is
       Error_On_Unknown_Language  : Boolean       := True;
       Require_Obj_Dirs           : Error_Warning := Error;
       Allow_Invalid_External     : Error_Warning := Error;
+      Missing_Project_Files      : Error_Warning := Error;
       Missing_Source_Files       : Error_Warning := Error;
       Ignore_Missing_With        : Boolean       := False;
       Check_Configuration_Only   : Boolean       := False)
@@ -2147,6 +2140,7 @@ package body GPR is
          Compiler_Driver_Mandatory  => Compiler_Driver_Mandatory,
          Require_Obj_Dirs           => Require_Obj_Dirs,
          Allow_Invalid_External     => Allow_Invalid_External,
+         Missing_Project_Files      => Missing_Project_Files,
          Missing_Source_Files       => Missing_Source_Files,
          Ignore_Missing_With        => Ignore_Missing_With,
          Incomplete_Withs           => False,
@@ -2214,7 +2208,7 @@ package body GPR is
          if Str2 = No_Name then
             Write_Line (" <no_name>");
          else
-            Write_Line (" """ & Get_Name_String (Str2) & '"');
+            Write_Line (" """ & Get_Name_String_Safe (Str2) & '"');
          end if;
 
          Set_Standard_Output;
@@ -2277,6 +2271,39 @@ package body GPR is
 
       return Name_Find;
    end Debug_Name;
+
+   --------------
+   -- Distance --
+   --------------
+
+   function Distance (L, R : String) return Natural is
+      D : array (L'First - 1 .. L'Last, R'First - 1 .. R'Last) of Natural;
+   begin
+      for I in D'Range (1) loop
+         D (I, D'First (2)) := I;
+      end loop;
+
+      for I in D'Range (2) loop
+         D (D'First (1), I) := I;
+      end loop;
+
+      for J in R'Range loop
+         for I in L'Range loop
+            D (I, J) :=
+              Natural'Min
+                (Natural'Min (D (I - 1, J), D (I, J - 1)) + 1,
+                 D (I - 1, J - 1) + (if L (I) = R (J) then 0 else 1));
+
+            if J > R'First and then I > L'First
+              and then R (J) = L (I - 1) and then R (J - 1) = L (I)
+            then
+               D (I, J) := Natural'Min (D (I, J), D (I - 2, J - 2) + 1);
+            end if;
+         end loop;
+      end loop;
+
+      return D (L'Last, R'Last);
+   end Distance;
 
    ----------
    -- Free --

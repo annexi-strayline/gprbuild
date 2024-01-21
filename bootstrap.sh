@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # bootstrap.sh - a simple bootstrap for building gprbuild with xmlada
 
 progname=bootstrap
@@ -46,7 +46,7 @@ exit 0
 }
 
 error() {
-    printf -- "%s: $1" "$progname" "${@:2}" >&2
+    printf -- "%s: $1" "$progname" "$(echo "$@" | cut -c 3-)" >&2
     exit 1
 }
 
@@ -85,8 +85,22 @@ lib_progs="gprlib gprbind"
 rm -rf "$srcdir"/share/gprconfig
 cp -r "$kb_src"/db "$srcdir"/share/gprconfig
 
+# Windows and Unix differencies
+
+UName=`uname | cut -b -5`
+PutUsage=gpr/src/gpr-util-put_resource_usage
+
+rm -f ${PutUsage}.adb
+
+if [ "$UName" = "CYGWI" ] || [ "$UName" = "MINGW" ]
+then
+	cp ${PutUsage}__null.adb ${PutUsage}.adb
+else
+	ln -s $PWD/${PutUsage}__unix.adb ${PutUsage}.adb
+fi
+
 # Build
-if [ "x"${MODE} == "x" ] || [ ${MODE} == "build" ];
+if [ "x"${MODE} = "x" ] || [ ${MODE} = "build" ];
 then
 	command $CC -c $CFLAGS "$srcdir"/gpr/src/gpr_imports.c
 
@@ -100,7 +114,8 @@ then
 fi;
 
 # Install
-if [ "x"${MODE} == "x" ]  || [ ${MODE} == "install" ];
+
+if [ "x"${MODE} = "x" ]  || [ ${MODE} = "install" ];
 then
 	mkdir -p "$DESTDIR$prefix$bindir"
 	mkdir -p "$DESTDIR$prefix$libexecdir"/gprbuild

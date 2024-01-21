@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2012-2018, Free Software Foundation, Inc.         --
+--          Copyright (C) 2012-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,8 +22,8 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Calendar.Conversions;   use Ada.Calendar;
 with Ada.Calendar.Formatting;    use Ada.Calendar.Formatting;
-with Ada.Calendar.Time_Zones;    use Ada.Calendar;
 with Ada.Characters.Handling;
 with Ada.Directories;            use Ada.Directories;
 with Ada.Streams.Stream_IO;      use Ada.Streams;
@@ -35,7 +35,6 @@ with GNAT.Rewrite_Data;
 with GNAT.String_Split; use GNAT.String_Split;
 
 with GPR.Version;       use GPR.Version;
-with Gpr_Build_Util;
 
 package body GPR.Compilation.Protocol is
 
@@ -719,6 +718,8 @@ package body GPR.Compilation.Protocol is
       Project  : String;
       Dir      : String;
       Language : String;
+      Target   : String;
+      Runtime  : String;
       Options  : String_Vectors.Vector;
       Obj_Name : String;
       Dep_Name : String;
@@ -746,8 +747,12 @@ package body GPR.Compilation.Protocol is
         (Channel.Channel,
          Command_Kind'Image (EX)
          & Filter_Wrapper (Project, WD_Path_Tag)
-         & Args_Sep & Dir & Args_Sep & Language
-         & Args_Sep & Obj_Name & Args_Sep & Dep_Name
+         & Args_Sep & Dir
+         & Args_Sep & Language
+         & Args_Sep & Target
+         & Args_Sep & Runtime
+         & Args_Sep & Obj_Name
+         & Args_Sep & Dep_Name
          & Args_Sep & To_String (R_Cmd)
          & Args_Sep & Filter_Wrapper (Env, WD_Path_Tag));
    end Send_Exec;
@@ -765,9 +770,8 @@ package body GPR.Compilation.Protocol is
       Time_Stamp : Time_Stamp_Type := Empty_Time_Stamp;
    begin
       if Keep_Time_Stamp then
-         Time_Stamp := GPR.Util.To_Time_Stamp
-           (Modification_Time (Path_Name)
-            - Duration (Time_Zones.UTC_Time_Offset) * 60.0);
+         Time_Stamp := GPR.Util.To_UTC_Time_Stamp
+           (Modification_Time (Path_Name));
       end if;
 
       if Rewrite then
@@ -967,29 +971,18 @@ package body GPR.Compilation.Protocol is
    procedure Set_File_Stamp
      (Path_Name : String; Time_Stamp : Time_Stamp_Type)
    is
-      use type Time_Zones.Time_Offset;
-
-      TS : constant String (Time_Stamp_Type'Range) := String (Time_Stamp);
-
-      T  : constant Time :=
-             Time_Of (Year      => Year_Number'Value (TS (1 .. 4)),
-                      Month     => Month_Number'Value (TS (5 .. 6)),
-                      Day       => Day_Number'Value (TS (7 .. 8)),
-                      Hour      => Hour_Number'Value (TS (9 .. 10)),
-                      Minute    => Minute_Number'Value (TS (11 .. 12)),
-                      Second    => Second_Number'Value (TS (13 .. 14)),
-                      Time_Zone => -Time_Zones.UTC_Time_Offset);
-      --  Time_Zone is negative to translate the UTC Time_Stamp to local time
+      function TS (First, Last : Positive) return Integer is
+        (Integer'Value (String (Time_Stamp (First .. Last))));
+      --  Converts substring from Time_Stamp to Integer
    begin
       Set_File_Last_Modify_Time_Stamp
         (Path_Name,
-         GM_Time_Of
-           (Year   => Formatting.Year (T),
-            Month  => Formatting.Month (T),
-            Day    => Formatting.Day (T),
-            Hour   => Formatting.Hour (T),
-            Minute => Formatting.Minute (T),
-            Second => Formatting.Second (T)));
+         To_Ada
+           (time_t
+              (Conversions.To_Unix_Time
+                 (Time_Of
+                    (TS (1, 4), TS (5, 6), TS (7, 8),
+                     TS (9, 10), TS (11, 12), TS (13, 14))))));
    end Set_File_Stamp;
 
    -----------------------
@@ -1205,9 +1198,9 @@ package body GPR.Compilation.Protocol is
      (Channel : in out Communication_Channel; Path : String)
    is
       P : String := Normalize_Pathname
-                      (Path, Case_Sensitive => not Gpr_Build_Util.On_Windows);
+                      (Path, Case_Sensitive => not On_Windows);
    begin
-      if Gpr_Build_Util.On_Windows then
+      if On_Windows then
          --  On Windows the mapping file contains non normalized pathname. The
          --  format is an upper-case driver letter, all the remaining of the
          --  path is lower-case and the directory separator is a slash. We

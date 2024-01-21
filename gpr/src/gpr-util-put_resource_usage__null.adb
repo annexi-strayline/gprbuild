@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---      Copyright (C) 2015-2017, Free Software Foundation, Inc.             --
+--                     Copyright (C) 2022-2023, AdaCore                     --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,21 +22,8 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with GPR.Names; use GPR.Names;
-
-package body GPR.Snames is
-
-   procedure Add_Name (S : String);
-
-   --------------
-   -- Add_Name --
-   --------------
-
-   procedure Add_Name (S : String) is
-      Dummy : Name_Id;
-      pragma Warnings (Off, Dummy);
-   begin
-      Name_Len := 0;
-      Add_Str_To_Name_Buffer (S);
-      Dummy := Name_Find;
-   end Add_Name;
+separate (GPR.Util)
+procedure Put_Resource_Usage (Filename : String) is
+begin
+   null;
+end Put_Resource_Usage;

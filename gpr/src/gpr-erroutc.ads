@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -234,9 +234,11 @@ package GPR.Erroutc is
 
    Error_Msg_Name_1 : Name_Id := No_Name;
    Error_Msg_Name_2 : Name_Id := No_Name;
+   --  Name_Id values for % insertion characters in message
 
    Error_Msg_File_1 : File_Name_Type := No_File;
    Error_Msg_File_2 : File_Name_Type := No_File;
+   --  File_Name_Type values for { insertion characters in message
 
    Error_Msg_Warn : Boolean := False;
 

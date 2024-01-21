@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2004-2019, AdaCore                     --
+--                     Copyright (C) 2004-2023, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -21,6 +21,7 @@ with Ada.Text_IO;       use Ada.Text_IO;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
 with GPR.Compilation.Slave; use GPR.Compilation.Slave;
+with GPR.Jobserver;
 with GPR.Names;             use GPR.Names;
 with GPR.Script;            use GPR.Script;
 
@@ -55,32 +56,20 @@ package body Gprbuild is
    ----------------
 
    procedure Add_Option
-     (Value       : String;
-      To          : in out Options_Data;
-      Display     : Boolean;
-      Simple_Name : Boolean := False)
-   is
-   begin
-      Name_Len := Value'Length;
-      Name_Buffer (1 .. Name_Len) := Value;
-      Add_Option_Internal (Get_Option (Name_Find), To, Display, Simple_Name);
-   end Add_Option;
-
-   procedure Add_Option
      (Value       : Name_Id;
       To          : in out Options_Data;
       Display     : Boolean;
       Simple_Name : Boolean := False)
    is
    begin
-      Add_Option_Internal (Get_Option (Value), To, Display, Simple_Name);
+      Add_Option (Get_Option (Value), To, Display, Simple_Name);
    end Add_Option;
 
-   -------------------------
-   -- Add_Option_Internal --
-   -------------------------
+   ----------------
+   -- Add_Option --
+   ----------------
 
-   procedure Add_Option_Internal
+   procedure Add_Option
      (Value       : String;
       To          : in out Options_Data;
       Display     : Boolean;
@@ -99,7 +88,7 @@ package body Gprbuild is
             Name        => Value,
             Displayed   => Display,
             Simple_Name => Simple_Name));
-   end Add_Option_Internal;
+   end Add_Option;
 
    ----------------------------------
    -- Add_Option_Internal_Codepeer --
@@ -116,7 +105,7 @@ package body Gprbuild is
         or else Value'Length <= 2
         or else Value (Value'First .. Value'First + 1) /= "-m"
       then
-         Add_Option_Internal (Value, To, Display, Simple_Name);
+         Add_Option (Value, To, Display, Simple_Name);
       end if;
    end Add_Option_Internal_Codepeer;
 
@@ -143,8 +132,8 @@ package body Gprbuild is
 
          if Element.Value /= Empty_String then
 
-            Add_Option_Internal
-              (Value       => Get_Option (Element.Value),
+            Add_Option
+              (Value       => Element.Value,
                To          => To,
                Display     => Display_All or First_Display,
                Simple_Name => Simple_Name);
@@ -161,7 +150,7 @@ package body Gprbuild is
 
    procedure Add_Process (Process : Process_Id; Data : Process_Data) is
    begin
-      Process_Htable.Set (Process, Data);
+      Processes.Insert (Process, Data);
       Outstanding_Processes := Outstanding_Processes + 1;
    end Add_Process;
 
@@ -184,7 +173,8 @@ package body Gprbuild is
    -------------------
 
    procedure Await_Process (Data : out Process_Data; OK : out Boolean) is
-      Pid  : Process_Id;
+      Pid : Process_Id;
+      CP  : Process_Maps.Cursor;
    begin
       loop
          Data := No_Process_Data;
@@ -195,10 +185,11 @@ package body Gprbuild is
             return;
          end if;
 
-         Data := Process_Htable.Get (Pid);
+         CP := Processes.Find (Pid);
 
-         if Data /= No_Process_Data then
-            Process_Htable.Set (Pid, No_Process_Data);
+         if Process_Maps.Has_Element (CP) then
+            Data := Process_Maps.Element (CP);
+            Processes.Delete (CP);
             Outstanding_Processes := Outstanding_Processes - 1;
             return;
          end if;
@@ -220,16 +211,20 @@ package body Gprbuild is
            or else Project.Qualifier = Aggregate_Library
          then
             Fail_Program
-              (Project_Tree, "no project with writable object directory");
+              (Project_Tree,
+               "no project with writable object directory for project "
+               & Get_Name_String_Safe (Project.Name),
+               Exit_Code => E_General);
 
          else
             Fail_Program
               (Project_Tree,
-               "object directory """ &
-                 Get_Name_String (Project.Object_Directory.Display_Name) &
-                 """ for project """ &
-                 Get_Name_String (Project.Name) &
-                 """ is not writable");
+               "object directory """
+               & Get_Name_String_Safe (Project.Object_Directory.Display_Name)
+               & """ for project """
+               & Get_Name_String_Safe (Project.Name)
+               & """ is not writable",
+               Exit_Code => E_General);
          end if;
       end if;
 
@@ -280,7 +275,8 @@ package body Gprbuild is
 
          if List = No_Name_List then
             Fail_Program
-              (Project_Tree, "no archive builder in configuration");
+              (Project_Tree, "no archive builder in configuration",
+               Exit_Code => E_General);
 
          else
             Archive_Builder_Name :=
@@ -363,7 +359,8 @@ package body Gprbuild is
          Fail_Program
            (Project_Tree,
             "attribute export_file_format must be defined"
-            & " when export_file_switch is set.");
+            & " when export_file_switch is set.",
+            Exit_Code => E_General);
       end if;
    end Check_Export_File;
 
@@ -375,8 +372,7 @@ package body Gprbuild is
    begin
       if Main_Project.Symbol_Data.Symbol_File /= No_Path then
          Library_Symbol_File :=
-           new String'
-             (Get_Name_String (Main_Project.Symbol_Data.Symbol_File));
+           new String'(Get_Name_String (Main_Project.Symbol_Data.Symbol_File));
       end if;
    end Check_Library_Symbol_File;
 
@@ -430,8 +426,9 @@ package body Gprbuild is
          then
             Fail_Program
               (Project_Tree,
-               "attribute object_lister_matcher must be defined"
-               & " when object_lister is set.");
+               "attribute object_lister_matcher must be defined when"
+               & " object_lister is set.",
+               Exit_Code => E_General);
          end if;
       end if;
    end Check_Object_Lister;
@@ -489,7 +486,9 @@ package body Gprbuild is
 
    procedure Display_Processes (Name : String) is
    begin
-      if Opt.Maximum_Processes > 1
+      if (if Name = "bind" then Opt.Maximum_Binders
+          elsif Name = "link" then Opt.Maximum_Linkers
+          else Opt.Maximum_Compilers) > 1
         and then Opt.Verbose_Mode
         and then Current_Verbosity = High
       then
@@ -517,10 +516,9 @@ package body Gprbuild is
    -- Hash --
    ----------
 
-   function Hash (Pid : Process_Id) return Header_Num is
-      Modulo : constant Integer := Integer (Header_Num'Last) + 1;
+   function Hash (Pid : Process_Id) return Ada.Containers.Hash_Type is
    begin
-      return Header_Num (Pid_To_Integer (Pid) mod Modulo);
+      return Ada.Containers.Hash_Type (Pid_To_Integer (Pid));
    end Hash;
 
    --------------------------------
@@ -552,6 +550,12 @@ package body Gprbuild is
          if not Processed_Projects.Get (Project.Name) then
             Processed_Projects.Set (Project.Name, True);
 
+            --  For an extending project, process the project being extended
+
+            if Project.Extends /= No_Project then
+               Process_Project (Project.Extends, Aggregated => Aggregated);
+            end if;
+
             --  We first process the imported projects to guarantee that
             --  We have a proper reverse order for the libraries. Do not add
             --  library for encapsulated libraries dependencies except when
@@ -559,7 +563,7 @@ package body Gprbuild is
             --  libraries aggregated from an aggregate library.
 
             if For_Project.Standalone_Library = Encapsulated
-                or else Project.Standalone_Library /= Encapsulated
+              or else Project.Standalone_Library /= Encapsulated
             then
                while Imported /= null loop
                   if Imported.Project /= No_Project then
@@ -570,12 +574,6 @@ package body Gprbuild is
 
                   Imported := Imported.Next;
                end loop;
-            end if;
-
-            --  For an extending project, process the project being extended
-
-            if Project.Extends /= No_Project then
-               Process_Project (Project.Extends, Aggregated => Aggregated);
             end if;
 
             --  If it is a library project, add it to Library_Projs
@@ -679,7 +677,9 @@ package body Gprbuild is
          Stop_Spawning := True;
       end if;
 
-      Exit_Code := Osint.E_Fatal;
+      if Exit_Code = E_Success then
+         Exit_Code := Osint.E_Fatal;
+      end if;
    end Record_Failure;
 
    ------------------------
@@ -690,6 +690,8 @@ package body Gprbuild is
    begin
       Put_Line ("*** Interrupted ***");
       Delete_All_Temp_Files (Project_Tree.Shared);
+
+      GPR.Jobserver.Unregister_All_Token_Id;
 
       if Distributed_Mode then
          Unregister_Remote_Slaves (From_Signal => True);

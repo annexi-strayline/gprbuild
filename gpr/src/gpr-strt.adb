@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -210,8 +210,14 @@ package body GPR.Strt is
          --  If the identifier is not allowed, report an error
 
          if Current_Attribute = Empty_Attribute then
-            Error_Msg_Name_1 := Token_Name;
-            Error_Msg (Flags, "unknown attribute %%", Token_Ptr);
+            if No (Current_Package)
+              or else Is_Package_Known
+                        (Package_Id_Of (Current_Package, In_Tree))
+            then
+               Error_Msg_Name_1 := Token_Name;
+               Error_Msg (Flags, "unknown attribute %%", Token_Ptr);
+            end if;
+
             Reference := Empty_Project_Node;
 
             --  Scan past the attribute name
@@ -1711,7 +1717,9 @@ package body GPR.Strt is
             Set_Current_Term (Term, In_Tree, To => Reference);
 
          when others =>
-            Error_Msg (Flags, "cannot be part of an expression", Token_Ptr);
+            Error_Msg
+              (Flags, "cannot be part of an expression", Token_Ptr,
+               One_Line => True);
             Term := Empty_Project_Node;
             return;
       end case;

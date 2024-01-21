@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -27,10 +27,10 @@ with Ada.Directories;  use Ada.Directories;
 
 with Ada.Unchecked_Conversion;
 
-with GNAT.Case_Util; use GNAT.Case_Util;
-
 with System.CRTL;
 with System.OS_Constants;
+
+with GNAT.Case_Util; use GNAT.Case_Util;
 
 with GPR.Names;  use GPR.Names;
 with GPR.Output; use GPR.Output;
@@ -70,6 +70,17 @@ package body GPR.Osint is
       if not File_Names_Case_Sensitive then
          To_Lower (S);
       end if;
+   end Canonical_Case_File_Name;
+
+   ------------------------------
+   -- Canonical_Case_File_Name --
+   ------------------------------
+
+   function Canonical_Case_File_Name (S : String) return String is
+   begin
+      return Result : String := S do
+         Canonical_Case_File_Name (Result);
+      end return;
    end Canonical_Case_File_Name;
 
    ---------------------------------
@@ -159,30 +170,19 @@ package body GPR.Osint is
 
    procedure Exit_Program (Exit_Code : Exit_Code_Type) is
    begin
-      --  The program will exit with the following status:
+      --  Some exit codes can't be used because they have special meaning:
+      --    exit code 2 means that the program was terminated by SIGINT signal;
+      --    exit code 3 means that it was terminated by abort on Windows or by
+      --    SIGQUIT on Linux;
+      --    exit code 6 means that it was terminated by SIGABRT signal.
 
-      --    0 if the object file has been generated (with or without warnings)
-      --    1 if recompilation was not needed (smart recompilation)
-      --    2 if gnat1 has been killed by a signal (detected by GCC)
-      --    4 for a fatal error
-      --    5 if there were errors
-      --    6 if no code has been generated (spec)
-
-      --  Note that exit code 3 is not used and must not be used as this is
-      --  the code returned by a program aborted via C abort() routine on
-      --  Windows. GCC checks for that case and thinks that the child process
-      --  has been aborted. This code (exit code 3) used to be the code used
-      --  for E_No_Code, but E_No_Code was changed to 6 for this reason.
-
-      case Exit_Code is
-         when E_Success    => OS_Exit (0);
-         when E_Warnings   => OS_Exit (0);
-         when E_No_Compile => OS_Exit (1);
-         when E_Fatal      => OS_Exit (4);
-         when E_Errors     => OS_Exit (5);
-         when E_No_Code    => OS_Exit (6);
-         when E_Abort      => OS_Abort;
-      end case;
+      OS_Exit
+        (case Exit_Code is
+            when E_Success => 0,
+            when E_General => 1,
+            when E_Subtool => 4,
+            when E_Project => 5,
+            when E_Fatal   => 7);
    end Exit_Program;
 
    ----------
@@ -226,21 +226,23 @@ package body GPR.Osint is
    -- File_Stamp --
    ----------------
 
+   function File_Stamp (Name : String) return Time_Stamp_Type is
+   begin
+      --  File_Time_Stamp will always return Invalid_Time if the file does
+      --  not exist, and OS_Time_To_GNAT_Time will convert this value to
+      --  Empty_Time_Stamp. Therefore we do not need to first test whether
+      --  the file actually exists, which saves a system call.
+
+      return OS_Time_To_GNAT_Time (File_Time_Stamp (Name));
+   end File_Stamp;
+
    function File_Stamp (Name : File_Name_Type) return Time_Stamp_Type is
    begin
       if Name = No_File then
          return Empty_Time_Stamp;
       end if;
 
-      Get_Name_String (Name);
-
-      --  File_Time_Stamp will always return Invalid_Time if the file does
-      --  not exist, and OS_Time_To_GNAT_Time will convert this value to
-      --  Empty_Time_Stamp. Therefore we do not need to first test whether
-      --  the file actually exists, which saves a system call.
-
-      return OS_Time_To_GNAT_Time
-               (File_Time_Stamp (Name_Buffer (1 .. Name_Len)));
+      return File_Stamp (Get_Name_String (Name));
    end File_Stamp;
 
    function File_Stamp (Name : Path_Name_Type) return Time_Stamp_Type is
@@ -284,6 +286,9 @@ package body GPR.Osint is
    function File_Time_Stamp (Name : String) return Ada.Calendar.Time is
       FN : aliased constant String := Name & ASCII.NUL;
    begin
+      --  Do not use Ada.Directories.Modification_Time directly because it
+      --  raises an exception on an absent file.
+
       return File_Time_Stamp (FN'Address);
    end File_Time_Stamp;
 
@@ -292,10 +297,9 @@ package body GPR.Osint is
    ---------------
 
    procedure Find_File
-     (N         : File_Name_Type;
-      Found     : out File_Name_Type;
-      Attr      : access File_Attributes)
-   is
+     (N     : File_Name_Type;
+      Found : out File_Name_Type;
+      Attr  : access File_Attributes) is
    begin
       Attr.all := Unknown_Attributes;
       Get_Name_String (N);
@@ -337,8 +341,17 @@ package body GPR.Osint is
 
    function Is_Directory_Separator (C : Character) return Boolean is
    begin
-      return C = Directory_Separator or else C = '/';
+      return C in Directory_Separator | '/';
    end Is_Directory_Separator;
+
+   -------------------
+   -- Is_File_Empty --
+   -------------------
+
+   function Is_File_Empty (Name : Path_Name_Type) return Boolean is
+   begin
+      return (Size (Get_Name_String (Name)) = 0);
+   end Is_File_Empty;
 
    ---------------------
    -- Is_Regular_File --
@@ -450,7 +463,7 @@ package body GPR.Osint is
    is
       Lib_FD : File_Descriptor;
       --  The file descriptor for the current library file. A negative value
-      --  indicates failure to open the specified source file.
+      --  indicates a failure to open the specified source file.
 
       Len : Integer;
       --  Length of source file text (ALI). If it doesn't fit in an integer

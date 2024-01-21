@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 1992-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2021, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -418,8 +418,7 @@ package body GPR.Sinput is
          return No_Source_File;
       end if;
 
-      Set_Name_Buffer (Path);
-      Path_Id := Name_Find;
+      Path_Id := Get_File_Name_Id (Path);
 
       Sources_Map.Insert
         (Path_Id, Source_File.Last + 1, Position, Inserted);
@@ -430,14 +429,18 @@ package body GPR.Sinput is
          do
             pragma Assert
               (Source_File.Table (Result).Full_Debug_Name = Path_Id,
-               Get_Name_String (Source_File.Table (Result).Full_Debug_Name)
-               & ' ' & Get_Name_String (Path_Id));
+               "insertion failed for "
+               & Get_Name_String_Safe
+                 (Source_File.Table (Result).Full_Debug_Name)
+               & ' ' & Get_Name_String_Safe (Path_Id));
             pragma Assert
               (Source_File.Table (Result).Full_File_Name = Path_Id,
-               Source_File.Table (Result).Full_File_Name'Img & Path_Id'Img);
+               "insertion failed for "
+               & Source_File.Table (Result).Full_File_Name'Img & Path_Id'Img);
             pragma Assert
               (Source_File.Table (Result).Full_Ref_Name = Path_Id,
-               Source_File.Table (Result).Full_Ref_Name'Img & Path_Id'Img);
+               "insertion failed for "
+               & Source_File.Table (Result).Full_Ref_Name'Img & Path_Id'Img);
          end return;
       end if;
 
@@ -702,8 +705,6 @@ package body GPR.Sinput is
 
       Err.Scanner.Set_Special_Character ('#');
       Err.Scanner.Set_Special_Character ('$');
-
-      Check_For_BOM;
 
       --  We scan past junk to the first interesting compilation unit token, to
       --  see if it is SEPARATE. We ignore WITH keywords during this and also

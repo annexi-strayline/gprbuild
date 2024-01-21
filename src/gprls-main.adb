@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                    Copyright (C) 2015-2020, AdaCore                      --
+--                    Copyright (C) 2015-2023, AdaCore                      --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -31,7 +31,6 @@ with GPR.Osint;
 with GPR.Snames;
 with GPR.Tree;
 with GPR.Util;    use GPR.Util;
-with GPR.Version; use GPR.Version;
 
 with Gpr_Build_Util; use Gpr_Build_Util;
 
@@ -111,15 +110,25 @@ procedure Gprls.Main is
    subtype One_Range is Integer range -1 .. 1;
 
    function Compare (Left, Right : String) return One_Range is
-      (if Left > Right then 1 elsif Left = Right then 0 else -1);
+     (if Left > Right then 1 elsif Left = Right then 0 else -1);
+
+   function Get_Tree_Name (Index : Positive) return String;
+   --  Get main project name of the source taken by Index from File_Names
+   --  container.
 
    function Before (Left, Right : Positive) return Boolean
-   is (case Compare (File_Names (Left).File_Name, File_Names (Right).File_Name)
-       is
-          when 1 => False,
-          when 0 => File_Names (Left).Source.Path.Display_Name
-                  < File_Names (Right).Source.Path.Display_Name,
-          when -1 => True);
+   is
+     (case Compare (Get_Tree_Name (Left), Get_Tree_Name (Right)) is
+      when  1 => False,
+      when -1 => True,
+      when  0 =>
+        (case Compare
+           (File_Names (Left).File_Name, File_Names (Right).File_Name)
+         is
+         when  1 => False,
+         when -1 => True,
+         when  0 => File_Names (Left).Source.Path.Display_Name
+                    < File_Names (Right).Source.Path.Display_Name));
    --  Returns True if element of the File_Names in Left position have to be
    --  before the element in Right position.
 
@@ -232,8 +241,8 @@ procedure Gprls.Main is
                GNATDIST.Output_ALI (FN_Source);
             end if;
          end loop;
-      else
 
+      else
          for FN_Source of File_Names loop
             declare
                Id        : ALI_Id;
@@ -247,7 +256,6 @@ procedure Gprls.Main is
                      null;
 
                   else
-
                      Get_Name_String
                        (Units.Table (ALIs.Table (Id).First_Unit).Uname);
 
@@ -301,7 +309,7 @@ procedure Gprls.Main is
                                  (Sdep.Table (D).Sfile)
                            then
                               Put ("   ");
-                              Output_Source (D);
+                              Output_Source (FN_Source.Tree, D);
                            end if;
                         end loop;
                      end if;
@@ -321,10 +329,38 @@ procedure Gprls.Main is
       Object_Paths : Paths := No_Paths;
 
       Path : Path_Access;
+
+      procedure Put_Path (Path : String);
+      --  Put path prefixed with 3 spaces to standard output add directory
+      --  separator at the end if absent.
+
+      --------------
+      -- Put_Path --
+      --------------
+
+      procedure Put_Path (Path : String) is
+      begin
+         if Path'Length > 1
+           and then Path (Path'Last - 1 .. Path'Last)
+                    = (1 .. 2 => Directory_Separator)
+         then
+            Put_Path (Path (Path'First .. Path'Last - 1));
+            return;
+         end if;
+
+         Put ("   ");
+         Put (Path);
+
+         if Path (Path'Last) /= Directory_Separator then
+            Put_Line ("" & Directory_Separator);
+         else
+            New_Line;
+         end if;
+      end Put_Path;
+
    begin
       New_Line;
-      Display_Version
-        ("GPRLS", "2015", Version_String => Gpr_Version_String);
+      Display_Version ("GPRLS", "2015");
 
       New_Line;
       Put_Line ("Source Search Path:");
@@ -339,7 +375,7 @@ procedure Gprls.Main is
 
       Path := Source_Paths.First;
       while Path /= null loop
-         Put_Line ("   " & Path.Path.all);
+         Put_Path (Path.Path.all);
          Path := Path.Next;
       end loop;
 
@@ -356,7 +392,7 @@ procedure Gprls.Main is
 
       Path := Object_Paths.First;
       while Path /= null loop
-         Put_Line ("   " & Path.Path.all);
+         Put_Path (Path.Path.all);
          Path := Path.Next;
       end loop;
 
@@ -364,36 +400,23 @@ procedure Gprls.Main is
       Put_Line ("Project Search Path:");
 
       declare
-         Path : String_Access;
-         First : Positive;
-         Last  : Natural;
+         procedure Output (Path : String);
+         --  Calls Put_Path with Path parameter if Path is not "."
+
+         ------------
+         -- Output --
+         ------------
+
+         procedure Output (Path : String) is
+         begin
+            if Path /= "." then
+               Put_Path (Path);
+            end if;
+         end Output;
+
       begin
          Put_Line ("   <Current_Directory>");
-
-         GPR.Env.Get_Path (Root_Environment.Project_Path, Path);
-
-         if Path /= null then
-            First := Path'First;
-            while First < Path'Last loop
-               Last := First;
-               while Last < Path'Last and then
-                 Path (Last + 1) /= Path_Separator
-               loop
-                  Last := Last + 1;
-               end loop;
-
-               if Path (First .. Last) /= "." then
-                  Put_Line ("   " & Path (First .. Last));
-               end if;
-
-               First := Last + 1;
-               while First < Path'Last and then
-                 Path (First) = Path_Separator
-               loop
-                  First := First + 1;
-               end loop;
-            end loop;
-         end if;
+         Iterate (Root_Environment.Project_Path, Output'Access);
       end;
 
       New_Line;
@@ -476,6 +499,20 @@ procedure Gprls.Main is
       end loop;
    end Get_Source_Dirs;
 
+   -------------------
+   -- Get_Tree_Name --
+   -------------------
+
+   function Get_Tree_Name (Index : Positive) return String is
+      Tree : constant Project_Tree_Ref := File_Names (Index).Tree;
+   begin
+      if Tree = null then
+         return "";
+      else
+         return Get_Name_String (Tree.Projects.Project.Name);
+      end if;
+   end Get_Tree_Name;
+
    ----------------------
    -- Look_For_Sources --
    ----------------------
@@ -492,7 +529,7 @@ procedure Gprls.Main is
             Put_Line
               (Standard_Error,
                "Can't find ALI file for "
-               & Get_Name_String (FN_Source.Source.Path.Display_Name));
+               & Get_Name_String_Safe (FN_Source.Source.Path.Display_Name));
 
          else
             declare
@@ -548,7 +585,7 @@ procedure Gprls.Main is
                      Put_Line
                        (Standard_Error,
                         "Can't find ALI file for "
-                        & Get_Name_String (Source.Path.Display_Name));
+                        & Get_Name_String_Safe (Source.Path.Display_Name));
                   end if;
                end if;
             end;
@@ -715,7 +752,7 @@ procedure Gprls.Main is
                   --  Ignore empty lines
 
                   if Last > Index then
-                     Add_File (Buffer (Index .. Last - 1));
+                     Add_File (Buffer (Index .. Last - 1), No_Project_Tree);
                   end if;
 
                   --  Find the beginning of the next line
@@ -787,7 +824,7 @@ procedure Gprls.Main is
       --  If not a switch, it must be a file name
 
       else
-         Add_File (Argv);
+         Add_File (Argv, No_Project_Tree);
       end if;
 
       if not OK then
@@ -915,6 +952,10 @@ procedure Gprls.Main is
 
    procedure Check_Version_And_Help is new Check_Version_And_Help_G (Usage);
 
+   ----------------
+   -- Initialize --
+   ----------------
+
    procedure Initialize is
    begin
       if not Initialized then
@@ -935,10 +976,14 @@ procedure Gprls.Main is
       end if;
    end Initialize;
 
+   --------------
+   -- _Do_List --
+   --------------
+
    procedure Do_List
      (Project : Project_Id; Tree : Project_Tree_Ref)
    is
-      Iter : Source_Iterator := For_Each_Source (Tree);
+      Iter   : Source_Iterator := For_Each_Source (Tree);
       Source : GPR.Source_Id;
    begin
       loop
@@ -957,7 +1002,7 @@ procedure Gprls.Main is
          begin
             while Mains /= Nil_String loop
                Elem := Tree.Shared.String_Elements.Table (Mains);
-               Add_File (Get_Name_String (Elem.Value));
+               Add_File (Get_Name_String (Elem.Value), Tree);
                Mains := Elem.Next;
             end loop;
          end;
@@ -998,6 +1043,7 @@ procedure Gprls.Main is
                      if not Subunit then
                         Add_File
                           (Get_Name_String (Unit.File_Names (Impl).Object),
+                           Tree,
                            Source => Unit.File_Names (Impl));
                      end if;
                   end if;
@@ -1011,12 +1057,14 @@ procedure Gprls.Main is
                then
                   Add_File
                     (Get_Name_String (Unit.File_Names (Spec).Object),
+                     Tree,
                      Source => Unit.File_Names (Spec));
                end if;
 
                Unit := Units_Htable.Get_Next (Tree.Units_HT);
             end loop;
          end;
+
       else
          --  Find the sources in the project files
 
@@ -1079,6 +1127,7 @@ procedure Gprls.Main is
                                          .Display_File)
                               then
                                  FN_Source.Source := Unit.File_Names (Impl);
+                                 FN_Source.Tree   := Tree;
                                  exit Unit_Loop;
                               end if;
                            end;
@@ -1110,6 +1159,7 @@ procedure Gprls.Main is
                                   (Unit.File_Names (Spec).Display_File)
                         then
                            FN_Source.Source := Unit.File_Names (Spec);
+                           FN_Source.Tree   := Tree;
                         end if;
                      end;
                   end if;
@@ -1179,8 +1229,7 @@ begin
 
    Add_Gpr_Tool_External;
 
-   Check_Version_And_Help
-     ("GPRLS", "2015", Version_String => Gpr_Version_String);
+   Check_Version_And_Help ("GPRLS", "2015");
 
    Project_File_Name_Expected := False;
 
@@ -1371,6 +1420,8 @@ begin
       begin
          while Idx <= File_Names.Last_Index loop
             if Same_Path (File_Names (Idx - 1).Source, File_Names (Idx).Source)
+              and then File_Names (Idx - 1).Source.Project.Name
+                       = File_Names (Idx).Source.Project.Name
             then
                File_Names.Delete (Idx);
             else

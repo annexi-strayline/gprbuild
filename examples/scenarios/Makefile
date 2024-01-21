@@ -1,18 +1,18 @@
 all: default.cgpr
-	gprbuild -p main.gpr -XLIB=static
-	gprbuild -p main.gpr -XLIB=dynamic
+	gprbuild -p -Pmain -XLIB=static $(GPRBUILDFLAGS)
+	gprbuild -p -Pmain -XLIB=dynamic $(GPRBUILDFLAGS)
 
 
 default.cgpr:
-	gprconfig --batch --config Ada  --config C -o $@
+	gprconfig --batch --config Ada --config C
 
-clean: force
-	gprclean -r main.gpr -XLIB=static
-	gprclean -r main.gpr -XLIB=dynamic
+clean: default.cgpr
+	gprclean -r -Pmain -XLIB=static
+	gprclean -r -Pmain -XLIB=dynamic
 	$(RM) default.cgpr
 
 run: all
 	./obj/main
-	(PATH="../libraries/lib2:${PATH}" obj1/main)
+	PATH="../libraries/lib2:$$PATH" obj1/main
 
-force:
+.PHONY: all clean run

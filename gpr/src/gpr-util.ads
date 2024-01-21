@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -30,6 +30,7 @@ with Ada.Containers.Indefinite_Vectors;
 with GNAT.MD5; use GNAT.MD5;
 
 with GPR.ALI;
+with GPR.Names;
 with GPR.Osint; use GPR.Osint;
 with GPR.Scans; use GPR.Scans;
 
@@ -41,7 +42,7 @@ package GPR.Util is
 
    type String_Vector_Access is access all String_Vectors.Vector;
 
-   type Config_Paths is array (Positive range <>) of Path_Name_Type;
+   type Config_Paths is array (Positive range <>) of Path_Information;
    --  type used in Need_To_Compile
 
    Default_Config_Name : constant String := "default.cgpr";
@@ -108,6 +109,9 @@ package GPR.Util is
    --  When there are other problems, Result is null and Status is different
    --  from Success or Incomplete_Closure.
 
+   procedure Put_Resource_Usage (Filename : String);
+   --  Print resource usage statistic into file with Filename
+
    -------------------------
    -- Program termination --
    -------------------------
@@ -115,9 +119,10 @@ package GPR.Util is
    procedure Fail_Program
      (Project_Tree   : Project_Tree_Ref;
       Message        : String;
-      Flush_Messages : Boolean := True;
-      No_Message     : Boolean := False;
-      Command        : String := "");
+      Exit_Code      : Exit_Code_Type := E_Fatal;
+      Flush_Messages : Boolean        := True;
+      No_Message     : Boolean        := False;
+      Command        : String         := "") with No_Return;
    --  Terminate program with a message and a fatal status code. Do not issue
    --  any message when No_Message is True.
 
@@ -126,15 +131,17 @@ package GPR.Util is
       Exit_Code    : Exit_Code_Type := E_Success;
       Message      : String := "";
       No_Message   : Boolean := False;
-      Command      : String := "");
+      Command      : String := "") with No_Return;
    --  Terminate program, with or without a message, setting the status code
    --  according to Exit_Code. This properly removes all temporary files. Don't
    --  issue any message when No_Message is True.
 
    procedure Compilation_Phase_Failed
-     (Project_Tree : Project_Tree_Ref; No_Message : Boolean := False);
-   --  Terminate program with "*** compilation phase failed" message and a
-   --  fatal status code. Don't issue any message when No_Message is True.
+     (Project_Tree : Project_Tree_Ref;
+      Exit_Code    : Exit_Code_Type := E_Fatal;
+      No_Message   : Boolean        := False);
+   --  Terminate program with "*** compilation phase failed" message and an
+   --  Exit_Code status code. Don't issue any message when No_Message is True.
 
    procedure Duplicate
      (This   : in out Name_List_Index;
@@ -185,7 +192,7 @@ package GPR.Util is
 
    function Split (Source : String; Separator : String) return Name_Array_Type;
    --  Split string Source into several, using Separator. The different
-   --  occurences of Separator are not included in the result. The result
+   --  occurrences of Separator are not included in the result. The result
    --  includes no empty string.
 
    function Value_Of
@@ -303,6 +310,9 @@ package GPR.Util is
    --  Reads a line from an open text file (fails if File is invalid or in an
    --  out file).
 
+   function Get_Line
+     (File : Text_File; Max_Length : Positive := 4096) return String;
+
    procedure Put (File : Text_File; S : String);
    procedure Put_Line (File : Text_File; Line : String);
    --  Output a string or a line to an out text file (fails if File is invalid
@@ -391,8 +401,15 @@ package GPR.Util is
    function Is_Ada_Predefined_Unit (Unit : String) return Boolean;
    --  Return True if Unit is an Ada runtime unit
 
+   function Is_Pragmas_Config_File (Fname : File_Name_Type) return Boolean;
+   --  Return True if Fname is a pragmas config file
+
    function Starts_With (Item : String; Prefix : String) return Boolean;
    --  Return True if Item starts with Prefix
+
+   function Ends_With (Str, Suffix : String) return Boolean;
+   --  Whether the string ends with Suffix. Always True if Suffix is the empty
+   --  string.
 
    generic
       with procedure Action (Source : Source_Id);
@@ -406,14 +423,26 @@ package GPR.Util is
    --  are handled. This routine must be called only when the project has
    --  been built successfully.
 
-   function Relative_Path (Pathname : String; To : String) return String;
+   function Relative_Path
+     (Pathname  : String;
+      To        : String;
+      Directory : Boolean := True) return String;
    --  Returns the relative pathname which corresponds to Pathname when
    --  starting from directory to. Both Pathname and To must be absolute paths.
+   --  If Directory is True then the result will be treated as directory and
+   --  directory separator will be appended at the end.
 
-   function Create_Name (Name : String) return File_Name_Type;
-   function Create_Name (Name : String) return Name_Id;
-   function Create_Name (Name : String) return Path_Name_Type;
-   --  Get an id for a name
+   function Create_Name (Name : String) return File_Name_Type
+                         renames Names.Get_File_Name_Id;
+   --  Get File_Name_Type for a name
+
+   function Create_Name (Name : String) return Name_Id
+                         renames Names.Get_Name_Id;
+   --  Get Name_Id for a name
+
+   function Create_Name (Name : String) return Path_Name_Type
+                         renames Names.Get_Path_Name_Id;
+   --  Get Path_Name_Type for a name
 
    function Is_Subunit (Source : Source_Id) return Boolean;
    --  Return True if source is a subunit
@@ -470,6 +499,10 @@ package GPR.Util is
 
    function To_Time_Stamp (Time : Calendar.Time) return Stamps.Time_Stamp_Type;
    --  Returns Time as a time stamp type
+
+   function To_UTC_Time_Stamp
+     (Time : Calendar.Time) return Stamps.Time_Stamp_Type;
+   --  Return timestamp shifted to UTC on conversion
 
    function UTC_Time return Stamps.Time_Stamp_Type;
    --  Returns the UTC time
@@ -636,21 +669,20 @@ package GPR.Util is
    --  Output the two lines of usage for switches --version and --help
 
    procedure Display_Version
-     (Tool_Name      : String;
-      Initial_Year   : String;
-      Version_String : String);
+     (Tool_Name : String; Initial_Year : String);
    --  Display version of a tool when switch --version is used
 
    function Calculate_Checksum (Source : Source_Id) return Boolean;
    --  Calculate Source checksum from source file, returns True on success
 
+   function Calculate_Checksum (File : Path_Name_Type) return Word;
+   --  Calculate Source checksum from a file, returns the checksum
+
    generic
       with procedure Usage;
       --  Print tool-specific part of --help message
    procedure Check_Version_And_Help_G
-     (Tool_Name      : String;
-      Initial_Year   : String;
-      Version_String : String);
+     (Tool_Name : String; Initial_Year : String);
    --  Check if switches --version or --help is used. If one of this switch is
    --  used, issue the proper messages and end the process.
 
@@ -725,14 +757,15 @@ package GPR.Util is
    end Knowledge;
 
    procedure Need_To_Compile
-     (Source         : Source_Id;
-      Tree           : Project_Tree_Ref;
-      In_Project     : Project_Id;
-      Conf_Paths     : Config_Paths;
-      Must_Compile   : out Boolean;
-      The_ALI        : out ALI.ALI_Id;
-      Object_Check   : Boolean;
-      Always_Compile : Boolean);
+     (Source           : Source_Id;
+      Tree             : Project_Tree_Ref;
+      In_Project       : Project_Id;
+      Conf_Paths       : Config_Paths;
+      Target_Dep_Paths : Config_Paths;
+      Must_Compile     : out Boolean;
+      The_ALI          : out ALI.ALI_Id;
+      Object_Check     : Boolean;
+      Always_Compile   : Boolean);
    --  Check if a source need to be compiled.
    --  A source need to be compiled if:
    --    - Force_Compilations is True
@@ -787,8 +820,7 @@ package GPR.Util is
    --  exists.
 
    function As_RPath
-     (Path           : String;
-      Case_Sensitive : Boolean) return String;
+     (Path : String; Case_Sensitive : Boolean) return String;
    --  Returns Path in a representation compatible with the use with --rpath or
    --  --rpath-link.
    --  This normalizes the path, and ensure the use of unix-style directory
@@ -911,9 +943,20 @@ package GPR.Util is
    ----------------------
 
    --  There is a hash table to cache the time stamps of files.
-   --  This table needs to be cleared sometimes.
+   --  This table needs to be cleared and updated sometimes.
 
    procedure Clear_Time_Stamp_Cache;
+
+   procedure Update_File_Stamp
+     (Path  : Path_Name_Type;
+      Stamp : Time_Stamp_Type);
+
+   -----------
+   -- Flags --
+   -----------
+
+   function Has_Incomplete_Withs (Flags : Processing_Flags) return Boolean;
+   --  Return the value of the Incomplete_Withs flag
 
 private
    type Text_File_Data is record
@@ -935,5 +978,9 @@ private
    function Starts_With (Item : String; Prefix : String) return Boolean
    is (Item'Length >= Prefix'Length
        and then Item (Item'First .. Item'First + Prefix'Length - 1) = Prefix);
+
+   function Ends_With (Str, Suffix : String) return Boolean
+   is (Str'Length >= Suffix'Length
+       and then Str (Str'Last - Suffix'Length + 1 .. Str'Last) = Suffix);
 
 end GPR.Util;

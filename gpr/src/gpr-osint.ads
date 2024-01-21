@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2001-2020, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2022, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -179,6 +179,9 @@ package GPR.Osint is
    --  this call converts the given string to canonical all lower case form,
    --  so that two file names compare equal if they refer to the same file.
 
+   function Canonical_Case_File_Name (S : String) return String;
+   --  Idem, but function
+
    procedure Canonical_Case_Env_Var_Name (S : in out String);
    --  Given an environment variable name, converts it to canonical
    --  case form. For systems where environment variable names are case
@@ -211,14 +214,18 @@ package GPR.Osint is
    function File_Stamp (Name : Path_Name_Type) return Time_Stamp_Type;
    --  Same as above for a path name
 
+   function File_Stamp (Name : String) return Time_Stamp_Type;
+   --  Same as above for a string filename
+
+   function Is_File_Empty (Name : Path_Name_Type) return Boolean;
+   --  Returns true if the file size is 0, returns false otherwise
+
    type Exit_Code_Type is
-     (E_Success,    -- No warnings or errors
-      E_Warnings,   -- Compiler warnings generated
-      E_No_Code,    -- No code generated
-      E_No_Compile, -- Compilation not needed (smart recompilation)
-      E_Errors,     -- Compiler error messages generated
-      E_Fatal,      -- Fatal (serious) error, e.g. source file not found
-      E_Abort);     -- Internally detected compiler error
+     (E_Success, -- No errors (but there may be warnings)
+      E_General, -- General tool error (invalid option, missing file, etc)
+      E_Subtool, -- Underlying tool error
+      E_Project, -- Project parsing error
+      E_Fatal);  -- Critical tool error (defensive code failures and the like)
 
    procedure Exit_Program (Exit_Code : Exit_Code_Type);
    pragma No_Return (Exit_Program);
@@ -229,7 +236,7 @@ package GPR.Osint is
 private
 
    function File_Time_Stamp (N : C_File_Name) return Ada.Calendar.Time
-     with Import, Convention => C, External_Name => "__gpr_file_time";
+     with Import, Convention => C, External_Name => "__gnat_file_time";
 
    Invalid_Time : constant Ada.Calendar.Time :=
                     File_Time_Stamp (System.Null_Address);

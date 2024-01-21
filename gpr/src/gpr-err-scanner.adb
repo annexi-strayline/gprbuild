@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---        Copyright (C) 2015-2020, Free Software Foundation, Inc.           --
+--        Copyright (C) 2015-2021, Free Software Foundation, Inc.           --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -396,6 +396,9 @@ package body Scanner is
       Token_Name                := No_Name;
       Start_Column              := Set_Start_Column;
       First_Non_Blank_Location  := Scan_Ptr;
+      Upper_Half_Encoding       := False;
+
+      Check_For_BOM;
 
       Initialize_Checksum;
    end Initialize_Scanner;
@@ -408,7 +411,7 @@ package body Scanner is
    begin
       case Language_For_Scanner is
          when Ada =>
-            return N in Reserved_Ada_95 or else N in Reserved_Ada_Other;
+            return N in Reserved_Ada_95 | Reserved_Ada_Other;
 
          when Project =>
             return N in Reserved_Ada_Project;
@@ -1103,14 +1106,16 @@ package body Scanner is
          --  Left bracket
 
          when '[' =>
-            if Source (Scan_Ptr + 1) = '"' then
-               goto Scan_Wide_Character;
+            --  Here was code to support wide characters square brackets
+            --  encoding. It was checking that next char is '"' and conditional
+            --  jumping to Scan_Wide_Character. Now it is removed and we
+            --  support square brackets only for Ada 2022 syntax because it is
+            --  too tricky to detect whether the source is going to be compiled
+            --  with new syntax support.
 
-            else
-               Scan_Ptr := Scan_Ptr + 1;
-               Token := Tok_Left_Paren;
-               return;
-            end if;
+            Scan_Ptr := Scan_Ptr + 1;
+            Token := Tok_Left_Paren;
+            return;
 
          --  Left brace
 
@@ -1751,6 +1756,10 @@ package body Scanner is
                else
                   Error_Illegal_Character;
                end if;
+
+            elsif Source (Scan_Ptr) = '@' then
+               Scan_Ptr := Scan_Ptr + 1;
+               Accumulate_Checksum ('@');
 
             else
                Error_Illegal_Character;

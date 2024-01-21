@@ -2,7 +2,7 @@
 --                                                                          --
 --                           GPR PROJECT MANAGER                            --
 --                                                                          --
---          Copyright (C) 2014-2017, Free Software Foundation, Inc.         --
+--          Copyright (C) 2014-2020, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This library is free software;  you can redistribute it and/or modify it --
 -- under terms of the  GNU General Public License  as published by the Free --
@@ -22,7 +22,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Calendar.Time_Zones; use Ada.Calendar;
 with Ada.Containers.Vectors;
 with Ada.Directories;         use Ada.Directories;
 with Ada.Exceptions;          use Ada.Exceptions;
@@ -240,9 +239,7 @@ package body GPR.Compilation.Sync is
                      Project_Files.Append
                        (File_Data'
                           (To_Unbounded_String (Entry_Name),
-                           To_Time_Stamp
-                             (Modification_Time (File) -
-                                Duration (Time_Zones.UTC_Time_Offset) * 60.0),
+                           To_UTC_Time_Stamp (Modification_Time (File)),
                            OS_Lib.Is_Executable_File
                              (Root_Dir & Directory_Separator & Entry_Name)));
                   end if;
@@ -413,9 +410,7 @@ package body GPR.Compilation.Sync is
                   begin
                      if Ada.Directories.Exists (Full_Path) then
                         File_Stamp :=
-                          To_Time_Stamp
-                            (Modification_Time (Full_Path)
-                             - Duration (Time_Zones.UTC_Time_Offset) * 60.0);
+                          To_UTC_Time_Stamp (Modification_Time (Full_Path));
                         Exists := True;
                      else
                         Exists := False;

@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2020, AdaCore                     --
+--                     Copyright (C) 2011-2023, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -16,6 +16,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Ada.Assertions; use Ada.Assertions;
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Directories;
 with Ada.Exceptions;   use Ada.Exceptions;
@@ -29,8 +30,9 @@ pragma Warnings (On);
 
 with GNAT.Command_Line;         use GNAT.Command_Line;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
+with GNAT.OS_Lib;
 
-with Gpr_Build_Util;             use Gpr_Build_Util;
+with Gpr_Build_Util;            use Gpr_Build_Util;
 with Gprbuild.Compile;
 with Gprbuild.Link;
 with Gprbuild.Post_Compile;
@@ -46,13 +48,12 @@ with GPR.Output;                 use GPR.Output;
 with GPR.Proc;                   use GPR.Proc;
 with GPR.Env;
 with GPR.Err;
+with GPR.Jobserver;
 with GPR.Opt;                    use GPR.Opt;
 with GPR.Script;                 use GPR.Script;
 with GPR.Snames;                 use GPR.Snames;
-with GPR.Tempdir;                use GPR.Tempdir;
 with GPR.Tree;                   use GPR.Tree;
 with GPR.Util.Aux;               use GPR.Util;
-with GPR.Version;                use GPR.Version;
 
 procedure Gprbuild.Main is
 
@@ -79,6 +80,8 @@ procedure Gprbuild.Main is
    Main_On_Command_Line : Boolean := False;
    --  True if there is at least one main specified on the command line
 
+   Is_Unix : constant Boolean := GNAT.OS_Lib.Path_Separator = ':';
+
    procedure Initialize;
    --  Do the necessary package intialization and process the command line
    --  arguments.
@@ -104,9 +107,7 @@ procedure Gprbuild.Main is
       Language     : Name_Id;
       Success      : out Boolean);
    --  Process one gprbuild argument Arg. Command_Line is True if the argument
-   --  is specified on the command line. Optional parameter Additional gives
-   --  additional information about the origin of the argument if it is found
-   --  illegal.
+   --  is specified on the command line.
 
    procedure Add_Option (Arg : String; Command_Line : Boolean);
    --  Add a switch for a compiler or all compilers, or for the binder or for
@@ -147,7 +148,9 @@ procedure Gprbuild.Main is
       type Option_Type is
         (Force_Compilations_Option,
          Keep_Going_Option,
-         Maximum_Processes_Option,
+         Maximum_Compilers_Option,
+         Maximum_Binders_Option,
+         Maximum_Linkers_Option,
          Quiet_Output_Option,
          Check_Switches_Option,
          Verbose_Mode_Option,
@@ -158,6 +161,9 @@ procedure Gprbuild.Main is
          Warnings_Normal,
          Warnings_Suppress,
          Indirect_Imports);
+
+      subtype Maximum_Processes_Range is Option_Type range
+        Maximum_Compilers_Option .. Maximum_Linkers_Option;
 
       procedure Register_Command_Line_Option
         (Option : Option_Type; Value : Natural := 0);
@@ -191,9 +197,9 @@ procedure Gprbuild.Main is
             if Main_Id.Source.Locally_Removed then
                Fail_Program
                  (Project_Tree,
-                  "main """ &
-                  Get_Name_String (Main_Id.Source.File) &
-                  """ cannot also be an excluded file");
+                  "main """ & Get_Name_String_Safe (Main_Id.Source.File)
+                  & """ cannot also be an excluded file",
+                  Exit_Code => E_General);
             end if;
 
             if Is_Allowed_Language (Main_Id.Source.Language.Name) then
@@ -356,8 +362,33 @@ procedure Gprbuild.Main is
             end if;
 
          when Compiler =>
-
             if Command_Line then
+               if Starts_With (Arg, "-gnatec=") then
+                  declare
+                     Key : String :=
+                             GNAT.OS_Lib.Normalize_Pathname
+                               (Arg (Arg'First + 8 .. Arg'Last));
+                     Value : constant Name_Id := Get_Name_Id (Key);
+                  begin
+                     Canonical_Case_File_Name (Key);
+                     Cmd_Line_Adc_Files.Include (Get_Name_Id (Key), Value);
+                  end;
+               end if;
+
+               if Starts_With (Arg, "-gnateT=")
+               then
+                  declare
+                     Key   : String :=
+                               GNAT.OS_Lib.Normalize_Pathname
+                                 (Arg (Arg'First + 8 .. Arg'Last));
+                     Value : constant Name_Id := Get_Name_Id (Key);
+                  begin
+                     Canonical_Case_File_Name (Key);
+                     Cmd_Line_Target_Dep_Info_Files.Include
+                       (Get_Name_Id (Key), Value);
+                  end;
+               end if;
+
                if Current_Comp_Option_Table = No_Comp_Option_Table then
                   --  Option for all compilers
 
@@ -401,8 +432,7 @@ procedure Gprbuild.Main is
 
       if not Copyright_Output then
          Copyright_Output := True;
-         Display_Version
-           ("GPRBUILD", "2004", Version_String => Gpr_Version_String);
+         Display_Version ("GPRBUILD", "2004");
       end if;
    end Copyright;
 
@@ -437,8 +467,14 @@ procedure Gprbuild.Main is
                when Keep_Going_Option =>
                   Opt.Keep_Going := True;
 
-               when Maximum_Processes_Option =>
-                  Opt.Maximum_Processes := Item.Value;
+               when Maximum_Compilers_Option =>
+                  Opt.Maximum_Compilers := Item.Value;
+
+               when Maximum_Binders_Option =>
+                  Opt.Maximum_Binders := Item.Value;
+
+               when Maximum_Linkers_Option =>
+                  Opt.Maximum_Linkers := Item.Value;
 
                when Quiet_Output_Option =>
                   Opt.Quiet_Output    := True;
@@ -521,7 +557,8 @@ procedure Gprbuild.Main is
          if not Command_Line then
             Fail_Program
               (Project_Tree,
-               Arg & " can only be used on the command line");
+               Arg & " can only be used on the command line",
+               Exit_Code => E_General);
          end if;
       end Forbidden_In_Package_Builder;
 
@@ -540,7 +577,8 @@ procedure Gprbuild.Main is
       if Project_File_Name_Expected then
          if Arg (1) = '-' then
             Fail_Program
-              (Project_Tree, "project file name missing after -P");
+              (Project_Tree, "project file name missing after -P",
+               Exit_Code => E_General);
          else
             Project_File_Name_Expected := False;
             Project_File_Name := new String'(Arg);
@@ -552,7 +590,8 @@ procedure Gprbuild.Main is
       elsif Output_File_Name_Expected then
          if Arg (1) = '-' then
             Fail_Program
-              (Project_Tree, "output file name missing after -o");
+              (Project_Tree, "output file name missing after -o",
+               Exit_Code => E_General);
          else
             Output_File_Name_Expected := False;
             Output_File_Name := new String'(Arg);
@@ -561,7 +600,8 @@ procedure Gprbuild.Main is
       elsif Search_Project_Dir_Expected then
          if Arg (1) = '-' then
             Fail_Program
-              (Project_Tree, "directory name missing after -aP");
+              (Project_Tree, "directory name missing after -aP",
+               Exit_Code => E_General);
          else
             Search_Project_Dir_Expected := False;
             GPR.Env.Add_Directories (Root_Environment.Project_Path, Arg);
@@ -571,8 +611,7 @@ procedure Gprbuild.Main is
          Db_Directory_Expected := False;
          Knowledge.Parse_Knowledge_Base (Project_Tree, Arg);
 
-         Set_Name_Buffer (Arg);
-         Add_Db_Switch_Arg (Name_Find);
+         Add_Db_Switch_Arg (Get_Name_Id (Arg));
 
          --  Set the processor/language for the following switches
 
@@ -593,11 +632,8 @@ procedure Gprbuild.Main is
       elsif Arg'Length > 7 and then Arg (1 .. 7) = "-cargs:" then
          Current_Processor := Compiler;
 
-         Set_Name_Buffer (Arg (8 .. Arg'Last));
-         To_Lower (Name_Buffer (1 .. Name_Len));
-
          declare
-            Lang : constant Name_Id := Name_Find;
+            Lang : constant Name_Id := Get_Lower_Name_Id (Arg (8 .. Arg'Last));
          begin
             if Command_Line then
                Current_Comp_Option_Table :=
@@ -644,11 +680,8 @@ procedure Gprbuild.Main is
 
          Current_Processor := Binder;
 
-         Set_Name_Buffer (Arg (8 .. Arg'Last));
-         To_Lower (Name_Buffer (1 .. Name_Len));
-
          declare
-            Lang : constant Name_Id := Name_Find;
+            Lang : constant Name_Id := Get_Lower_Name_Id (Arg (8 .. Arg'Last));
          begin
             Current_Bind_Option_Table :=
               Binder_Options_HTable.Get (Lang);
@@ -688,9 +721,10 @@ procedure Gprbuild.Main is
         and then Current_Processor = Linker
         and then Arg = "-o"
       then
-            Fail_Program
+         Fail_Program
            (Project_Tree,
-            "switch -o not allowed within a -largs. Use -o directly.");
+            "switch -o not allowed within a -largs. Use -o directly.",
+            Exit_Code => E_General);
 
          --  If current processor is not gprbuild directly, store the option
          --  in the appropriate table.
@@ -713,8 +747,9 @@ procedure Gprbuild.Main is
             if Distributed_Mode then
                Fail_Program
                  (Project_Tree,
-                  "options " & Complete_Output_Option &
-                    Distributed_Option & " are not compatible");
+                  "options " & Complete_Output_Option & Distributed_Option
+                  & " are not compatible",
+                  Exit_Code => E_General);
             end if;
 
             Complete_Output    := True;
@@ -732,7 +767,8 @@ procedure Gprbuild.Main is
             if Project_File_Name /= null then
                Fail_Program
                  (Project_Tree,
-                  "cannot specified --no-project with a project file");
+                  "cannot specified --no-project with a project file",
+                  Exit_Code => E_General);
             end if;
 
          elsif Arg'Length >= Distributed_Option'Length
@@ -746,8 +782,9 @@ procedure Gprbuild.Main is
             if Complete_Output then
                Fail_Program
                  (Project_Tree,
-                  "options " & Complete_Output_Option &
-                    Distributed_Option & " are not compatible");
+                  "options " & Complete_Output_Option & Distributed_Option
+                  & " are not compatible",
+                  Exit_Code => E_General);
             end if;
 
             if Build_Script_Name /= null then
@@ -766,7 +803,8 @@ procedure Gprbuild.Main is
                if Hosts = "" then
                   Fail_Program
                     (Project_Tree,
-                     "missing hosts for distributed mode compilation");
+                     "missing hosts for distributed mode compilation",
+                     Exit_Code => E_General);
 
                else
                   GPR.Compilation.Slave.Record_Slaves (Hosts);
@@ -841,20 +879,15 @@ procedure Gprbuild.Main is
 
             begin
                if Lang = "" or else Comp = "" then
-                  Fail_Program (Project_Tree, "invalid switch " & Arg);
+                  Fail_Program
+                    (Project_Tree, "invalid switch " & Arg,
+                     Exit_Code => E_General);
                   --  This switch is intended for internal use by ASIS tools,
                   --  so a friendlier error message isn't needed here.
                end if;
 
-               Set_Name_Buffer (Lang);
-               To_Lower (Name_Buffer (1 .. Name_Len));
-
-               declare
-                  Lang_Id : constant Name_Id := Name_Find;
-               begin
-                  Set_Name_Buffer (Comp);
-                  Compiler_Subst_HTable.Include (Lang_Id, Name_Find);
-               end;
+               Compiler_Subst_HTable.Include
+                 (Get_Lower_Name_Id (Lang), Get_Name_Id (Comp));
             end;
 
          elsif Arg'Length >= Compiler_Pkg_Subst_Option'Length
@@ -877,9 +910,7 @@ procedure Gprbuild.Main is
                   --  package Pretty_Printer in the project file.
                end if;
 
-               Set_Name_Buffer (Package_Name);
-               To_Lower (Name_Buffer (1 .. Name_Len));
-               Compiler_Pkg_Subst := Name_Find;
+               Compiler_Pkg_Subst := Get_Lower_Name_Id (Package_Name);
             end;
 
          elsif Arg'Length > Build_Script_Option'Length
@@ -891,8 +922,9 @@ procedure Gprbuild.Main is
             if Distributed_Mode then
                Fail_Program
                  (Project_Tree,
-                  "options " & Build_Script_Option &
-                    Distributed_Option & " are not compatible");
+                  "options " & Build_Script_Option & Distributed_Option
+                  & " are not compatible",
+                  Exit_Code => E_General);
             end if;
 
             declare
@@ -947,8 +979,9 @@ procedure Gprbuild.Main is
             then
                Fail_Program
                  (Project_Tree,
-                  "several different configuration switches " &
-                  "cannot be specified");
+                  "several different configuration switches cannot be"
+                  & " specified",
+                  Exit_Code => E_General);
 
             else
                Autoconfiguration := False;
@@ -972,8 +1005,9 @@ procedure Gprbuild.Main is
             then
                Fail_Program
                  (Project_Tree,
-                  "several different configuration switches " &
-                  "cannot be specified");
+                  "several different configuration switches cannot be"
+                  & " specified",
+                  Exit_Code => E_General);
 
             else
                Config_Project_File_Name :=
@@ -994,7 +1028,8 @@ procedure Gprbuild.Main is
                then
                   Fail_Program
                     (Project_Tree,
-                     "several different target switches cannot be specified");
+                     "several different target switches cannot be specified",
+                     Exit_Code => E_General);
                end if;
 
             else
@@ -1016,7 +1051,8 @@ procedure Gprbuild.Main is
                   if Set and then Old /= RTS then
                      Fail_Program
                        (Project_Tree,
-                        "several different run-times cannot be specified");
+                        "several different run-times cannot be specified",
+                        Exit_Code => E_General);
                   end if;
 
                   Set_Runtime_For (Name_Ada, RTS);
@@ -1038,17 +1074,17 @@ procedure Gprbuild.Main is
             begin
                for J in RTS_Language_Option'Length + 2 .. Arg'Last loop
                   if Arg (J) = '=' then
-                     Set_Name_Buffer
+                     Language_Name := Get_Lower_Name_Id
                        (Arg (RTS_Language_Option'Length + 1 .. J - 1));
-                     To_Lower (Name_Buffer (1 .. Name_Len));
-                     Language_Name := Name_Find;
                      RTS_Start := J + 1;
                      exit;
                   end if;
                end loop;
 
                if Language_Name = No_Name then
-                  Fail_Program (Project_Tree, "illegal switch: " & Arg);
+                  Fail_Program
+                    (Project_Tree, "illegal switch: " & Arg,
+                     Exit_Code => E_General);
 
                elsif Command_Line then
                   --  Ignore any --RTS:<lang>= switch in package Builder. These
@@ -1085,7 +1121,8 @@ procedure Gprbuild.Main is
                Fail_Program
                  (Project_Tree,
                   "several " & Implicit_With_Option
-                  & " options cannot be specified");
+                  & " options cannot be specified",
+                  Exit_Code => E_General);
             end if;
 
             Implicit_With := new String'
@@ -1099,6 +1136,16 @@ procedure Gprbuild.Main is
             Forbidden_In_Package_Builder;
             Subdirs :=
               new String'(Arg (Subdirs_Option'Length + 1 .. Arg'Last));
+
+         elsif Is_Unix
+           and then Arg'Length > Getrusage_Option'Length
+           and then Arg (1 .. Getrusage_Option'Length) = Getrusage_Option
+         then
+            Forbidden_In_Package_Builder;
+            Getrusage :=
+              new String'
+                (GNAT.OS_Lib.Normalize_Pathname
+                   (Arg (Getrusage_Option'Length + 1 .. Arg'Last)));
 
          elsif Arg'Length > Src_Subdirs_Option'Length
            and then Arg (1 .. Src_Subdirs_Option'Length) = Src_Subdirs_Option
@@ -1128,7 +1175,7 @@ procedure Gprbuild.Main is
 
             --  Out-of-tree compilation also imply -p (create missing dirs)
 
-            Opt.Setup_Projects := True;
+            Opt.Create_Dirs := Create_All_Dirs;
 
          elsif Arg'Length >= Root_Dir_Option'Length
            and then Arg (1 .. Root_Dir_Option'Length) = Root_Dir_Option
@@ -1181,9 +1228,7 @@ procedure Gprbuild.Main is
                Register_Command_Line_Option (Options.Indirect_Imports, 1);
             end if;
 
-         elsif Arg = No_Indirect_Imports_Switch
-               or else
-               Arg = Direct_Import_Only_Switch
+         elsif Arg in No_Indirect_Imports_Switch | Direct_Import_Only_Switch
          then
             Indirect_Imports := False;
 
@@ -1283,16 +1328,7 @@ procedure Gprbuild.Main is
             Opt.Display_Compilation_Progress := True;
 
          elsif Arg'Length = 3 and then Arg (2) = 'd' then
-            if Arg (3) in '1' .. '9'
-              or else Arg (3) in 'a' .. 'z'
-              or else Arg (3) in 'A' .. 'Z'
-            then
-               Set_Debug_Flag (Arg (3));
-
-            else
-               Fail_Program
-                 (Project_Tree, "illegal debug switch " & Arg);
-            end if;
+            Set_Debug_Flag (Arg (3));
 
          elsif Arg'Length > 3 and then Arg (1 .. 3) = "-eI" then
             if Subst_Switch_Present then
@@ -1306,7 +1342,9 @@ procedure Gprbuild.Main is
 
             exception
                when Constraint_Error =>
-                  Fail_Program (Project_Tree, "invalid switch " & Arg);
+                  Fail_Program
+                    (Project_Tree, "invalid switch " & Arg,
+                     Exit_Code => E_General);
             end;
 
          elsif Arg = "-eL" then
@@ -1334,37 +1372,92 @@ procedure Gprbuild.Main is
             Forbidden_In_Package_Builder;
 
          elsif Arg'Length > 2 and then Arg (2) = 'j' then
+
+            if Opt.Use_GNU_Make_Jobserver then
+               Put_Line ("warning: -j is ignored when using "
+                         & Use_GNU_Make_Jobserver_Option);
+               return;
+            end if;
+
             declare
-               Max_Proc : Natural := 0;
+               Max_Proc : Natural   := 0;
+               Phase    : Character := 'a'; -- all by default
+               First    : Positive;
+
+               Opts : constant array (Maximum_Processes_Range) of
+                 access Positive :=
+                   (Maximum_Compilers_Option => Opt.Maximum_Compilers'Access,
+                    Maximum_Binders_Option   => Opt.Maximum_Binders'Access,
+                    Maximum_Linkers_Option   => Opt.Maximum_Linkers'Access);
+
+               procedure Register (Opt : Maximum_Processes_Range);
+
+               --------------
+               -- Register --
+               --------------
+
+               procedure Register (Opt : Maximum_Processes_Range) is
+               begin
+                  if Command_Line then
+                     Register_Command_Line_Option (Opt, Max_Proc);
+                  end if;
+
+                  Opts (Opt).all := Max_Proc;
+               end Register;
+
             begin
-               for J in 3 .. Arg'Length loop
-                  if Arg (J) in '0' .. '9' then
-                     Max_Proc := (Max_Proc * 10) +
-                       Character'Pos (Arg (J)) -
-                       Character'Pos ('0');
+               if Arg'Length > 3 and then Arg (3) not in '0' .. '9' then
+                  Phase := Arg (3);
+                  First := 4;
+               else
+                  First := 3;
+               end if;
 
-                  else
-                     Processed := False;
-                  end if;
-               end loop;
+               Max_Proc := Natural'Value (Arg (First .. Arg'Last));
 
-               if Processed then
-                  if Max_Proc = 0 then
-                     Max_Proc := Natural (Number_Of_CPUs);
-                  end if;
+               if Max_Proc = 0 then
+                  Max_Proc := Natural (Number_Of_CPUs);
 
                   if Max_Proc = 0 then
                      Max_Proc := 1;
                   end if;
-
-                  Opt.Maximum_Processes := Max_Proc;
                end if;
+
+               case Phase is
+                  when 'a' =>
+                     for J in Maximum_Processes_Range loop
+                        Register (J);
+                     end loop;
+                  when 'c' => Register (Maximum_Compilers_Option);
+                  when 'b' => Register (Maximum_Binders_Option);
+                  when 'l' => Register (Maximum_Linkers_Option);
+                  when others => Processed := False;
+               end case;
+
+            exception
+               when Constraint_Error =>
+                  Processed := False;
             end;
 
-            if Processed and then Command_Line then
-               Register_Command_Line_Option
-                 (Maximum_Processes_Option, Opt.Maximum_Processes);
+         elsif Arg = Use_GNU_Make_Jobserver_Option then
+
+            if Opt.Maximum_Compilers > 1 then
+               Put_Line ("warning: -j is ignored when using "
+                         & Use_GNU_Make_Jobserver_Option);
             end if;
+
+            Opt.Use_GNU_Make_Jobserver := True;
+
+            begin
+               GPR.Jobserver.Initialize;
+            exception
+               when E : GPR.Jobserver.JS_Initialize_Error =>
+                  Fail_Program
+                    (Project_Tree, Ada.Exceptions.Exception_Name (E) & " - "
+                     & Ada.Exceptions.Exception_Message (E));
+               when GPR.Jobserver.JS_Makeflags_Parsing_Detects_Dry_Run =>
+                  Finish_Program (Project_Tree, Exit_Code);
+            end;
 
          elsif Arg = "-k" then
             Opt.Keep_Going := True;
@@ -1404,7 +1497,7 @@ procedure Gprbuild.Main is
 
          elsif Arg = "-p" or else Arg = "--create-missing-dirs" then
             Forbidden_In_Package_Builder;
-            Opt.Setup_Projects := True;
+            Opt.Create_Dirs := Create_All_Dirs;
 
          elsif Arg'Length >= 2 and then Arg (2) = 'P' then
             Forbidden_In_Package_Builder;
@@ -1412,12 +1505,14 @@ procedure Gprbuild.Main is
             if No_Project_File then
                Fail_Program
                  (Project_Tree,
-                  "cannot specify --no-project with a project file");
+                  "cannot specify --no-project with a project file",
+                  Exit_Code => E_General);
 
             elsif Project_File_Name /= null then
                Fail_Program
                  (Project_Tree,
-                  "cannot have several project files specified");
+                  "cannot have several project files specified",
+                  Exit_Code => E_General);
 
             elsif Arg'Length = 2 then
                Project_File_Name_Expected := True;
@@ -1507,7 +1602,8 @@ procedure Gprbuild.Main is
             else
                Fail_Program
                  (Project_Tree,
-                  "invalid verbosity level " & Arg (4 .. Arg'Last));
+                  "invalid verbosity level " & Arg (4 .. Arg'Last),
+                  Exit_Code => E_General);
             end if;
 
          elsif Arg = "-we" then
@@ -1551,7 +1647,7 @@ procedure Gprbuild.Main is
             null;
 
          elsif (Language = No_Name or else Language = Name_Ada)
-           and then (not Command_Line)
+           and then not Command_Line
            and then Arg = "-x"
          then
             --  For compatibility with gnatmake, ignore -x if found in the
@@ -1652,12 +1748,14 @@ procedure Gprbuild.Main is
                if No_Project_File then
                   Fail_Program
                     (Project_Tree,
-                     "cannot specify --no-project with a project file");
+                     "cannot specify --no-project with a project file",
+                     Exit_Code => E_General);
 
                elsif Project_File_Name /= null then
                   Fail_Program
                     (Project_Tree,
-                     "cannot have several project files specified");
+                     "cannot have several project files specified",
+                     Exit_Code => E_General);
 
                else
                   Project_File_Name := new String'(File_Name);
@@ -1680,7 +1778,8 @@ procedure Gprbuild.Main is
          if Command_Line then
             Fail_Program
               (Project_Tree,
-               "illegal option """ & Arg & """ on the command line");
+               "illegal option """ & Arg & """ on the command line",
+               Exit_Code => E_General);
 
          else
             Success := False;
@@ -1712,15 +1811,11 @@ procedure Gprbuild.Main is
 
       --  Get the name id for "-L";
 
-      Set_Name_Buffer ("-L");
-      Dash_L := Name_Find;
+      Dash_L := Get_Name_Id ("-L");
 
       --  Get the command line arguments, starting with --version and --help
 
-      Check_Version_And_Help
-        ("GPRBUILD",
-         "2004",
-         Version_String => Gpr_Version_String);
+      Check_Version_And_Help ("GPRBUILD", "2004");
 
       --  Check for switch --dumpmachine and, if found, output the normalized
       --  hostname and exit.
@@ -1741,6 +1836,11 @@ procedure Gprbuild.Main is
             OS_Exit (0);
          end if;
       end loop;
+
+      --  By default, gprbuild should create artefact dirs if they are
+      --  relative to the project directory
+
+      Opt.Create_Dirs := Create_Relative_Dirs_Only;
 
       --  Now process the other options
 
@@ -1819,8 +1919,6 @@ procedure Gprbuild.Main is
 
          declare
             Prefix_Path : constant String := Executable_Prefix_Path;
-            P           : String_Access;
-
          begin
             if Prefix_Path'Length /= 0 then
                Put (Path_Separator);
@@ -1832,8 +1930,7 @@ procedure Gprbuild.Main is
 
             New_Line;
 
-            GPR.Env.Get_Path (Root_Environment.Project_Path, Path => P);
-            Put_Line (P.all);
+            Put_Line (Env.Get_Path (Root_Environment.Project_Path));
             Exit_Program (E_Success);
          end;
       end if;
@@ -1846,23 +1943,27 @@ procedure Gprbuild.Main is
 
       if Project_File_Name_Expected then
          Fail_Program
-           (Project_Tree, "project file name missing after -P");
+           (Project_Tree, "project file name missing after -P",
+            Exit_Code => E_General);
 
          --  Or if it ended with "-o"
 
       elsif Output_File_Name_Expected then
          Fail_Program
-           (Project_Tree, "output file name missing after -o");
+           (Project_Tree, "output file name missing after -o",
+            Exit_Code => E_General);
 
          --  Or if it ended with "-aP"
 
       elsif Search_Project_Dir_Expected then
          Fail_Program
-           (Project_Tree, "directory name missing after -aP");
+           (Project_Tree, "directory name missing after -aP",
+            Exit_Code => E_General);
 
       elsif Db_Directory_Expected then
          Fail_Program
-           (Project_Tree, "directory name missing after --db");
+           (Project_Tree, "directory name missing after --db",
+            Exit_Code => E_General);
 
       elsif Slave_Env /= null and then not Distributed_Mode then
          Fail_Program
@@ -1898,18 +1999,8 @@ procedure Gprbuild.Main is
       if Root_Dir /= null and then Build_Tree_Dir = null then
          Fail_Program
            (Project_Tree,
-            "cannot use --root-dir without --relocate-build-tree option");
-      end if;
-
-      --  Set default Root_Dir
-
-      if Build_Tree_Dir /= null and then Root_Dir = null then
-         Root_Dir := new String'
-           (Ada.Directories.Containing_Directory
-              (Normalize_Pathname
-                   (Project_File_Name.all,
-                    Resolve_Links => Opt.Follow_Links_For_Files)) &
-            Dir_Separator);
+            "cannot use --root-dir without --relocate-build-tree option",
+            Exit_Code => E_General);
       end if;
    end Initialize;
 
@@ -2057,6 +2148,11 @@ procedure Gprbuild.Main is
          Put ("           Use dir as suffix to obj/lib/exec directories");
          New_Line;
 
+         if Is_Unix then
+            Put_Line ("  --getrusage=file");
+            Put_Line ("           Print getrusage call results into file");
+         end if;
+
          --  Line for --single-compile-per-obj-dir
 
          Put ("  ");
@@ -2152,6 +2248,13 @@ procedure Gprbuild.Main is
          New_Line;
          New_Line;
 
+         Put ("  ");
+         Put (Use_GNU_Make_Jobserver_Option);
+         New_Line;
+         Put ("           Share job slots with GNU make");
+         New_Line;
+         New_Line;
+
          --  Line for -aP
 
          Put ("  -aP dir  Add directory dir to project search path");
@@ -2202,7 +2305,16 @@ procedure Gprbuild.Main is
 
          --  Line for -jnnn
 
-         Put ("  -jnum    Use num processes to compile");
+         Put ("  -j<num>    Use <num> processes to compile, bind, and link");
+         New_Line;
+
+         Put ("  -jc<num>    Use <num> processes to compile");
+         New_Line;
+
+         Put ("  -jb<num>    Use <num> processes to bind");
+         New_Line;
+
+         Put ("  -jl<num>    Use <num> processes to link");
          New_Line;
 
          --  Line for -k
@@ -2480,7 +2592,8 @@ begin
          Gprconfig_Options          => Command_Line_Gprconfig_Options);
    exception
       when E : GPR.Conf.Invalid_Config =>
-         Fail_Program (Project_Tree, Exception_Message (E));
+         Fail_Program
+           (Project_Tree, Exception_Message (E), Exit_Code => E_Project);
    end;
 
    if Main_Project = No_Project then
@@ -2491,7 +2604,8 @@ begin
       Fail_Program
         (Project_Tree,
          """" & Project_File_Name.all & """ processing failed",
-         Flush_Messages => Present (User_Project_Node));
+         Flush_Messages => Present (User_Project_Node),
+         Exit_Code      => E_Project);
    end if;
 
    if Configuration_Project_Path /= null then
@@ -2537,33 +2651,33 @@ begin
       GPR.Err.Initialize;
    end if;
 
-   --  Adjust switches for "c" target: never perform the link phase
+   --  Adjust switches for C and jvm targets: never perform the link phase
 
    declare
-      C_Target : Boolean := False;
+      No_Link  : Boolean := False;
       Variable : Variable_Value;
    begin
-      if Target_Name.all = "c" then
-         C_Target := True;
+      if No_Link_Target (Target_Name.all) then
+         No_Link := True;
 
       else
          Variable := GPR.Util.Value_Of
            (Name_Target, Main_Project.Decl.Attributes, Project_Tree.Shared);
 
          if Variable /= Nil_Variable_Value
-           and then Get_Name_String (Variable.Value) = "c"
+           and then No_Link_Target (Get_Name_String (Variable.Value))
          then
-            C_Target := True;
+            No_Link := True;
 
             --  Set Target_Name so that e.g. gprbuild-post_compile.adb knows
-            --  that we have Target = "c".
+            --  that we have Target = c/ccg/jvm.
 
             Free (Target_Name);
-            Target_Name := new String'("c");
+            Target_Name := new String'(Get_Name_String (Variable.Value));
          end if;
       end if;
 
-      if C_Target then
+      if No_Link then
          Opt.Link_Only := False;
 
          if not Opt.Compile_Only and not Opt.Bind_Only then
@@ -2583,7 +2697,8 @@ begin
             Fail_Program
               (Project_Tree,
                "cannot specify a main program " &
-               "on the command line for a library project file");
+               "on the command line for a library project file",
+               Exit_Code => E_General);
 
          else
             Mains.Complete_Mains
@@ -2612,7 +2727,9 @@ begin
         and then Mains.Number_Of_Mains (null) > 1
       then
          Fail_Program
-           (Project_Tree, "cannot specify -o when there are several mains");
+           (Project_Tree,
+            "cannot specify -o when there are several mains",
+            Exit_Code => E_General);
       end if;
    end if;
 
@@ -2638,7 +2755,8 @@ begin
       Fail_Program
         (Project_Tree,
          "cannot specify a main program " &
-           "on the command line for a library project file");
+           "on the command line for a library project file",
+         Exit_Code => E_General);
    end if;
 
    Add_Mains_To_Queue;
@@ -2680,16 +2798,15 @@ begin
          when others =>
             Fail_Program
               (null,
-               "build script """ &
-               Build_Script_Name.all &
-               """ could not be created");
+               "build script """ & Build_Script_Name.all
+               & """ could not be created");
       end;
    end if;
 
    if Debug.Debug_Flag_M then
       Put_Line
         ("Maximum number of simultaneous compilations ="
-         & Opt.Maximum_Processes'Img);
+         & Opt.Maximum_Compilers'Img);
    end if;
 
    --  Warn if --create-map-file is not supported
@@ -2706,8 +2823,6 @@ begin
    --  Set slave-env
 
    if Distributed_Mode then
-      Use_Temp_Dir (Status => False);
-
       if Slave_Env = null then
          Slave_Env :=
            new String'(Aux.Compute_Slave_Env (Project_Tree, Slave_Env_Auto));
@@ -2727,7 +2842,8 @@ begin
 
    if Is_Open (Build_Script_File) then
       Close (Build_Script_File);
-      Opt.Maximum_Processes := 1;
+      Opt.Maximum_Binders := 1;
+      Opt.Maximum_Linkers := 1;
    end if;
 
    Post_Compile.Run;
@@ -2735,6 +2851,10 @@ begin
 
    if Warnings_Detected /= 0 then
       GPR.Err.Finalize;
+   end if;
+
+   if Getrusage /= null then
+      Put_Resource_Usage (Getrusage.all);
    end if;
 
    Finish_Program (Project_Tree, Exit_Code);
@@ -2746,6 +2866,22 @@ exception
       end if;
 
       Fail_Program (Project_Tree, Exception_Information (C));
+
+   when Project_Error =>
+      Fail_Program
+        (Project_Tree, '"' & Project_File_Name.all & """ processing failed");
+
+   when A : Assertion_Error =>
+      if GPR.Util.Has_Incomplete_Withs (Flags => Root_Environment.Flags) then
+         GPR.Err.Error_Msg
+           (Root_Environment.Flags, "error in project file",
+            One_Line => True, Always => True);
+         Fail_Program
+           (Project_Tree, '"' & Project_File_Name.all
+            & """ processing failed");
+      else
+         Fail_Program (Project_Tree, Exception_Information (A));
+      end if;
 
    when E : others =>
       Fail_Program (Project_Tree, Exception_Information (E));

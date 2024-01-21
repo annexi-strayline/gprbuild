@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2011-2020, AdaCore                     --
+--                     Copyright (C) 2011-2023, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -20,13 +20,12 @@
 --  See gprclean.adb
 
 with Ada.Command_Line; use Ada.Command_Line;
-with Ada.Directories;
 with Ada.Exceptions;   use Ada.Exceptions;
+with Ada.Text_IO;      use Ada.Text_IO;
 
 with GNAT.Case_Util;            use GNAT.Case_Util;
 with GNAT.Command_Line;         use GNAT.Command_Line;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with GNAT.IO;                   use GNAT.IO;
 with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
 with Gpr_Build_Util;             use Gpr_Build_Util;
@@ -43,7 +42,6 @@ with GPR.Proc;                   use GPR.Proc;
 with GPR.Snames;
 with GPR.Tree;                   use GPR.Tree;
 with GPR.Util.Aux;               use GPR.Util;
-with GPR.Version;                use GPR.Version;
 
 procedure Gprclean.Main is
 
@@ -86,8 +84,7 @@ procedure Gprclean.Main is
    begin
       if not Copyright_Displayed then
          Copyright_Displayed := True;
-         Display_Version
-           ("GPRCLEAN", "2006", Version_String => Gpr_Version_String);
+         Display_Version ("GPRCLEAN", "2006");
       end if;
    end Display_Copyright;
 
@@ -166,10 +163,7 @@ procedure Gprclean.Main is
    begin
       --  First deal with --version and --help
 
-      Check_Version_And_Help
-        ("GPRCLEAN",
-         "2006",
-         Version_String => Gpr_Version_String);
+      Check_Version_And_Help ("GPRCLEAN", "2006");
 
       --  Now deal with the other options
 
@@ -883,17 +877,6 @@ begin
          "cannot use --root-dir without --relocate-build-tree option");
    end if;
 
-   --  Set default Root_Dir
-
-   if Build_Tree_Dir /= null and then Root_Dir = null then
-      Root_Dir := new String'
-        (Ada.Directories.Containing_Directory
-           (Normalize_Pathname
-              (Project_File_Name.all,
-               Resolve_Links => Opt.Follow_Links_For_Files))
-         & Dir_Separator);
-   end if;
-
    if Verbose_Mode then
       Display_Copyright;
    end if;
@@ -1065,7 +1048,7 @@ begin
    --  In verbose mode, if Delete has not been called, indicate that
    --  no file needs to be deleted.
 
-   if Verbose_Mode and (not File_Deleted) then
+   if Verbose_Mode and not File_Deleted then
       New_Line;
 
       if Do_Nothing then

@@ -1,0 +1,55 @@
+include:
+  - project: eng/gpr/gpr
+    file: /.gitlab-ci-shared.yml
+
+stages:
+  - build
+  - test
+
+build:
+  extends: .job_template
+  stage: build
+  script:
+    # Build using anod
+    - anod build gnat
+
+    # and save the gprbuild install
+    - tar czf $CI_PROJECT_DIR/gprbuild.tar.gz -C $SANDBOX/$HOST/gprbuild/ install/
+  artifacts:
+    paths:
+      - gprbuild.tar.gz
+
+debug_build:
+  extends: .job_template
+  stage: build
+  script:
+
+    # build gprbuild in debug mode without rebuilding dependencies,
+    # so we can catch coding style errors.
+    - anod build gprbuild -Qdbg
+  
+test_gprbuild:
+  extends: .test_template
+  script:
+    - install_packages gnatall
+    - run_testsuite gprbuild "" test_gprbuild
+  artifacts:
+    when:
+      always
+    paths:
+      - testgprbuild_result.xml
+    reports:
+      junit: testgprbuild_result.xml
+
+test_gpr2ls:
+  extends: .test_template
+  script:
+    - install_packages gnatall
+    - run_testsuite gprbuild "-Qcheck-gpr2ls" test_gpr2ls
+  artifacts:
+    when:
+      always
+    paths:
+      - testgpr2ls_result.xml
+    reports:
+      junit: testgpr2ls_result.xml

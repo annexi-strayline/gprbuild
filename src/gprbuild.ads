@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2004-2019, AdaCore                     --
+--                     Copyright (C) 2004-2023, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -19,6 +19,7 @@
 --  The following package implements the facilities to compile, bind and/or
 --  link a set of Ada and non Ada sources, specified in Project Files.
 
+private with Ada.Containers.Hashed_Maps;
 private with Ada.Containers.Indefinite_Vectors;
 private with Ada.Containers.Vectors;
 
@@ -35,7 +36,7 @@ private with GPR.Util;
 
 package Gprbuild is
 
-   --  Everyting private so only accessible to child packages
+   --  Everything is private so only accessible to child packages
 
 private
 
@@ -180,6 +181,12 @@ private
 
    No_Builder_Comp_Option_Table : constant String_Vector_Access := null;
 
+   Cmd_Line_Adc_Files : Name_Id_Maps.Map;
+   --  -gnatec command line option values
+
+   Cmd_Line_Target_Dep_Info_Files : Name_Id_Maps.Map;
+   --  -gnateT command line option values
+
    package Compiling_Options_HTable is new GNAT.HTable.Simple_HTable
      (Header_Num => GPR.Header_Num,
       Element    => String_Vector_Access,
@@ -316,7 +323,7 @@ private
      (Value       : String;
       To          : in out Options_Data;
       Display     : Boolean;
-      Simple_Name : Boolean := False);
+      Simple_Name : Boolean := False) renames Add_Option;
    --  Add an option in a specific list of options
 
    procedure Add_Option_Internal_Codepeer
@@ -383,26 +390,22 @@ private
    type Process_Kind is (None, Binding, Linking);
 
    type Process_Data is record
-      Kind     : Process_Kind := None;
-      Process  : Process_Id   := Invalid_Pid;
-      Main     : Main_Info    := No_Main_Info;
+      Kind : Process_Kind := None;
+      Main : Main_Info    := No_Main_Info;
    end record;
 
-   No_Process_Data : constant Process_Data :=
-                       (None, Invalid_Pid, No_Main_Info);
+   No_Process_Data : constant Process_Data := (None, No_Main_Info);
 
-   type Header_Num is range 0 .. 2047;
-
-   function Hash (Pid : Process_Id) return Header_Num;
+   function Hash (Pid : Process_Id) return Ada.Containers.Hash_Type;
    --  Used for Process_Htable below
 
-   package Process_Htable is new GNAT.HTable.Simple_HTable
-     (Header_Num => Header_Num,
-      Element    => Process_Data,
-      No_Element => No_Process_Data,
-      Key        => Process_Id,
-      Hash       => Hash,
-      Equal      => "=");
+   package Process_Maps is new Ada.Containers.Hashed_Maps
+     (Key_Type        => Process_Id,
+      Element_Type    => Process_Data,
+      Hash            => Hash,
+      Equivalent_Keys => "=");
+
+   Processes : Process_Maps.Map;
    --  Hash table to keep data for all spawned jobs
 
    procedure Add_Process (Process : Process_Id; Data : Process_Data);
@@ -419,5 +422,9 @@ private
    pragma Convention (C, Sigint_Intercepted);
    --  Called when the program is interrupted by Ctrl-C to delete the
    --  temporary mapping files and configuration pragmas files.
+
+   function No_Link_Target (Name : String) return Boolean is
+     (Name in "c" | "ccg" | "jvm");
+   --  Target with this name does not allow linking
 
 end Gprbuild;
