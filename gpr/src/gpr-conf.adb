@@ -1011,7 +1011,8 @@ package body GPR.Conf is
          declare
             Obj_Dir         : constant String :=
                                 Normalize_Pathname
-                                  (Name_Buffer (1 .. Name_Len));
+                                  (Name_Buffer (1 .. Name_Len),
+                                   Resolve_Links => False);
             Config_Switches : Argument_List_Access;
             Db_Switches     : Argument_List_Access;
             Args            : Argument_List (1 .. 7);

@@ -7085,7 +7085,9 @@ package body GPR.Nmsc is
 
       declare
          Full_Path_Name : String_Access :=
-           new String'(Normalize_Pathname (Get_Name_String (Full_Name)));
+           new String'(Normalize_Pathname
+              (Get_Name_String (Full_Name),
+               Resolve_Links => False));
       begin
          --  We may proceed with directory creation depending on the value
          --  of Create_Dirs: if it is set to Create_All_Dirs, or if the dir
