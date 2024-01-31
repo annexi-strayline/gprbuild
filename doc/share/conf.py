@@ -90,6 +90,8 @@ latex_elements = {
 latex_documents = [
     (master_doc, '%s.tex' % doc_name, project, u'AdaCore', 'manual')]
 
+latex_table_style = ["standard", "colorrows"]
+
 texinfo_documents = [
     (master_doc, doc_name, project,
      u'AdaCore', doc_name, doc_name, '')]
