@@ -1,6 +1,6 @@
 include:
-  - project: eng/gpr/gpr
-    file: /.gitlab-ci-shared.yml
+  - project: eng/gpr/gpr-issues
+    file: /.gitlab/.gitlab-ci-shared.yml
 
 stages:
   - build
