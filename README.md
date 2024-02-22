@@ -59,6 +59,9 @@ Installation is done with:
 
     $ make install
 
+To build and install LIBGPR libraries, you can use the make targets
+libgpr.build and libgpr.install.
+
 Doc & Examples
 ==============
 
