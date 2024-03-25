@@ -243,6 +243,7 @@ private
    --  Archive builder name, path and options
 
    Archive_Builder_Name        : String_Access := null;
+   Empty_Archive_Builder       : Boolean := False;
    Archive_Builder_Path        : String_Access := null;
    Archive_Builder_Opts        : Options_Data;
    Archive_Builder_Append_Opts : Options_Data;

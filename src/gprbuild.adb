@@ -274,10 +274,7 @@ package body Gprbuild is
          List := Main_Project.Config.Archive_Builder;
 
          if List = No_Name_List then
-            Fail_Program
-              (Project_Tree, "no archive builder in configuration",
-               Exit_Code => E_General);
-
+            Empty_Archive_Builder := True;
          else
             Archive_Builder_Name :=
               new String'(Get_Name_String

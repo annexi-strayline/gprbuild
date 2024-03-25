@@ -189,6 +189,7 @@ procedure Gprlib is
    --  Should the library (static or dynamic) be built
 
    Archive_Builder               : String_Access := null;
+   Empty_Archive_Builder         : Boolean       := False;
    --  Name of the archive builder
 
    AB_Create_Options               : String_Vectors.Vector;
@@ -1377,7 +1378,7 @@ procedure Gprlib is
       end if;
 
       if Archive_Builder = null then
-         Fail_Program (null, "no archive builder specified");
+         Empty_Archive_Builder := True;
       end if;
 
       Library_Path_Name :=
@@ -1390,7 +1391,8 @@ procedure Gprlib is
       end if;
 
       Check_Archives :=
-        Base_Name (Archive_Builder.all, ".exe") = "ar"
+        not Empty_Archive_Builder
+        and then Base_Name (Archive_Builder.all, ".exe") = "ar"
         and then Standalone = Encapsulated and then Partial_Linker_Path = null;
 
       --  Add the object files specified in the Library_Options.
@@ -1697,7 +1699,9 @@ procedure Gprlib is
                Name_Len := 0;
 
                if Verbose_Mode then
-                  Display_Command (Archive_Builder.all, AB_Options);
+                  if not Empty_Archive_Builder then
+                     Display_Command (Archive_Builder.all, AB_Options);
+                  end if;
 
                elsif First_AB_Object_Pos = AB_Objects.First_Index then
                   --  Only display this once
@@ -1713,19 +1717,44 @@ procedure Gprlib is
             First_AB_Object_Pos := Last_AB_Object_Pos + 1;
          end if;
 
-         Spawn_And_Script_Write
-           (Archive_Builder.all,
-            AB_Options,
-            Success);
+         if not Empty_Archive_Builder then
+            Spawn_And_Script_Write
+              (Archive_Builder.all,
+               AB_Options,
+               Success);
 
-         if not Success then
-            Fail_Program
-              (null,
-               "call to archive builder " & Archive_Builder.all & " failed");
+            if not Success then
+               Fail_Program
+                 (null,
+                  "call to archive builder " & Archive_Builder.all
+                  & " failed");
+            end if;
+         else
+            First_Object := Object_Files.First_Index;
+            loop
+               Script_Copy (Object_Files (First_Object),
+                            Library_Directory.all);
+               Copy_File
+                 (Object_Files (First_Object),
+                  Library_Directory.all,
+                  Success,
+                  Mode     => Overwrite,
+                  Preserve => Time_Stamps);
+
+               if not Success then
+                  Fail_Program
+                    (null,
+                     "copy of " & Object_Files (First_Object) & " to "
+                     & Library_Directory.all & " failed");
+               end if;
+
+               First_Object := First_Object + 1;
+               exit when First_Object > Object_Files.Last_Index;
+            end loop;
          end if;
       end loop;
 
-      if not Archive_Files.Is_Empty then
+      if not Archive_Files.Is_Empty and then not Empty_Archive_Builder then
          declare
             Dash_M : aliased String := "-M";
             Status : aliased Integer;
@@ -1834,7 +1863,7 @@ procedure Gprlib is
                Err_To_Out => True);
          begin
             if Status /= 0 then
-               Fail_Program (null, "ar -M falure: " & Output);
+               Fail_Program (null, "ar -M failure: " & Output);
             elsif Output /= "" and then Verbose_Mode then
                Put_Line ("ar -M output: " & Output);
             end if;
