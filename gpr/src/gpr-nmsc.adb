@@ -2394,16 +2394,11 @@ package body GPR.Nmsc is
 
                   List := Attribute.Value.Values;
 
-                  if List = Nil_String then
-                     Error_Msg
-                       (Data.Flags,
-                        "archive builder cannot be null",
-                        Attribute.Value.Location, Project);
+                  if List /= Nil_String then
+                     Put (Into_List => Project.Config.Archive_Builder,
+                          From_List => List,
+                          In_Tree   => Data.Tree);
                   end if;
-
-                  Put (Into_List => Project.Config.Archive_Builder,
-                       From_List => List,
-                       In_Tree   => Data.Tree);
 
                elsif Attribute.Name = Name_Archive_Builder_Append_Option then
 

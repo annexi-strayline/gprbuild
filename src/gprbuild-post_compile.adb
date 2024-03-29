@@ -2748,7 +2748,9 @@ package body Gprbuild.Post_Compile is
 
       if Opt.CodePeer_Mode then
          null;
-      elsif Is_Static (For_Project) then
+      elsif Is_Static (For_Project)
+        and then not Empty_Archive_Builder
+      then
          Check_Archive_Builder;
 
       elsif For_Project.Standalone_Library /= No then
@@ -3245,7 +3247,9 @@ package body Gprbuild.Post_Compile is
             Put_Line
               (Exchange_File, Library_Label (Static) & ASCII.LF
                & Library_Label (Archive_Builder) & ASCII.LF
-               & Archive_Builder_Path.all);
+               & (if not Empty_Archive_Builder
+                 then Archive_Builder_Path.all
+                 else ""));
 
             for Opt of Archive_Builder_Opts loop
                Put_Line (Exchange_File, Opt.Name);

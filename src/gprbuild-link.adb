@@ -740,9 +740,6 @@ package body Gprbuild.Link is
          return;
       end if;
 
-      --  Archive needs to be rebuilt
-      Check_Archive_Builder;
-
       --  If archive already exists, first delete it, but if this is
       --  not possible, continue: if archive cannot be built, we will
       --  fail later on.
@@ -1557,17 +1554,26 @@ package body Gprbuild.Link is
 
       --  Build the global archive for this project, if needed
 
-      Build_Global_Archive
-        (Main_Proj,
-         Main_File.Tree,
-         Global_Archive_Has_Been_Built,
-         Global_Archive_Exists,
-         Main_File.Command,
-         OK);
+      --  Archive needs to be rebuilt
+      if not Empty_Archive_Builder then
+         Check_Archive_Builder;
+      end if;
 
-      if not OK then
-         Stop_Spawning := True;
-         Bad_Processes.Append (Main_File);
+      if not Empty_Archive_Builder then
+         Build_Global_Archive
+           (Main_Proj,
+            Main_File.Tree,
+            Global_Archive_Has_Been_Built,
+            Global_Archive_Exists,
+            Main_File.Command,
+            OK);
+
+         if not OK then
+            Stop_Spawning := True;
+            Bad_Processes.Append (Main_File);
+            return;
+         end if;
+      else
          return;
       end if;
 
