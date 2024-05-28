@@ -1568,14 +1568,16 @@ package body Gprbuild.Compile is
             --  Check if the config file switch was not already included in
             --  the compilation options via the command line.
             declare
-               Switch : String := Name_Buffer (1 .. Name_Len);
-               Cononical_Switch : constant String :=
-                                    Canonical_Case_File_Name (Switch);
+               Switch           : constant String :=
+                                    Name_Buffer (1 .. Name_Len);
+               Canonical_Switch : String := Switch;
             begin
+               Canonical_Case_File_Name (Canonical_Switch);
+
                declare
                   Option : constant Option_Type :=
-                             (Name_Len    => Cononical_Switch'Length,
-                              Name        => Cononical_Switch,
+                             (Name_Len    => Canonical_Switch'Length,
+                              Name        => Canonical_Switch,
                               Displayed   => Opt.Verbose_Mode,
                               Simple_Name => False);
                begin
