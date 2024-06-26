@@ -5281,8 +5281,9 @@ package body GPR.Util is
 
                      if not Is_Ada_Predefined_File_Name (Sfile) then
                         declare
-                           F_And_Cksum_Found : Boolean := False;
-                           Timestamp_Found   : Boolean := False;
+                           File_Found       : Boolean := False;
+                           Correct_Checksum : Boolean := False;
+                           Checksum         : Word;
                         begin
                            for J in Conf_Paths'Range loop
                               declare
@@ -5291,25 +5292,17 @@ package body GPR.Util is
                                               (Ada.Directories.Simple_Name
                                                  (Get_Name_String
                                                     (Conf_Paths (J).Name)));
-                                 Cksum  : Word;
-                                 SCksum : constant Word :=
-                                            ALI.Sdep.Table (D).Checksum;
                               begin
-                                 Cksum := Calculate_Checksum
-                                   (Conf_Paths (J).Name);
+                                 if File = Sfile then
+                                    File_Found := True;
+                                    Checksum := Calculate_Checksum
+                                      (Conf_Paths (J).Name);
 
-                                 if File = Sfile
-                                   and then
-                                     Cksum = SCksum
-                                     and then not Conf_Paths_Found (J)
-                                 then
-                                    F_And_Cksum_Found := True;
-
-                                    if File_Stamp (Conf_Paths (J).Name) =
-                                      ALI.Sdep.Table (D).Stamp
+                                    if Checksum = ALI.Sdep.Table (D).Checksum
+                                      and then not Conf_Paths_Found (J)
                                     then
+                                       Correct_Checksum := True;
                                        Conf_Paths_Found (J) := True;
-                                       Timestamp_Found      := True;
                                        exit;
                                     end if;
                                  end if;
@@ -5322,21 +5315,17 @@ package body GPR.Util is
                            --  This prevents total project recompilation if
                            --  --gnatec is declared at Compiler package
                            --  switches level.
-                           if not F_And_Cksum_Found then
-                              if Calculate_Checksum
-                                (File => Path_Name_Type (Sfile)) =
-                                  ALI.Sdep.Table (D).Checksum
-                              then
-                                 F_And_Cksum_Found := True;
-                                 if File_Stamp (Path_Name_Type (Sfile)) =
-                                   ALI.Sdep.Table (D).Stamp
-                                 then
-                                    Timestamp_Found := True;
-                                 end if;
+                           if not File_Found then
+                              Checksum :=
+                                Calculate_Checksum (Path_Name_Type (Sfile));
+
+                              if Checksum = ALI.Sdep.Table (D).Checksum then
+                                 File_Found := True;
+                                 Correct_Checksum := True;
                               end if;
                            end if;
 
-                           if not F_And_Cksum_Found then
+                           if not File_Found then
                               --  Config pragma file is in D line but was
                               --  not referenced from project and
                               --  -gnatec= command line option.
@@ -5350,16 +5339,18 @@ package body GPR.Util is
                               end if;
 
                               return True;
-                           end if;
 
-                           if not Timestamp_Found then
-                              if Opt.Verbosity_Level > Opt.Low then
-                                 Put ("   -> different time stamp from the "
-                                      & "ALI file for the config file ");
-                                 Put_Line (Get_Name_String (Sfile));
+                           elsif not Correct_Checksum then
+                              Put ("   -> different checksum for ");
+                              Put_Line (Get_Name_String (Sfile));
+
+                              if Debug.Debug_Flag_T then
+                                 Put ("   in ALI file: ");
+                                 Put_Line
+                                   (ALI.Sdep.Table (D).Checksum'Img);
+                                 Put ("   actual file: ");
+                                 Put_Line (Checksum'Img);
                               end if;
-
-                              return True;
                            end if;
                         end;
                      end if;
