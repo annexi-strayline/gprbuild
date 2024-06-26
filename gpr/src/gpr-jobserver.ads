@@ -30,8 +30,6 @@ with Ada.Containers.Indefinite_Hashed_Maps;
 
 package GPR.Jobserver is
 
-   JS_Initialize_Error                  : exception;
-   --  Error exception raised when jobserver's initialization fails
    JS_Makeflags_Parsing_Detects_Dry_Run : exception;
    --  Exception raised when make was invoked with "-n"
    JS_Access_Error                      : exception;
@@ -60,6 +58,10 @@ package GPR.Jobserver is
    function Unavailable_Token return Boolean;
    --  Returns True if the last attempt of preordering a token failed,
    --  returns False otherwise.
+
+   function Cancelled return Boolean;
+   --  Returns True if the last attempt of preordering lead to a cancellation
+   --  of the jobserver.
 
 private
 
