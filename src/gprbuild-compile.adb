@@ -2932,11 +2932,6 @@ package body Gprbuild.Compile is
          if Opt.Use_GNU_Make_Jobserver
            and then not Preorder_Token
          then
-            --  Save the previously created Mapping_File for ulterior uses
-            Mapping_Files_Htable.Set
-              (T => Source.Id.Language.Mapping_Files,
-               K => Mapping_File_Path,
-               E => Mapping_File_Path);
             return;
          else
             if not Opt.Quiet_Output then
@@ -3616,9 +3611,8 @@ package body Gprbuild.Compile is
                Process_Project_Phase_1 (Source);
             end if;
 
-            if (Opt.Use_GNU_Make_Jobserver
-                and then Unavailable_Token)
-              or else Cancelled
+            if Opt.Use_GNU_Make_Jobserver
+              and then Unavailable_Token
             then
                null;
             elsif Found then
