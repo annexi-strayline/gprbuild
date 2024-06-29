@@ -22,18 +22,11 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Text_IO;
 with Ada.Directories;
 with Ada.Environment_Variables; use Ada.Environment_Variables;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 
-with Interfaces.C_Streams;
-
-with GPR.Opt;
-
 package body GPR.Jobserver is
-
-   package IC_STR renames Interfaces.C_Streams;
 
    HR, HW : File_Descriptor;
    HRW : File_Descriptor;
@@ -45,21 +38,6 @@ package body GPR.Jobserver is
 
    procedure Release (Token : Character);
    --  Release the token to the pipe of the jobserver
-
-   ---------------
-   -- Cancelled --
-   ---------------
-
-   function Cancelled return Boolean is
-   begin
-      if not Opt.Use_GNU_Make_Jobserver
-        and then Unavailable_Token
-      then
-         Last_Token_Status := Default_Token_Status;
-         return True;
-      end if;
-      return False;
-   end Cancelled;
 
    ----------------
    -- Initialize --
@@ -115,6 +93,7 @@ package body GPR.Jobserver is
                                   Fmode => Text);
 
             when Simple_Pipe =>
+
                Idx_Tmp := Idx_Tmp + JS_Auth'Length;
                Idx0_Tmp :=
                  Index (Makeflags, Simple_Pipe_Delimiter, From => Idx_Tmp);
@@ -139,25 +118,6 @@ package body GPR.Jobserver is
                       (Makeflags (Idx_Tmp .. Idx0_Tmp - 1));
                end if;
 
-               if HR < 0 or else HW < 0 then
-                  Ada.Text_IO.Put_Line
-                    ("warning: Invalid file descriptor to"
-                     & " perform a connection to the jobserver. Make sure you"
-                     & " prefixed your gprbuild command with a """
-                     & '+' & """ in your makefile.");
-                  return;
-               end if;
-
-               if not (IC_STR.is_regular_file (IC_STR.int (HR)) = 0)
-                 or else not (IC_STR.is_regular_file (IC_STR.int (HW)) = 0)
-               then
-                  Ada.Text_IO.Put_Line
-                    ("warning: Unable to connect to the"
-                     & " jobserver. Make sure you prefixed your gprbuild"
-                     & "  command with a """ & '+' & """ in your makefile.");
-                  return;
-               end if;
-
             when Undefined | Windows_Semaphore =>
                null;
          end case;
@@ -168,7 +128,8 @@ package body GPR.Jobserver is
 
    begin
       if Makeflags = "" then
-         return;
+         raise JS_Initialize_Error
+           with "Connecting to a jobserver requires MAKEFLAGS information";
       end if;
 
       Idx := Index (Makeflags, " ");
@@ -181,7 +142,9 @@ package body GPR.Jobserver is
       Idx := Index (Makeflags, JS_Auth, Going => Ada.Strings.Backward);
 
       if Idx = 0 then
-         return;
+         raise JS_Initialize_Error
+           with "Wrong MAKEFLAGS information while attempting to connect to a "
+           & "jobserver";
       end if;
 
       for Connection_Method in Connection_Type loop
@@ -192,15 +155,9 @@ package body GPR.Jobserver is
       end loop;
 
       if Current_Connection_Method = Undefined then
-         return;
+         raise JS_Initialize_Error with "Unable to connect to a jobserver";
       end if;
 
-      if Opt.Maximum_Compilers > 1 then
-         Ada.Text_IO.Put_Line
-           ("warning: -j is ignored when using GNU make jobserver");
-      end if;
-
-      Opt.Use_GNU_Make_Jobserver := True;
    end Initialize;
 
    --------------------
@@ -210,21 +167,6 @@ package body GPR.Jobserver is
    function Preorder_Token return Boolean is
    begin
       Last_Token_Status := Unavailable;
-
-      --  Defensive code, in case we were not able to detect invalid FD at
-      --  the initialization level.
-      if Current_Connection_Method = Simple_Pipe then
-         if not (IC_STR.is_regular_file (IC_STR.int (HR)) = 0)
-           or else not (IC_STR.is_regular_file (IC_STR.int (HW)) = 0)
-         then
-            Opt.Use_GNU_Make_Jobserver := False;
-            Ada.Text_IO.Put_Line
-              ("warning: Connection to the jobserver have "
-               & "been lost. Make sure you prefixed your gprbuild command "
-               & "with a """ & '+' & """ in your makefile.");
-            return False;
-         end if;
-      end if;
 
       case Current_Connection_Method is
          when Named_Pipe =>

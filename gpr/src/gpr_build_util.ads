@@ -104,6 +104,10 @@ package Gpr_Build_Util is
    --  Switch to suppress deletion of temp files created by the builder.
    --  Note that debug switch -gnatdn also has this effect.
 
+   Use_GNU_Make_Jobserver_Option : constant String := "--gnu-make-jobserver";
+   --  Switch to activate the sharing of job slots between GPRbuild and
+   --  GNU make.
+
    package Project_Vectors is new Ada.Containers.Vectors
      (Positive, Project_Id);
 

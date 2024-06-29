@@ -26,14 +26,11 @@ with Ada.Directories;
 with Ada.Environment_Variables; use Ada.Environment_Variables;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
-with Ada.Text_IO;
 
 with Interfaces;
 with Interfaces.C; use Interfaces.C;
 
 with System.Win32;
-
-with GPR.Opt;
 
 package body GPR.Jobserver is
 
@@ -60,6 +57,8 @@ package body GPR.Jobserver is
 
       Makeflags             : constant String := Value ("MAKEFLAGS", "");
       JS_Auth               : constant String := "--jobserver-auth=";
+      Simple_Pipe_Delimiter : constant String := ",";
+      Named_Pipe_Delimiter  : constant String := "fifo:";
       Dry_Run               : constant String := "n";
 
       function Open_Semaphore
@@ -115,7 +114,8 @@ package body GPR.Jobserver is
       end Initialize_Connection;
    begin
       if Makeflags = "" then
-         return;
+         raise JS_Initialize_Error
+           with "Connecting to a jobserver requires MAKEFLAGS information";
       end if;
 
       Idx := Index (Makeflags, " ");
@@ -128,26 +128,22 @@ package body GPR.Jobserver is
       Idx := Index (Makeflags, JS_Auth, Going => Ada.Strings.Backward);
 
       if Idx = 0 then
-         return;
+         raise JS_Initialize_Error
+           with "Wrong MAKEFLAGS information while attempting to connect to a "
+           & "jobserver";
       end if;
 
       for Connection_Method in Connection_Type loop
          if Current_Implemented_Connection (Connection_Method) then
             Initialize_Connection (Method => Connection_Method);
          end if;
-         exit when Current_Connection_Method /= Undefined;
+         exit when (Current_Connection_Method /= Undefined);
       end loop;
 
       if Current_Connection_Method = Undefined then
-         return;
+         raise JS_Initialize_Error with "Unable to connect to a jobserver";
       end if;
 
-      if Opt.Maximum_Compilers > 1 then
-         Ada.Text_IO.Put_Line
-           ("warning: -j is ignored when using GNU make jobserver");
-      end if;
-
-      Opt.Use_GNU_Make_Jobserver := True;
    end Initialize;
 
    --------------------
