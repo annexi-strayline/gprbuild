@@ -24,7 +24,7 @@
 #   $ make -f <GPRBUILD_TREE>/Makefile setup
 #   $ make -f <GPRBUILD_TREE>/Makefile
 
-HOST    = $(shell gcc -dumpmachine)
+HOST   := $(shell gcc -dumpmachine)
 TARGET := $(shell gcc -dumpmachine)
 
 prefix	      := $(dir $(shell which gnatls))..
