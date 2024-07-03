@@ -1386,13 +1386,6 @@ procedure Gprbuild.Main is
             Forbidden_In_Package_Builder;
 
          elsif Arg'Length > 2 and then Arg (2) = 'j' then
-
-            if Opt.Use_GNU_Make_Jobserver then
-               Put_Line ("warning: -j is ignored when using "
-                         & Use_GNU_Make_Jobserver_Option);
-               return;
-            end if;
-
             declare
                Max_Proc : Natural   := 0;
                Phase    : Character := 'a'; -- all by default
@@ -1453,25 +1446,9 @@ procedure Gprbuild.Main is
                   Processed := False;
             end;
 
-         elsif Arg = Use_GNU_Make_Jobserver_Option then
+         elsif Arg = Autodetect_Jobserver_Option then
 
-            if Opt.Maximum_Compilers > 1 then
-               Put_Line ("warning: -j is ignored when using "
-                         & Use_GNU_Make_Jobserver_Option);
-            end if;
-
-            Opt.Use_GNU_Make_Jobserver := True;
-
-            begin
-               GPR.Jobserver.Initialize;
-            exception
-               when E : GPR.Jobserver.JS_Initialize_Error =>
-                  Fail_Program
-                    (Project_Tree, Ada.Exceptions.Exception_Name (E) & " - "
-                     & Ada.Exceptions.Exception_Message (E));
-               when GPR.Jobserver.JS_Makeflags_Parsing_Detects_Dry_Run =>
-                  Finish_Program (Project_Tree, Exit_Code);
-            end;
+            Opt.Autodetect_Jobserver := True;
 
          elsif Arg = "-k" then
             Opt.Keep_Going := True;
@@ -2016,6 +1993,15 @@ procedure Gprbuild.Main is
             "cannot use --root-dir without --relocate-build-tree option",
             Exit_Code => E_General);
       end if;
+
+      begin
+         if Opt.Autodetect_Jobserver then
+            GPR.Jobserver.Initialize;
+         end if;
+      exception
+         when GPR.Jobserver.JS_Makeflags_Parsing_Detects_Dry_Run =>
+            Finish_Program (Project_Tree, Exit_Code);
+      end;
    end Initialize;
 
    -----------
@@ -2263,9 +2249,10 @@ procedure Gprbuild.Main is
          New_Line;
 
          Put ("  ");
-         Put (Use_GNU_Make_Jobserver_Option);
+         Put (Autodetect_Jobserver_Option);
          New_Line;
-         Put ("           Share job slots with GNU make");
+         Put ("           Autodetect GNU make jobserver and attempt to share"
+              & " job slots");
          New_Line;
          New_Line;
 
@@ -2896,6 +2883,10 @@ exception
       else
          Fail_Program (Project_Tree, Exception_Information (A));
       end if;
+
+   when E : GPR.Jobserver.JS_Initialize_Error
+      | GPR.Jobserver.JS_Access_Error | GPR.Jobserver.JS_Process_Error =>
+      Fail_Program (Project_Tree, Exception_Message (E));
 
    when E : others =>
       Fail_Program (Project_Tree, Exception_Information (E));
