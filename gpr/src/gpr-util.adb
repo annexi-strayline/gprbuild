@@ -932,8 +932,6 @@ package body GPR.Util is
       No_Message   : Boolean        := False;
       Command      : String         := "") is
    begin
-      Jobserver.Finalize;
-
       if not Opt.Keep_Temporary_Files then
          Delete_All_Temp_Files
            (if Project_Tree = null then null else Project_Tree.Shared);

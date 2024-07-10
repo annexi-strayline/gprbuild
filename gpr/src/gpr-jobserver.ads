@@ -36,14 +36,13 @@ package GPR.Jobserver is
    --  Exception raised when make was invoked with "-n"
    JS_Access_Error                      : exception;
    --  Error exception raised when jobserver's read or write fails
-   JS_Process_Error                     : exception;
-   --  Error exception raised when jobserver's process fails
 
    procedure Initialize;
    --  Initialize Jobserver communication
 
-   procedure Preorder_Token;
-   --  Preorder a token from GNU make Jobserver
+   function Preorder_Token return Boolean;
+   --  Returns True if there is an available token on the current jobserver,
+   --  returns False if there is not.
 
    procedure Register_Token_Id (Id : GPR.Compilation.Id);
    --  Affiliates the last preordered token to the process Id
@@ -58,14 +57,9 @@ package GPR.Jobserver is
    --  Returns True if there are ongoing processes affiliated with a token,
    --  returns False if there are not.
 
-   procedure Synchronize_Token_Status;
-   --  Synchronize Cached_Token_Status with the real token status
-
    function Unavailable_Token return Boolean;
-   --  Returns whether or not the Cached_Token_Status is available or not
-
-   procedure Finalize;
-   --  Finalize Jobserver processes
+   --  Returns True if the last attempt of preordering a token failed,
+   --  returns False otherwise.
 
 private
 
@@ -79,30 +73,10 @@ private
 
    type Implemented_Connection_Type is array (Connection_Type) of Boolean;
 
-   type Token_Status is (Undefined, Available, Unavailable, Registered, Error);
-
-   Cached_Token_Status : Token_Status := Undefined;
-
-   protected Token_Status_Object is
-      procedure Set (Status : Token_Status);
-      function Get return Token_Status;
-   private
-      Value  : Token_Status := Unavailable;
-   end Token_Status_Object;
-
-   protected Preorder_Auth_Object is
-      procedure Set (Auth : Boolean);
-      entry Get (Auth : out Boolean);
-   private
-      Value  : Boolean := False;
-      Is_Set : Boolean := False;
-   end Preorder_Auth_Object;
+   type Token_Status is (Not_Needed, Unavailable);
+   Default_Token_Status : constant Token_Status := Not_Needed;
+   Last_Token_Status    : Token_Status          := Default_Token_Status;
 
    Char : aliased Character := ASCII.NUL;
-
-   task type Jobserver_Task is
-   end Jobserver_Task;
-
-   JS_Task : access Jobserver_Task;
 
 end GPR.Jobserver;
