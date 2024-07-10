@@ -2928,10 +2928,18 @@ package body Gprbuild.Compile is
       --  Start of processing of Spawn_Compiler_And_Register
 
       begin
+         if Opt.Use_GNU_Make_Jobserver then
+            Jobserver.Preorder_Token;
+         end if;
 
          if Opt.Use_GNU_Make_Jobserver
-           and then not Preorder_Token
+           and then Jobserver.Unavailable_Token
          then
+            --  Save the previously created Mapping_File for ulterior uses
+            Mapping_Files_Htable.Set
+              (T => Source.Id.Language.Mapping_Files,
+               K => Mapping_File_Path,
+               E => Mapping_File_Path);
             return;
          else
             if not Opt.Quiet_Output then
@@ -3605,6 +3613,8 @@ package body Gprbuild.Compile is
                      or else Outstanding_Compiles < Get_Maximum_Processes)
          then
             Queue.Get (Found, Source);
+
+            Jobserver.Synchronize_Token_Status;
 
             if Found then
                Initialize_Source_Record (Source.Id);
