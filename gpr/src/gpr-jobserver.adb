@@ -22,18 +22,11 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Text_IO;
 with Ada.Directories;
 with Ada.Environment_Variables; use Ada.Environment_Variables;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 
-with Interfaces.C_Streams;
-
-with GPR.Opt;
-
 package body GPR.Jobserver is
-
-   package IC_STR renames Interfaces.C_Streams;
 
    HR, HW : File_Descriptor;
    HRW : File_Descriptor;
@@ -45,84 +38,6 @@ package body GPR.Jobserver is
 
    procedure Release (Token : Character);
    --  Release the token to the pipe of the jobserver
-
-   protected body Token_Status_Object is
-      procedure Set (Status : Token_Status) is
-      begin
-         Value  := Status;
-      end Set;
-      function Get return Token_Status is
-      begin
-         return Value;
-      end Get;
-   end Token_Status_Object;
-
-   protected body Preorder_Auth_Object is
-      procedure Set (Auth : Boolean) is
-      begin
-         Token_Status_Object.Set (Undefined);
-         Value  := Auth;
-         Is_Set := True;
-      end Set;
-      entry Get (Auth : out Boolean) when Is_Set is
-      begin
-         Auth   := Value;
-         Is_Set := False;
-      end Get;
-   end Preorder_Auth_Object;
-
-   task body Jobserver_Task is
-      Job_Done : Boolean := False;
-   begin
-      loop
-         exit when Job_Done;
-         declare
-            Auth : Boolean;
-         begin
-            Preorder_Auth_Object.Get (Auth);
-            if Auth then
-               if Current_Connection_Method = Simple_Pipe then
-                  if not (IC_STR.is_regular_file (IC_STR.int (HR)) = 0)
-                    or else not (IC_STR.is_regular_file (IC_STR.int (HW)) = 0)
-                  then
-                     Token_Status_Object.Set (Error);
-                     Job_Done := True;
-                  end if;
-               end if;
-
-               if not Job_Done then
-                  case Current_Connection_Method is
-                     when Named_Pipe =>
-                        if Read (HRW, Char'Address, 1) /= 1 then
-                           Token_Status_Object.Set (Unavailable);
-                        end if;
-                     when Simple_Pipe =>
-                        if Read (HR, Char'Address, 1) /= 1 then
-                           Token_Status_Object.Set (Unavailable);
-                        end if;
-                     when Undefined | Windows_Semaphore =>
-                        null;
-                  end case;
-
-                  if Token_Status_Object.Get = Undefined then
-                     Token_Status_Object.Set (Available);
-                  end if;
-               end if;
-            else
-               Job_Done := True;
-            end if;
-         end;
-      end loop;
-   end Jobserver_Task;
-
-   --------------
-   -- Finalize --
-   --------------
-
-   procedure Finalize is
-   begin
-      Preorder_Auth_Object.Set (Auth => False);
-   end Finalize;
 
    ----------------
    -- Initialize --
@@ -178,6 +93,7 @@ package body GPR.Jobserver is
                                   Fmode => Text);
 
             when Simple_Pipe =>
+
                Idx_Tmp := Idx_Tmp + JS_Auth'Length;
                Idx0_Tmp :=
                  Index (Makeflags, Simple_Pipe_Delimiter, From => Idx_Tmp);
@@ -202,21 +118,6 @@ package body GPR.Jobserver is
                       (Makeflags (Idx_Tmp .. Idx0_Tmp - 1));
                end if;
 
-               if HR < 0 or else HW < 0 then
-                  raise JS_Initialize_Error with "Invalid file descriptor to"
-                    & " perform a connection to the jobserver. Make sure you"
-                    & " prefixed your gprbuild command with a """
-                    & '+' & """ in your makefile.";
-               end if;
-
-               if not (IC_STR.is_regular_file (IC_STR.int (HR)) = 0)
-                 or else not (IC_STR.is_regular_file (IC_STR.int (HW)) = 0)
-               then
-                  raise JS_Initialize_Error with "Unable to connect to the"
-                    & " jobserver. Make sure you prefixed your gprbuild"
-                    & "  command with a """ & '+' & """ in your makefile.";
-               end if;
-
             when Undefined | Windows_Semaphore =>
                null;
          end case;
@@ -227,7 +128,8 @@ package body GPR.Jobserver is
 
    begin
       if Makeflags = "" then
-         return;
+         raise JS_Initialize_Error
+           with "Connecting to a jobserver requires MAKEFLAGS information";
       end if;
 
       Idx := Index (Makeflags, " ");
@@ -240,7 +142,9 @@ package body GPR.Jobserver is
       Idx := Index (Makeflags, JS_Auth, Going => Ada.Strings.Backward);
 
       if Idx = 0 then
-         return;
+         raise JS_Initialize_Error
+           with "Wrong MAKEFLAGS information while attempting to connect to a "
+           & "jobserver";
       end if;
 
       for Connection_Method in Connection_Type loop
@@ -251,31 +155,33 @@ package body GPR.Jobserver is
       end loop;
 
       if Current_Connection_Method = Undefined then
-         return;
+         raise JS_Initialize_Error with "Unable to connect to a jobserver";
       end if;
 
-      if Opt.Maximum_Compilers > 1 then
-         Ada.Text_IO.Put_Line
-           ("warning: -j is ignored when using GNU make jobserver");
-      end if;
-
-      Opt.Use_GNU_Make_Jobserver := True;
-
-      JS_Task := new Jobserver_Task;
    end Initialize;
 
    --------------------
    -- Preorder_Token --
    --------------------
 
-   procedure Preorder_Token is
+   function Preorder_Token return Boolean is
    begin
-      if Cached_Token_Status = Unavailable
-        or else Cached_Token_Status = Registered
-      then
-         Preorder_Auth_Object.Set (Auth => True);
-         Synchronize_Token_Status;
-      end if;
+      Last_Token_Status := Unavailable;
+
+      case Current_Connection_Method is
+         when Named_Pipe =>
+            if Read (HRW, Char'Address, 1) /= 1 then
+               return False;
+            end if;
+         when Simple_Pipe =>
+            if Read (HR, Char'Address, 1) /= 1 then
+               return False;
+            end if;
+         when Undefined | Windows_Semaphore =>
+            null;
+      end case;
+
+      return True;
    end Preorder_Token;
 
    -----------------------
@@ -287,13 +193,8 @@ package body GPR.Jobserver is
                                 then Pid_To_Integer (Id.Pid)'Img & "-Local"
                                 else Id.R_Pid'Img & "-Remote");
    begin
-      if Cached_Token_Status = Available then
-         Source_Id_Token_Map.Insert (Key, Char);
-         Token_Status_Object.Set (Registered);
-      else
-         raise JS_Process_Error with "Tried to register a token when no" &
-           " token was available";
-      end if;
+      Source_Id_Token_Map.Insert (Key, Char);
+      Last_Token_Status := Default_Token_Status;
    end Register_Token_Id;
 
    -------------
@@ -323,33 +224,12 @@ package body GPR.Jobserver is
    function Registered_Processes return Boolean is
      (not Source_Id_Token_Map.Is_Empty);
 
-   ------------------------------
-   -- Synchronize_Token_Status --
-   ------------------------------
-
-   procedure Synchronize_Token_Status is
-   begin
-      Cached_Token_Status := Token_Status_Object.Get;
-      if Cached_Token_Status = Error then
-         raise JS_Access_Error with "Connection to the jobserver have been"
-           & " lost. Make sure you prefixed your gprbuild command with a """
-           & '+' & """ in your makefile.";
-      end if;
-   end Synchronize_Token_Status;
-
    -----------------------
    -- Unavailable_Token --
    -----------------------
 
    function Unavailable_Token return Boolean is
-   begin
-      if Cached_Token_Status = Undefined
-        or else Cached_Token_Status = Unavailable
-      then
-         return True;
-      end if;
-      return False;
-   end Unavailable_Token;
+     (Last_Token_Status = Unavailable);
 
    -----------------------------
    -- Unregister_All_Token_Id --
