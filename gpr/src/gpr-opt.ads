@@ -169,6 +169,9 @@ package GPR.Opt is
    --  Set to True if GPRbuild should use GNU make Jobserver for sharing job
    --  slots.
 
+   Autodetect_Jobserver   : Boolean := False;
+   --  Set to True if GPRbuild should attempt to connect to GNU make Jobserver
+
    Minimal_Recompilation : Boolean := False;
    --  Set to True if minimal recompilation mode requested
 
