@@ -2933,7 +2933,7 @@ package body Gprbuild.Compile is
          end if;
 
          if Opt.Use_GNU_Make_Jobserver
-           and then Jobserver.Unavailable_Token
+           and then Jobserver.Awaiting_Job_Slot
          then
             --  Save the previously created Mapping_File for ulterior uses
             Mapping_Files_Htable.Set
@@ -3614,7 +3614,9 @@ package body Gprbuild.Compile is
          then
             Queue.Get (Found, Source);
 
-            Jobserver.Synchronize_Token_Status;
+            if Opt.Use_GNU_Make_Jobserver then
+               Jobserver.Synchronize_Token_Status;
+            end if;
 
             if Found then
                Initialize_Source_Record (Source.Id);
@@ -3622,7 +3624,7 @@ package body Gprbuild.Compile is
             end if;
 
             if Opt.Use_GNU_Make_Jobserver
-              and then Unavailable_Token
+              and then Awaiting_Job_Slot
             then
                null;
             elsif Found then
@@ -3654,8 +3656,13 @@ package body Gprbuild.Compile is
          function No_Slot_Available return Boolean is
          begin
             if Opt.Use_GNU_Make_Jobserver then
-               return (Unavailable_Token
-                       and then Registered_Processes);
+               if GPR.Debug.Debug_Flag_J then
+                  Ada.Text_IO.Put_Line
+                    ("[ Jobserver ] No_Slot_Available -> " & Boolean'Image
+                       ((Unavailable_Job_Slot and then Registered_Processes)));
+               end if;
+
+               return (Unavailable_Job_Slot and then Registered_Processes);
             else
                return (Outstanding_Compiles = Get_Maximum_Processes);
             end if;
