@@ -39,6 +39,18 @@ package GPR.Jobserver is
    JS_Process_Error                     : exception;
    --  Error exception raised when jobserver's process fails
 
+   function Awaiting_Job_Slot return Boolean;
+   --  Returns whether or not we are waiting for a job slot :
+   --     Cached_Token_Status = Pending or Unavailable.
+
+   function Unavailable_Job_Slot return Boolean;
+   --  Returns whether or not there is no job slot available
+   --  When Current_Connection_Method = Named_Pipe :
+   --     Cached_Token_Status = Pending
+   --     This is because the token retrivial is blocking
+   --  When Current_Connection_Method = Simple_Pipe | Windows_Semaphore :
+   --     Cached_Token_Status = Unavailable
+
    procedure Initialize;
    --  Initialize Jobserver communication
 
@@ -61,9 +73,6 @@ package GPR.Jobserver is
    procedure Synchronize_Token_Status;
    --  Synchronize Cached_Token_Status with the real token status
 
-   function Unavailable_Token return Boolean;
-   --  Returns whether or not the Cached_Token_Status is available or not
-
    procedure Finalize;
    --  Finalize Jobserver processes
 
@@ -79,15 +88,18 @@ private
 
    type Implemented_Connection_Type is array (Connection_Type) of Boolean;
 
-   type Token_Status is (Undefined, Available, Unavailable, Registered, Error);
+   type Token_Status is
+     (Not_Needed, Pending, Available, Unavailable, Error);
 
-   Cached_Token_Status : Token_Status := Undefined;
+   Cached_Token_Status     : Token_Status := Not_Needed;
+   Pending_State_Count     : Integer      := 0;
+   Max_Pending_State_Count : constant     := 5;
 
    protected Token_Status_Object is
       procedure Set (Status : Token_Status);
       function Get return Token_Status;
    private
-      Value  : Token_Status := Unavailable;
+      Value  : Token_Status := Not_Needed;
    end Token_Status_Object;
 
    protected Preorder_Auth_Object is
@@ -104,5 +116,14 @@ private
    end Jobserver_Task;
 
    JS_Task : access Jobserver_Task;
+
+   function Awaiting_Job_Slot return Boolean is
+     (Cached_Token_Status = Pending or else Cached_Token_Status = Unavailable);
+
+   function Unavailable_Job_Slot return Boolean is
+     ((if Current_Connection_Method = Named_Pipe
+      then (Cached_Token_Status = Pending
+        and then Pending_State_Count >= Max_Pending_State_Count)
+      else Cached_Token_Status = Unavailable));
 
 end GPR.Jobserver;
