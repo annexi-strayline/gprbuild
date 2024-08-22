@@ -28,7 +28,7 @@ with Ada.Environment_Variables; use Ada.Environment_Variables;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 
-
+with GPR.Debug;
 with Interfaces;
 with Interfaces.C; use Interfaces.C;
 with Interfaces.C_Streams;
