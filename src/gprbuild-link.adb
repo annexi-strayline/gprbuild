@@ -1239,6 +1239,19 @@ package body Gprbuild.Link is
       procedure Add_To_Other_Arguments (A : String) with Inline;
       --  Add argument to Other_Arguments
 
+      procedure Fill_Options_Data_From_Arg_List_Access
+        (ALA : Argument_List_Access; OD : out Options_Data);
+      --  Fill an Options_Data structure (used by
+      --  Display_Command) from an Argument_List_Access
+      --  structure (used by the various spawning utilities).
+      --  The Options_Data object is cleared first.
+
+      function Rust_Linker_Helper_Switches
+        (Lib_Name : Path_Name_Type) return String_Access;
+      --  Locate gprbuild-rust-linker-helper tool on the PATH and execute the
+      --  tool in order to retrieve the correct switches to link the Ada
+      --  executable to the Rust static libraries.
+
       package String_Values is new Ada.Containers.Indefinite_Hashed_Maps
         (String, String_List_Id, Ada.Strings.Hash, "=");
 
@@ -1538,6 +1551,77 @@ package body Gprbuild.Link is
             end;
          end loop;
       end Remove_Duplicated_T;
+
+      --------------------------------------------
+      -- Fill_Options_Data_From_Arg_List_Access --
+      --------------------------------------------
+
+      procedure Fill_Options_Data_From_Arg_List_Access
+        (ALA : Argument_List_Access; OD : out Options_Data) is
+      begin
+         OD.Clear;
+         for A of ALA.all loop
+            Add_Argument (OD, A.all, Opt.Verbose_Mode);
+         end loop;
+      end Fill_Options_Data_From_Arg_List_Access;
+
+      ----------------------------
+      -- Linker_Helper_Switches --
+      ----------------------------
+
+      function Rust_Linker_Helper_Switches (Lib_Name : Path_Name_Type)
+                                       return String_Access
+      is
+         Rust_Linker_Helper_Name : String_Access := null;
+         Arg_List                : Argument_List_Access;
+         Arg_Disp                : Options_Data;
+         Status                  : aliased Integer;
+         Output                  : String_Access;
+      begin
+         Rust_Linker_Helper_Name := new String'("gprbuild-rust-linker-helper");
+
+         --  Locate the gprbuild-rust_linker-helper on the PATH
+         if Rust_Linker_Helper_Path = null then
+            Rust_Linker_Helper_Path :=
+              Locate_Exec_On_Path (Rust_Linker_Helper_Name.all);
+
+            if Rust_Linker_Helper_Path = null then
+               Fail_Program
+                 (Project_Tree, "unable to locate """
+                  & Rust_Linker_Helper_Name.all & '"');
+            end if;
+         end if;
+
+         Arg_List := new GNAT.Strings.String_List'
+           (1 => new String'("--target"),
+            2 => new String'(
+              Get_Name_String (Main_File.Project.Config.Target)
+             ),
+            3 => new String'(Get_Name_String (Lib_Name))
+           );
+
+         Fill_Options_Data_From_Arg_List_Access (Arg_List, Arg_Disp);
+         Display_Command (Arg_Disp, Rust_Linker_Helper_Path);
+
+         Output := new String'
+           (GNAT.Expect.Get_Command_Output
+              (Command    => Rust_Linker_Helper_Path.all,
+               Arguments  => Arg_List.all,
+               Input      => "",
+               Status     => Status'Access,
+               Err_To_Out => True));
+
+         if Status /= 0 then
+            Fail_Program
+              (Project_Tree,
+               "failed to execute """ & Rust_Linker_Helper_Name.all
+               & """: " & Output.all);
+         end if;
+
+         Free (Rust_Linker_Helper_Name);
+
+         return Output;
+      end Rust_Linker_Helper_Switches;
 
    begin
       --  Make sure that the table Rpaths is emptied after each main, so
@@ -2037,37 +2121,96 @@ package body Gprbuild.Link is
               and then (Is_Static (Proj)
                         or else Proj.Standalone_Library = No)
             then
-               --  Put the full path name of the library file in Name_Buffer
+               --  If the library project has Rust as a language we want to
+               --  do a specific processing in order to correctly check if
+               --  the executable needs to be re-linked.
+               if Has_Language_From_Name (Proj, "Rust") then
+                  declare
+                     S : constant String_Access :=
+                           Rust_Linker_Helper_Switches (Proj.Library_Dir.Name);
+                     Lib_Path : String_Access;
+                     Lib_Name : String_Access;
+                  begin
+                     --  Add the returned switches to the map of known rust
+                     --  project switches.
+                     Rust_Linker_Helper_Switch_Map.Insert
+                       (Proj.Name, S);
 
-               Get_Name_String (Proj.Library_Dir.Display_Name);
+                     --  Do some post-processing on the switches to extract
+                     --  the correct library directory and library name.
+                     for Switch of Split (S.all, " ") loop
+                        if Starts_With (Get_Name_String (Switch), "-L") then
+                           declare
+                              Tmp : constant String :=
+                                      Get_Name_String (Switch);
+                           begin
+                              Lib_Path := new String'
+                                (Tmp (Tmp'First + 2 .. Tmp'Last));
+                           end;
+                        elsif Starts_With (Get_Name_String (Switch), "-l")
+                        then
+                           declare
+                              Tmp : constant String :=
+                                      Get_Name_String (Switch);
+                           begin
+                              Lib_Name := new String'
+                                (Tmp (Tmp'First + 2 .. Tmp'Last));
+                           end;
+                        end if;
+                     end loop;
 
-               if Is_Static (Proj) then
-                  Add_Str_To_Name_Buffer ("lib");
-                  Get_Name_String_And_Append (Proj.Library_Name);
+                     Name_Len := 0;
 
-                  if Proj.Config.Archive_Suffix = No_File then
-                     Add_Str_To_Name_Buffer (".a");
-                  else
-                     Get_Name_String_And_Append (Proj.Config.Archive_Suffix);
-                  end if;
-
-               else
-                  --  Shared libraries
-
-                  if Proj.Config.Shared_Lib_Prefix = No_File then
+                     --  Build the correct path to the rust static library
+                     Add_Str_To_Name_Buffer (Lib_Path.all);
+                     Add_Char_To_Name_Buffer (Directory_Separator);
                      Add_Str_To_Name_Buffer ("lib");
-                  else
-                     Get_Name_String_And_Append
-                       (Proj.Config.Shared_Lib_Prefix);
-                  end if;
+                     Add_Str_To_Name_Buffer (Lib_Name.all);
 
-                  Get_Name_String_And_Append (Proj.Library_Name);
+                     if Proj.Config.Archive_Suffix = No_File then
+                        Add_Str_To_Name_Buffer (".a");
+                     else
+                        Get_Name_String_And_Append
+                          (Proj.Config.Archive_Suffix);
+                     end if;
 
-                  if Proj.Config.Shared_Lib_Suffix = No_File then
-                     Add_Str_To_Name_Buffer (".so");
+                     Free (Lib_Name);
+                     Free (Lib_Path);
+                  end;
+               else
+                  --  Put the full path name of the library file in Name_Buffer
+
+                  Get_Name_String (Proj.Library_Dir.Display_Name);
+
+                  if Is_Static (Proj) then
+                     Add_Str_To_Name_Buffer ("lib");
+                     Get_Name_String_And_Append (Proj.Library_Name);
+
+                     if Proj.Config.Archive_Suffix = No_File then
+                        Add_Str_To_Name_Buffer (".a");
+                     else
+                        Get_Name_String_And_Append
+                          (Proj.Config.Archive_Suffix);
+                     end if;
+
                   else
-                     Get_Name_String_And_Append
-                       (Proj.Config.Shared_Lib_Suffix);
+                     --  Shared libraries
+
+                     if Proj.Config.Shared_Lib_Prefix = No_File then
+                        Add_Str_To_Name_Buffer ("lib");
+                     else
+                        Get_Name_String_And_Append
+                          (Proj.Config.Shared_Lib_Prefix);
+                     end if;
+
+                     Get_Name_String_And_Append (Proj.Library_Name);
+
+                     if Proj.Config.Shared_Lib_Suffix = No_File then
+                        Add_Str_To_Name_Buffer (".so");
+                     else
+                        Get_Name_String_And_Append
+                          (Proj.Config.Shared_Lib_Suffix);
+                     end if;
                   end if;
                end if;
 
@@ -2137,25 +2280,38 @@ package body Gprbuild.Link is
                                   & "lib" & Lib_Name & Archive_Suffix (Proj);
                      Arg_List : Argument_List_Access;
                      Arg_Disp : Options_Data;
-
-                     procedure Fill_Options_Data_From_Arg_List_Access
-                       (ALA : Argument_List_Access; OD : out Options_Data);
-                     --  Fill an Options_Data structure (used by
-                     --  Display_Command) from an Argument_List_Access
-                     --  structure (used by the various spawning utilities).
-                     --  The Options_Data object is cleared first.
-
-                     procedure Fill_Options_Data_From_Arg_List_Access
-                       (ALA : Argument_List_Access; OD : out Options_Data) is
-                     begin
-                        OD.Clear;
-                        for A of ALA.all loop
-                           Add_Argument (OD, A.all, Opt.Verbose_Mode);
-                        end loop;
-                     end Fill_Options_Data_From_Arg_List_Access;
-
                   begin
-                     Add_To_Other_Arguments (Lib_Path);
+
+                     --  If the library project has Rust as a language we want
+                     --  to do a specific processing in order to correctly link
+                     --  those libraries.
+                     if Has_Language_From_Name (Proj, "Rust") then
+                        declare
+                           S : constant String_Access :=
+                                 (if Rust_Linker_Helper_Switch_Map.Contains
+                                    (Proj.Name)
+                                  then Rust_Linker_Helper_Switch_Map.Element
+                                    (Proj.Name)
+                                  else Rust_Linker_Helper_Switches
+                                    (Proj.Library_Dir.Name)
+                                 );
+                           --  This project either already retrieved its
+                           --  switches from the gprbuild-rust-linker-helper
+                           --  tool, or we launch the tool to retrieve the
+                           --  switches now.
+                        begin
+                           if S /= null then
+                              --  Add each switch individually to the argument
+                              --  list.
+                              for Switch of Split (S.all, " ") loop
+                                 Add_To_Other_Arguments
+                                   (Get_Name_String (Switch));
+                              end loop;
+                           end if;
+                        end;
+                     else
+                        Add_To_Other_Arguments (Lib_Path);
+                     end if;
 
                      --  Extract linker switches in the case of a static SAL
 

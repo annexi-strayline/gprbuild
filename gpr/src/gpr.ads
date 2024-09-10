@@ -617,6 +617,11 @@ package GPR is
    --  Get a language from a project. This might return null if no such
    --  language exists in the project
 
+   function Has_Language_From_Name
+     (Project : Project_Id;
+      Name    : String) return Boolean;
+   --  Return whether or not Project has language Name in it.
+
    Max_Header_Num : constant := 6150;
    type Header_Num is range 0 .. Max_Header_Num;
    --  Size for hash table below. The upper bound is an arbitrary value, the
