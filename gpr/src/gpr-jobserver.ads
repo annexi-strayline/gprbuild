@@ -103,6 +103,7 @@ private
    end Token_Status_Object;
 
    protected Preorder_Auth_Object is
+      procedure Reset;
       procedure Set (Auth : Boolean);
       entry Get (Auth : out Boolean);
    private

@@ -69,6 +69,10 @@ package body GPR.Jobserver is
    end Token_Status_Object;
 
    protected body Preorder_Auth_Object is
+      procedure Reset is
+      begin
+         Is_Set := False;
+      end Reset;
       procedure Set (Auth : Boolean) is
       begin
          Value  := Auth;
@@ -77,12 +81,12 @@ package body GPR.Jobserver is
       entry Get (Auth : out Boolean) when Is_Set is
       begin
          Auth   := Value;
-         Is_Set := False;
       end Get;
    end Preorder_Auth_Object;
 
    task body Jobserver_Task is
       Job_Done : Boolean := False;
+      Status   : Token_Status;
 
       use type Interfaces.Unsigned_32;
 
@@ -107,7 +111,8 @@ package body GPR.Jobserver is
                   if not (IC_STR.is_regular_file (IC_STR.int (HR)) = 0)
                     or else not (IC_STR.is_regular_file (IC_STR.int (HW)) = 0)
                   then
-                     Token_Status_Object.Set (Error);
+                     Status := Error;
+                     Token_Status_Object.Set (Status);
                      Job_Done := True;
                   end if;
                end if;
@@ -116,21 +121,27 @@ package body GPR.Jobserver is
                   case Current_Connection_Method is
                      when Named_Pipe =>
                         if Read (HRW, Char'Address, 1) /= 1 then
-                           Token_Status_Object.Set (Unavailable);
+                           Status := Unavailable;
+                           Token_Status_Object.Set (Status);
                         else
-                           Token_Status_Object.Set (Available);
+                           Status := Available;
+                           Token_Status_Object.Set (Status);
                         end if;
                      when Simple_Pipe =>
                         if Read (HR, Char'Address, 1) /= 1 then
-                           Token_Status_Object.Set (Unavailable);
+                           Status := Unavailable;
+                           Token_Status_Object.Set (Status);
                         else
-                           Token_Status_Object.Set (Available);
+                           Status := Available;
+                           Token_Status_Object.Set (Status);
                         end if;
                      when Windows_Semaphore =>
                         if Wait_For_Object (Semaphore, 0) /= 0 then
-                           Token_Status_Object.Set (Unavailable);
+                           Status := Unavailable;
+                           Token_Status_Object.Set (Status);
                         else
-                           Token_Status_Object.Set (Available);
+                           Status := Available;
+                           Token_Status_Object.Set (Status);
                         end if;
                         Char := '+';
                      when Undefined =>
@@ -141,12 +152,13 @@ package body GPR.Jobserver is
                if GPR.Debug.Debug_Flag_J then
                   Ada.Text_IO.Put_Line
                     ("[ Jobserver ] Jobserver_Task ended ; Token_Status = "
-                     & Token_Status_Object.Get'Img);
+                     & Status'Img);
                end if;
             else
                Job_Done := True;
             end if;
          end;
+         Preorder_Auth_Object.Reset;
       end loop;
    end Jobserver_Task;
 
@@ -343,21 +355,21 @@ package body GPR.Jobserver is
    --------------------
 
    procedure Preorder_Token is
+      Preorder_Condition : constant Boolean :=
+                             ((Cached_Token_Status = Not_Needed
+                              or else Cached_Token_Status = Unavailable)
+                              and then Token_Status_Object.Get /= Available);
    begin
       if GPR.Debug.Debug_Flag_J then
          Ada.Text_IO.Put_Line ("[ Jobserver ] Preorder_Token");
-         Ada.Text_IO.Put_Line ("    [ Jobserver ] Token_Status : "
-                               & Cached_Token_Status'Img
-                               & " ; Auth = "
-                               & Boolean'Image
-                                 (Cached_Token_Status = Not_Needed
-                                  or else Cached_Token_Status = Unavailable));
+         Ada.Text_IO.Put_Line ("   [ Jobserver ] Token_Status : "
+                               & Cached_Token_Status'Img & " ; Auth = "
+                               & Boolean'Image (Preorder_Condition));
       end if;
 
-      if Cached_Token_Status = Not_Needed
-        or else Cached_Token_Status = Unavailable
+      if Preorder_Condition
       then
-         if Token_Status_Object.Get = Not_Needed then
+         if Cached_Token_Status = Not_Needed then
             Token_Status_Object.Set (Pending);
          end if;
 
@@ -377,7 +389,7 @@ package body GPR.Jobserver is
    begin
       if GPR.Debug.Debug_Flag_J then
          Ada.Text_IO.Put_Line ("[ Jobserver ] Register_Token_Id");
-         Ada.Text_IO.Put_Line ("    [ Jobserver ] Token_Status : "
+         Ada.Text_IO.Put_Line ("   [ Jobserver ] Token_Status : "
                                & Cached_Token_Status'Img);
       end if;
 
@@ -495,7 +507,7 @@ package body GPR.Jobserver is
    begin
       if GPR.Debug.Debug_Flag_J then
          Ada.Text_IO.Put_Line ("[ Jobserver ] Unregister_Token_Id");
-         Ada.Text_IO.Put_Line ("    [ Jobserver ] Token_Status : "
+         Ada.Text_IO.Put_Line ("   [ Jobserver ] Token_Status : "
                                & Cached_Token_Status'Img);
       end if;
 
@@ -503,8 +515,10 @@ package body GPR.Jobserver is
       Source_Id_Token_Map.Delete (Key);
 
       if Cached_Token_Status = Unavailable then
-         Token_Status_Object.Set (Not_Needed);
-         Synchronize_Token_Status;
+         if Token_Status_Object.Get /= Available then
+            Token_Status_Object.Set (Not_Needed);
+            Synchronize_Token_Status;
+         end if;
       elsif Cached_Token_Status = Pending then
          Pending_State_Count := 0;
       end if;
