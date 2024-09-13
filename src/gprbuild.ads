@@ -267,6 +267,17 @@ private
    Export_File_Switch    : String_Access := null;
    Export_File_Format    : GPR.Export_File_Format := GPR.None;
 
+   --  Rust Linker Helper
+
+   package Rust_Linker_Helper_Switch_Proj_Map is new Ada.Containers.Hashed_Maps
+     (Key_Type        => Name_Id,
+      Element_Type    => String_Access,
+      Hash            => To_Hash,
+      Equivalent_Keys => "=");
+
+   Rust_Linker_Helper_Path       : String_Access := null;
+   Rust_Linker_Helper_Switch_Map : Rust_Linker_Helper_Switch_Proj_Map.Map;
+
    --  Libraries
 
    type Library_Project is record

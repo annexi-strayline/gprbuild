@@ -2091,6 +2091,18 @@ package body GPR is
       return No_Language_Index;
    end Get_Language_From_Name;
 
+   ----------------------------
+   -- Has_Language_From_Name --
+   ----------------------------
+
+   function Has_Language_From_Name
+     (Project : Project_Id;
+      Name    : String) return Boolean
+   is
+   begin
+      return (Get_Language_From_Name (Project, Name) /= No_Language_Index);
+   end Has_Language_From_Name;
+
    ----------------
    -- Other_Part --
    ----------------
