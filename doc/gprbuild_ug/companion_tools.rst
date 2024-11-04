@@ -1710,7 +1710,7 @@ Package Linker
 * Required_Switches
 
   Specifies the minimum options to be used when invoking the linker. Those
-  options are happened at the end of the link command so that potentially
+  options are appended at the end of the link command so that potentially
   conflicting user options take precedence.
 
 * Map_File_Option
