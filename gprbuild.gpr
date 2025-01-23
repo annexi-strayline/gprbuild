@@ -40,7 +40,6 @@ project Gprbuild is
         "gprbuild-main.adb",
         "gprclean-main.adb",
         "gprinstall-main.adb",
-        "gprslave.adb",
         "gprname-main.adb",
         "gprls-main.adb");
 
