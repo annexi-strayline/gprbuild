@@ -102,6 +102,8 @@ distall: all install
 
 gprbuild:
 	$(GPRBUILD_BUILDER) gprbuild-main.adb
+	$(GPRBUILD_BUILDER) gprlib.adb
+	$(GPRBUILD_BUILDER) gprbind.adb
 
 gprinstall:
 	$(GPRBUILD_BUILDER) gprinstall-main.adb
@@ -127,7 +129,13 @@ gprls:
 install:
 	$(EXEC_INSTALLER) --mode=usage --install-name=gprbuild \
 		-XINSTALL_MODE=nointernal $(GPRBUILD_GPR)
-	$(EXEC_INSTALLER) --target=$(TARGET) --mode=usage  --install-name=gprbuild \
+	$(EXEC_INSTALLER) --target=$(TARGET) --mode=usage --install-name=gprbuild \
+		-XINSTALL_MODE=internal $(GPRBUILD_GPR)
+
+install-gprbuild:
+	$(EXEC_INSTALLER) --mode=usage --install-name=gprbuild \
+		-XINSTALL_MODE=gprbuildonly $(GPRBUILD_GPR)
+	$(EXEC_INSTALLER) --target=$(TARGET) --mode=usage --install-name=gprbuild \
 		-XINSTALL_MODE=internal $(GPRBUILD_GPR)
 
 complete: all install libgpr.install.static
