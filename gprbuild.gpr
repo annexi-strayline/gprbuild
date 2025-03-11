@@ -28,7 +28,7 @@ project Gprbuild is
    type Target_type is ("Windows_NT", "UNIX");
    Target : Target_Type := external ("OS", "UNIX");
 
-   type Install_Mode_Type is ("all", "nointernal", "internal");
+   type Install_Mode_Type is ("all", "gprbuildonly", "nointernal", "internal");
    Install_Mode : Install_Mode_Type := external ("INSTALL_MODE", "all");
 
    Processors := external ("PROCESSORS", "0");
@@ -50,6 +50,8 @@ project Gprbuild is
    case Install_Mode is
       when "all" =>
          for Main use Main_Bin & Main_Libexec;
+      when "gprbuildonly" =>
+         for Main use ("gprbuild-main.adb");
       when "nointernal" =>
          for Main use Main_Bin;
       when "internal" =>
@@ -152,12 +154,18 @@ project Gprbuild is
    package Install is
       case Install_Mode is
          when "all" | "nointernal" =>
-            for Artifacts ("share/examples/gprbuild") use ("examples/*");
             for Artifacts ("share/doc/gprbuild/txt") use ("doc/txt/*.txt");
             for Artifacts ("share/doc/gprbuild/info") use ("doc/info/*.info");
             for Artifacts ("share/doc/gprbuild/pdf") use ("doc/pdf/*.pdf");
             for Artifacts ("share/doc/gprbuild") use ("doc/html");
             for Artifacts ("share") use ("share/gprconfig");
+         when "internal" =>
+            for Exec_Subdir use "libexec/gprbuild";
+      end case;
+
+      case Install_Mode is
+         when "all" | "gprbuildonly" | "nointernal" =>
+            for Artifacts ("share/examples/gprbuild") use ("examples/*");
             for Artifacts ("share/gpr") use ("share/_default.gpr");
 
             case Target is
@@ -166,9 +174,7 @@ project Gprbuild is
                when "UNIX" =>
                   for Artifacts (".") use ("doinstall");
             end case;
-
-         when "internal" =>
-            for Exec_Subdir use "libexec/gprbuild";
+         when others =>
       end case;
    end Install;
 
