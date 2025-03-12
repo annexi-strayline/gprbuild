@@ -159,6 +159,12 @@ project Gprbuild is
             for Artifacts ("share/doc/gprbuild/pdf") use ("doc/pdf/*.pdf");
             for Artifacts ("share/doc/gprbuild") use ("doc/html");
             for Artifacts ("share") use ("share/gprconfig");
+
+            case Target is
+               when "Windows_NT" =>
+                  for Artifacts ("bin") use ("src/gprinstall.exe.manifest");
+               when others =>
+            end case;
          when "internal" =>
             for Exec_Subdir use "libexec/gprbuild";
       end case;
@@ -169,10 +175,9 @@ project Gprbuild is
             for Artifacts ("share/gpr") use ("share/_default.gpr");
 
             case Target is
-               when "Windows_NT" =>
-                  for Artifacts ("bin") use ("src/gprinstall.exe.manifest");
                when "UNIX" =>
                   for Artifacts (".") use ("doinstall");
+               when others =>
             end case;
          when others =>
       end case;
