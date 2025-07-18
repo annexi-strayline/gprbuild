@@ -1,42 +1,77 @@
-include:
-  - project: eng/gpr/gpr-issues
-    file: /.gitlab/.gitlab-ci-shared.yml
-
 stages:
+  - check
   - build
   - test
 
-build:
-  extends: .job_template
-  stage: build
-  script:
-    # Build using anod
-    - anod build gnat
+# Don't run CIs on branches without merge requests, except on important branches
+# The latter is important to get automatic comparison on failing tests
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_REF_NAME == "master" || $CI_COMMIT_REF_NAME == "main")
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: always
+    - when: never
 
-    # and save the gprbuild install
-    - tar czf $CI_PROJECT_DIR/gprbuild.tar.gz -C $SANDBOX/$HOST/gprbuild/ install/
-  artifacts:
-    paths:
-      - gprbuild.tar.gz
+include:
+  # Issue check
+  - component: $CI_SERVER_FQDN/eng/gitlab-templates/check-issue@~latest
 
-debug_build:
-  extends: .job_template
-  stage: build
-  script:
+  ###############
+  # BUILD STAGE #
+  ###############
 
-    # build gprbuild in debug mode without rebuilding dependencies,
-    # so we can catch coding style errors.
-    - anod build gprbuild -Qdbg
-  
-test_gprbuild:
-  extends: .test_template
-  script:
-    - install_packages gnatall
-    - run_testsuite gprbuild "" test_gprbuild
-  artifacts:
-    when:
-      always
-    paths:
-      - testgprbuild_result.xml
-    reports:
-      junit: testgprbuild_result.xml
+  # regular build
+  - component: $CI_SERVER_FQDN/eng/gitlab-templates/build@~latest
+    inputs:
+      job-name: build
+      anod-args: run build
+      save-component: true
+      cpus: 16
+      disk: 80
+      windows: true
+      windows-cpus: 8
+      windows-mem: 16
+      needs: []
+      windows-needs: []
+      rules:
+        - allow_failure: false
+
+  # debug build
+  - component: $CI_SERVER_FQDN/eng/gitlab-templates/build@~latest
+    inputs:
+      job-name: build_debug
+      anod-args: run build_debug
+      save-component: false
+      cpus: 16
+      disk: 80
+      needs: ["build:linux"]
+      rules:
+        - allow_failure: false
+
+  ##############
+  # TEST STAGE #
+  ##############
+
+  # gprbuild-internal testsuite
+  - component: $CI_SERVER_FQDN/eng/gitlab-templates/test@~latest
+    inputs:
+      job-name: test
+      anod-args: run test
+      disk: 80
+      save-anod-logs: true
+      needs: ["build:linux"]
+      windows: true
+      windows-cpus: 8
+      windows-mem: 16
+      windows-needs: ["build:windows"]
+      artifacts: ["xunit-*.xml"]
+      rules:
+        - allow_failure: true
+
+test:windows:
+  when: manual
