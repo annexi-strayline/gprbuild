@@ -978,8 +978,8 @@ package body GPR.Compilation.Protocol is
       Set_File_Last_Modify_Time_Stamp
         (Path_Name,
          To_Ada
-           (time_t
-              (Conversions.To_Unix_Time
+           (Long_Long_Integer
+              (Conversions.To_Unix_Time_64
                  (Time_Of
                     (TS (1, 4), TS (5, 6), TS (7, 8),
                      TS (9, 10), TS (11, 12), TS (13, 14))))));
