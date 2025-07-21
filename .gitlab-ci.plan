@@ -1,0 +1,14 @@
+def build():
+    anod_build("gprbuild")
+    anod_build("libgpr")
+
+def build_debug():
+    anod_build("gprbuild", qualifier={"dbg": True})
+
+def test():
+    anod_install("gprbuild")
+    anod_install("libgpr")
+    anod_build("gnat")
+    anod_build("gnatcxx")
+    anod_build("gnatall")
+    anod_test("gprbuild")
