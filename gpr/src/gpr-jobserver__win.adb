@@ -172,7 +172,12 @@ package body GPR.Jobserver is
                Job_Done := True;
             end if;
          end;
+
          Task_State_Object.Set (Idle);
+
+         --  Avoid polling too much, with 0.001 we aren't preempting so much
+         --  CPU and still be responsive to token preordering.
+         delay 0.001;
       end loop;
    end Jobserver_Task;
 
