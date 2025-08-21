@@ -3626,7 +3626,9 @@ package body Gprbuild.Compile is
             if Opt.Use_GNU_Make_Jobserver
               and then Jobserver.Pending_Process
             then
-               null;
+               --  We asked for a token and got no responses, wait a little
+               --  before doing it again.
+               delay 0.001;
             elsif Found then
                Queue.Next;
             end if;
