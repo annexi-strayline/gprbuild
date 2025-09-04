@@ -31,8 +31,8 @@ procedure Put_Resource_Usage (Filename : String) is
    package STC renames GNAT.Sockets.Thin_Common;
 
    type Rusage is record
-      ru_utime    : STC.Timeval;  -- user time used
-      ru_stime    : STC.Timeval;  -- system time used
+      ru_utime    : STC.timeval;  -- user time used
+      ru_stime    : STC.timeval;  -- system time used
       ru_maxrss   : Long_Integer; -- maximum resident set size
       ru_ixrss    : Long_Integer; -- integral shared memory size
       ru_idrss    : Long_Integer; -- integral unshared data size
@@ -66,7 +66,7 @@ procedure Put_Resource_Usage (Filename : String) is
       Longs : array (1 .. 14) of Long_Integer
         with Import, Convention => C, Address => Usage.ru_maxrss'Address;
 
-      procedure Print (This : STC.Timeval);
+      procedure Print (This : STC.timeval);
 
       function Getrusage (Who : Integer; usage : out Rusage) return Integer
         with Import, Convention => C;
@@ -75,15 +75,15 @@ procedure Put_Resource_Usage (Filename : String) is
       -- Print --
       -----------
 
-      procedure Print (This : STC.Timeval) is
+      procedure Print (This : STC.timeval) is
 
          function No_1st_Space (S : String) return String is
            (if S /= "" and then S (S'First) = ' '
             then S (S'First + 1 .. S'Last) else S);
 
-         Uimg : constant String := No_1st_Space (This.Tv_Usec'Img);
+         Uimg : constant String := No_1st_Space (This.tv_usec'Img);
       begin
-         Put (Log, This.Tv_Sec'Img);
+         Put (Log, This.tv_sec'Img);
          Put (Log, '.');
          if Uimg'Length < 6 then
             Put (Log, (1 .. 6 - Uimg'Length => '0'));

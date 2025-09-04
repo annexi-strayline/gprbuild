@@ -979,7 +979,7 @@ package body GPR.Compilation.Protocol is
         (Path_Name,
          To_Ada
            (Long_Long_Integer
-              (Conversions.To_Unix_Time_64
+              (Conversions.To_Unix_Time
                  (Time_Of
                     (TS (1, 4), TS (5, 6), TS (7, 8),
                      TS (9, 10), TS (11, 12), TS (13, 14))))));
