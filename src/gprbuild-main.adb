@@ -28,7 +28,6 @@ with GNAT.Case_Util;         use GNAT.Case_Util;
 with System.Multiprocessors; use System.Multiprocessors;
 pragma Warnings (On);
 
-with GNAT.Command_Line;         use GNAT.Command_Line;
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 with GNAT.OS_Lib;
 
@@ -1979,7 +1978,10 @@ procedure Gprbuild.Main is
       end if;
 
       if Project_File_Name = null then
-         Try_Help;
+         Put_Line
+           (Standard_Error,
+            "try """ & Get_Executable & " --help"" for more information.");
+
          Fail_Program
            (Project_Tree,
             "no project file specified and no default project file");

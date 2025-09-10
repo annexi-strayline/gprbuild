@@ -200,6 +200,10 @@ package Gpr_Build_Util is
    --  The source directories of imported projects are only included if one
    --  of the declared languages is in the list Languages.
 
+   function Get_Executable return String;
+   --  Return the actual executable stripped from a possible executable suffix
+   --  and a integer to signify the GPR engine version.
+
    function Aggregate_Libraries_In (Tree : Project_Tree_Ref) return Boolean;
    --  Return True iff there is one or more aggregate library projects in
    --  the project tree Tree.

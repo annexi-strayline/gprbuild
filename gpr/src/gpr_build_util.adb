@@ -26,6 +26,7 @@ with Ada.Text_IO;                use Ada.Text_IO;
 with Ada.Unchecked_Deallocation;
 with Ada.Strings.Fixed;          use Ada.Strings.Fixed;
 with Ada.Containers.Indefinite_Vectors;
+with Ada.Command_Line;
 with Ada.Environment_Variables;
 
 with GNAT.Case_Util;             use GNAT.Case_Util;
@@ -746,6 +747,23 @@ package body Gpr_Build_Util is
       Directories.Init;
       For_All_Projects (For_Project, Project_Tree, Extended);
    end Get_Directories;
+
+   --------------------
+   -- Get_Executable --
+   --------------------
+
+   function Get_Executable return String is
+      Exec : constant String := (GNAT.Directory_Operations.Base_Name
+                                 (Ada.Command_Line.Command_Name, ".exe"));
+
+      Gprbuild   : constant String := "gprbuild";
+   begin
+      if Starts_With (Exec, Gprbuild) and then Exec /= Gprbuild then
+         return Exec (Exec'First .. Exec'Last - 1);
+      else
+         return Exec;
+      end if;
+   end Get_Executable;
 
    ------------
    -- Inform --
