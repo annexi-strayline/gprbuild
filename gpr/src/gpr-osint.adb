@@ -22,11 +22,11 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Directories;  use Ada.Directories;
 
 with Ada.Unchecked_Conversion;
 
+with Gpr_Build_Util;
 with System.CRTL;
 with System.OS_Constants;
 
@@ -193,7 +193,7 @@ package body GPR.Osint is
       Fatal_Exit : constant := 4;
    begin
       Set_Standard_Error;
-      Write_Str (Simple_Name (Command_Name));
+      Write_Str (Simple_Name (Gpr_Build_Util.Get_Executable));
       Write_Str (": ");
       Write_Line (S);
 
