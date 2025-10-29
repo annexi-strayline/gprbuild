@@ -41,7 +41,7 @@ package body GPR.Compilation.Process is
    --  A set of key=value
 
    package Prj_Maps is new Containers.Indefinite_Ordered_Maps
-     (String, Env_Maps.Map, Env_Maps."<", Env_Maps."=");
+     (String, Env_Maps.Map, "<", Env_Maps."=");
    --  A set of project+language=map
 
    function "<" (Left, Right : Id) return Boolean is
