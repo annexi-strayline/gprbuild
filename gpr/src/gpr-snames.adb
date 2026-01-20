@@ -164,6 +164,7 @@ package body GPR.Snames is
       Add_Name ("dependency_driver");
       Add_Name ("dependency_kind");
       Add_Name ("dependency_switches");
+      Add_Name ("disable_linking");
       Add_Name ("driver");
       Add_Name ("excluded_source_dirs");
       Add_Name ("excluded_source_files");

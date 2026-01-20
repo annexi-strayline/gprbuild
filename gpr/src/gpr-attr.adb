@@ -547,6 +547,11 @@ package body GPR.Attr is
          Attr_Kind  => Case_Insensitive_Associative_Array,
          Conf_Conc  => False);
       Add_Attribute
+        (Name_Disable_Linking,
+         Var_Kind   => Single,
+         Attr_Kind  => Single,
+         Conf_Conc  => False);
+      Add_Attribute
         (Name_Target,
          Var_Kind   => Single,
          Attr_Kind  => Single,

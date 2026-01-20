@@ -146,6 +146,7 @@ package GPR.Snames is
    Name_Dependency_Driver                : constant Name_Id := Name_Id (L) - N;
    Name_Dependency_Kind                  : constant Name_Id := Name_Id (L) - N;
    Name_Dependency_Switches              : constant Name_Id := Name_Id (L) - N;
+   Name_Disable_Linking                  : constant Name_Id := Name_Id (L) - N;
    Name_Driver                           : constant Name_Id := Name_Id (L) - N;
    Name_Excluded_Source_Dirs             : constant Name_Id := Name_Id (L) - N;
    Name_Excluded_Source_Files            : constant Name_Id := Name_Id (L) - N;
