@@ -2000,11 +2000,29 @@ package body GPR.Knowledge is
                      Command : constant String :=
                                  Substitute_Variables_In_Compiler_Description
                                    (Get_Name_String (Node.Command), Comp);
+                     Locale_Msg_Save : constant String :=
+                        (if Ada.Environment_Variables.Exists ("LC_MESSAGES")
+                         then Ada.Environment_Variables.Value ("LC_MESSAGES")
+                         else "");
                   begin
+                     --  use C locale for gathering toolchain information to
+                     --  get consistent results across systems with different
+                     --  locales and charsets.
+                     --
+                     --  Fixes issue gprconfig_kb#23 and similar cases
+                     Ada.Environment_Variables.Set ("LC_MESSAGES", "C");
+
                      Tmp_Result := Null_Unbounded_String;
                      Tmp_Result := Get_Command_Output_Cache
                        (Get_Name_String (Comp.Path), Command);
                      Ada.Environment_Variables.Set ("PATH", Saved_Path);
+
+                     if Locale_Msg_Save'Length /= 0 then
+                        Ada.Environment_Variables.Set
+                           ("LC_MESSAGES", Locale_Msg_Save);
+                     else
+                        Ada.Environment_Variables.Clear ("LC_MESSAGES");
+                     end if;
 
                      if Current_Verbosity = High then
                         Put_Verbose (Attribute & ": executing """ & Command
@@ -2018,6 +2036,14 @@ package body GPR.Knowledge is
                   exception
                      when Invalid_Process =>
                         Put_Verbose ("Spawn failed for " & Command);
+                        --  restore messages locale
+                        if Locale_Msg_Save'Length /= 0 then
+                           Ada.Environment_Variables.Set
+                              ("LC_MESSAGES", Locale_Msg_Save);
+                        else
+                           Ada.Environment_Variables.Clear ("LC_MESSAGES");
+                        end if;
+
                   end;
 
                when Value_Directory =>
