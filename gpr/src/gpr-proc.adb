@@ -1516,6 +1516,10 @@ package body GPR.Proc is
                            end if;
                         end if;
                   end case;
+
+                  if Str_List /= null then
+                     Free (Str_List);
+                  end if;
                end;
 
             when N_Split =>
