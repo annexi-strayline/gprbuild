@@ -1158,6 +1158,8 @@ package body GPR.Conf is
 
             Free (Comm_Line_Opt);
 
+            Free (Db_Switches);
+
             Free (Gprconfig_Path);
 
             Config_File_Path := Locate_Config_File (Args (3).all);
