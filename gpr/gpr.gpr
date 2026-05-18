@@ -2,7 +2,7 @@
 --                                                                          --
 --                             GPR TECHNOLOGY                               --
 --                                                                          --
---                     Copyright (C) 2004-2023, AdaCore                     --
+--                     Copyright (C) 2004-2026, AdaCore                     --
 --                                                                          --
 -- This is  free  software;  you can redistribute it and/or modify it under --
 -- terms of the  GNU  General Public License as published by the Free Soft- --
@@ -33,6 +33,7 @@ library project GPR is
    Gnat_Lib_Type : Library_Type_Type := external
      ("GPR_LIBRARY_TYPE", external ("LIBRARY_TYPE", "static"));
    Root_Obj_Dir := external ("OBJDIR", ".");
+   for Run_Path_Option use ();
 
    for Library_Kind use Gnat_Lib_Type;
 
